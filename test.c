@@ -10,14 +10,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
+#include <unistd.h>
 
 #include <assert.h>
 
-static void pause(void){
+static void my_pause(void){
 	int c;
 	while ((c = getchar()) != '\n' && c != EOF);
 	printf("Enter a character to continue...");
 	getchar();
+}
+
+static void printf_green(const char* format, ...){
+	va_list ap;
+	va_start(ap, format);
+	printf("\033[32m");
+	vprintf(format, ap);
+	printf("\033[m");
+	fflush(stdout);
+	va_end(ap);
 }
 
 void test_checksum_h(void){
@@ -32,12 +44,12 @@ void test_checksum_h(void){
 
 	fp = fopen(file1, "wb");
 	assert(fp);
-	fprintf(fp, "ayylmao");
+	fprintf(fp, "ayylmao00");
 	fclose(fp);
 
 	fp = fopen(file2, "wb");
 	assert(fp);
-	fprintf(fp, "ayylmao");
+	fprintf(fp, "ayylmao0");
 	fclose(fp);
 
 	fp = fopen(file3, "wb");
@@ -238,7 +250,7 @@ void test_options_h(void){
 	assert(strcmp(opt.directories[2], "/in3") == 0);
 
 	assert(write_options_tofile("/dev/stdout", &opt) == 0);
-	pause();
+	my_pause();
 	free_options(&opt);
 
 	parse_options_menu(&opt);
@@ -259,14 +271,26 @@ void test_progressbar_h(void){
 
 int main(void){
 	const char* file = "secret.txt";
+	FILE* fp;
+
+	fp = fopen(file, "w");
+	assert(fp);
+	fprintf(fp, "secret");
+	fclose(fp);
 
 	test_checksum_h();
-	return 0;
+	printf_green("Checksum.h test succeeded\n");
 	test_crypt_h(file);
+	printf_green("Crypt.h test succeeded\n");
 	test_maketar_h(file);
-	test_fileiterator_h("/home/jonathan/Documents");
+	printf_green("Maketar.h test succeeded\n");
+	test_fileiterator_h("/home/jonathan/Documents\n");
+	printf_green("Fileiterator.h test succeeded\n");
 	test_progressbar_h();
+	printf_green("Progressbar.h test succeeded\n");
 	test_options_h();
+	printf_green("Options.h test succeeded\n");
 
+	remove(file);
 	return 0;
 }

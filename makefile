@@ -15,7 +15,7 @@ release: main.o $(OBJECTS)
 debug: main.dbg.o $(DBGOBJECTS)
 	$(CC) -o $(NAME) main.dbg.o $(DBGOBJECTS) $(CFLAGS) $(DBGFLAGS)
 
-test: $(DBGOBJECTS)
+test: test.c $(DBGOBJECTS)
 	$(CC) -o test test.c $(DBGOBJECTS) $(CFLAGS) $(DBGFLAGS)
 
 main.o: main.c

@@ -73,7 +73,7 @@ static int hex_to_bytes(char* hex, unsigned len, unsigned char** out){
 
 /* computes a hash
  * returns 0 on success or err on failure */
-int checksum(const char* file, const char* algorithm, unsigned char** out, unsigned* len){
+ int checksum(const char* file, const char* algorithm, unsigned char** out, unsigned* len){
 	EVP_MD_CTX* ctx;
 	const EVP_MD* md;
 	unsigned char buffer[BUFFER_LEN];
@@ -140,14 +140,46 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 	return 0;
 }
 
-FILE* start_checksum_file(const char* options_file){
-	FILE* fp = fopen(options_file, "a");
-	if (!fp){
-		return NULL;
+int file_to_element(const char* file, const char* algorithm, element** out){
+	unsigned char* buffer;
+	unsigned len;
+	int err;
+
+	if (!file || !out){
+		return ERR_ARGUMENT_NULL;
 	}
 
-	fprintf(fp, "\n[Checksums]\n");
-	return fp;
+	*out = malloc(sizeof(*out));
+	if (!out){
+		return ERR_OUT_OF_MEMORY;
+	}
+	(*out)->file = malloc(strlen(file) + 1);
+	if (!(*out)->file){
+		return ERR_OUT_OF_MEMORY;
+	}
+	strcpy((*out)->file, file);
+
+	/* compute checksum */
+	if((err = checksum(file, algorithm, &buffer, &len)) != 0){
+		return err;
+	}
+
+	/* convert it to hex */
+	if ((err = bytes_to_hex(buffer, len, &(*out)->checksum)) != 0){
+		free(buffer);
+		return err;
+	}
+
+	return 0;
+}
+
+int write_element_to_file(FILE* fp, element* e){
+	if (!fp || !e || !e->file || !e->checksum){
+		return ERR_ARGUMENT_NULL;
+	}
+
+	fprintf(fp, "%s%c%s%c", e->file, '\0', e->checksum, '\0');
+	return 0;
 }
 
 /* adds a checksum to a file
@@ -158,40 +190,24 @@ FILE* start_checksum_file(const char* options_file){
  * '\0' be valid in a filename. this means that the only valid
  * way to seperate the hash from its filename is to use a '\0'
  *
- * people who use \001 in their filenames are not supported
- *
  * returns 0 on success or err on error */
 int add_checksum_to_file(const char* file, const char* algorithm, FILE* out){
-	unsigned char* buffer;
-	char* hex_string;
-	unsigned len;
+	element* e;
 	int err;
 
-	if (!file || !out){
-		return ERR_ARGUMENT_NULL;
-	}
-
-	/* compute checksum */
-	if((err = checksum(file, algorithm, &buffer, &len)) != 0){
+	if ((err = file_to_element(file, algorithm, &e)) != 0){
 		return err;
 	}
 
-	/* convert it to hex */
-	if ((err = bytes_to_hex(buffer, len, &hex_string)) != 0){
-		free(buffer);
+	if ((err = write_element_to_file(out, e)) != 0){
 		return err;
 	}
 
-	/* add it to the file */
-	/* cannot add \0 directly to format string, must use %c */
-	fprintf(out, "%s%c%s%c", file, '\0', hex_string, '\0');
-
-	free(hex_string);
-	free(buffer);
+	free(e);
 	return 0;
 }
 
-element* get_next_checksum_element(FILE* fp){
+ element* get_next_checksum_element(FILE* fp){
 	long pos_origin;
 	long pos_file;
 	long pos_checksum;
@@ -249,7 +265,7 @@ element* get_next_checksum_element(FILE* fp){
 	return e;
 }
 
-element* get_checksum_element_index(FILE* fp, int index){
+ element* get_checksum_element_index(FILE* fp, int index){
 	long pos_origin;
 	long pos_file;
 	long pos_checksum;
@@ -321,7 +337,7 @@ void swap(element** e1, element** e2){
 	*e2 = buf;
 }
 
-int median_of_three(element** elements, int low, int high){
+ int median_of_three(element** elements, int low, int high){
 	int left = low;
 	int mid = (high - low) / 2;
 	int right = high;
