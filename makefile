@@ -1,7 +1,7 @@
 NAME=cbackup
 CC=gcc
 CFLAGS=-Wall -Wextra -pedantic -std=c89 -larchive -lssl -lcrypto -D_XOPEN_SOURCE=500 -lmenu -lncurses
-DBGFLAGS=-g -da -Q
+DBGFLAGS=-g -da
 HEADERS=fileiterator maketar crypt readfile evperror checksum progressbar options
 
 SOURCEFILES=$(foreach header,$(HEADERS),$(header).c)
