@@ -1,3 +1,4 @@
+#define __TESTING__
 #include "checksum.h"
 #include "crypt.h"
 #include "evperror.h"
