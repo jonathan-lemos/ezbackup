@@ -182,6 +182,7 @@ int parse_options_menu(options* opt){
 	int keysize;
 	int mode;
 
+	char input_buffer[4096];
 	const char* options_compressor[] = {
 		"gzip  (default)",
 		"bzip2 (higher compression, slower)",
@@ -219,6 +220,103 @@ int parse_options_menu(options* opt){
 	if (!opt){
 		return ERR_ARGUMENT_NULL;
 	}
+
+	/* read directories to back up */
+	opt->directories = NULL;
+	opt->directories_len = 0;
+	printf("Enter directories to backup (enter to end)\n");
+	do{
+		printf(": ");
+		fgets(input_buffer, sizeof(input_buffer), stdin);
+		if (input_buffer[0] != '\n'){
+			/* make space for new char* */
+			opt->directories_len++;
+			opt->directories = realloc(opt->directories, opt->directories_len * sizeof(*opt->directories));
+			if (!opt->directories){
+				return ERR_OUT_OF_MEMORY;
+			}
+			opt->directories[opt->directories_len - 1] = malloc(1);
+			if (!opt->directories[opt->directories_len - 1]){
+				return ERR_OUT_OF_MEMORY;
+			}
+			opt->directories[opt->directories_len - 1][0] = '\0';
+			/* while the entirety of stdin was not read */
+			while (strlen(input_buffer) == sizeof(input_buffer) - 1){
+				/* malloc space for new data */
+				opt->directories[opt->directories_len - 1] = realloc(opt->directories[opt->directories_len - 1], strlen(opt->directories[opt->directories_len - 1]) + strlen(input_buffer) + 1);
+				if (!opt->directories[opt->directories_len - 1]){
+					return ERR_OUT_OF_MEMORY;
+				}
+				/* concatenate string with input_buffer */
+				strcat(opt->directories[opt->directories_len - 1], input_buffer);
+				/* get more from stdin */
+				fgets(input_buffer, sizeof(input_buffer), stdin);
+			}
+			/* allocate space for the input buffer */
+			opt->directories[opt->directories_len - 1] = realloc(opt->directories[opt->directories_len - 1], strlen(opt->directories[opt->directories_len - 1]) + strlen(input_buffer) + 1);
+			if (!opt->directories[opt->directories_len - 1]){
+				return ERR_OUT_OF_MEMORY;
+			}
+			/* add it to the string */
+			strcat(opt->directories[opt->directories_len - 1], input_buffer);
+		}
+		/* while the user enters input */
+	}while (input_buffer[0] != '\n');
+	/* if no directories were entered, use root directory */
+	if (opt->directories_len == 0){
+		opt->directories_len = 1;
+		opt->directories = malloc(sizeof(*opt->directories));
+		if (!opt->directories){
+			return ERR_OUT_OF_MEMORY;
+		}
+		opt->directories[0] = malloc(sizeof("/"));
+		if (!opt->directories[0]){
+			return ERR_OUT_OF_MEMORY;
+		}
+		strcpy(opt->directories[0], "/");
+	}
+
+	/* read directories to exclude */
+	opt->exclude = NULL;
+	opt->exclude_len = 0;
+	printf("Enter exclude to exclude (enter to end)\n");
+	do{
+		printf(": ");
+		fgets(input_buffer, sizeof(input_buffer), stdin);
+		if (input_buffer[0] != '\n'){
+			/* make space for new char* */
+			opt->exclude_len++;
+			opt->exclude = realloc(opt->exclude, opt->exclude_len * sizeof(*opt->exclude));
+			if (!opt->exclude){
+				return ERR_OUT_OF_MEMORY;
+			}
+			opt->exclude[opt->exclude_len - 1] = malloc(1);
+			if (!opt->exclude[opt->exclude_len - 1]){
+				return ERR_OUT_OF_MEMORY;
+			}
+			opt->exclude[opt->exclude_len - 1][0] = '\0';
+			/* while the entirety of stdin was not read */
+			while (strlen(input_buffer) == sizeof(input_buffer) - 1){
+				/* malloc space for new data */
+				opt->exclude[opt->exclude_len - 1] = realloc(opt->exclude[opt->exclude_len - 1], strlen(opt->exclude[opt->exclude_len - 1]) + strlen(input_buffer) + 1);
+				if (!opt->exclude[opt->exclude_len - 1]){
+					return ERR_OUT_OF_MEMORY;
+				}
+				/* concatenate string with input_buffer */
+				strcat(opt->exclude[opt->exclude_len - 1], input_buffer);
+				/* get more from stdin */
+				fgets(input_buffer, sizeof(input_buffer), stdin);
+			}
+			/* allocate space for the input buffer */
+			opt->exclude[opt->exclude_len - 1] = realloc(opt->exclude[opt->exclude_len - 1], strlen(opt->exclude[opt->exclude_len - 1]) + strlen(input_buffer) + 1);
+			if (!opt->exclude[opt->exclude_len - 1]){
+				return ERR_OUT_OF_MEMORY;
+			}
+			/* add it to the string */
+			strcat(opt->exclude[opt->exclude_len - 1], input_buffer);
+		}
+		/* while the user enters input */
+	}while (input_buffer[0] != '\n');
 
 	initscr();
 	cbreak();
@@ -340,11 +438,9 @@ int parse_options_menu(options* opt){
 				opt->enc_algorithm = NULL;
 		}
 	}
-
 	endwin();
 
 	opt->flags |= FLAG_VERBOSE;
-
 	return 0;
 }
 
