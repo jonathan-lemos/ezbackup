@@ -3,7 +3,7 @@ CC=clang
 CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500
 LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses
 DBGFLAGS=-g
-HEADERS=fileiterator maketar crypt readfile evperror checksum progressbar options
+HEADERS=fileiterator maketar crypt readfile evperror checksum progressbar options checksumsort
 
 SOURCEFILES=$(foreach header,$(HEADERS),$(header).c)
 OBJECTS=$(foreach header,$(HEADERS),$(header).o)
