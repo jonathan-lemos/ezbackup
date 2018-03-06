@@ -1,4 +1,5 @@
 #include "readfile.h"
+#include "error.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -18,9 +19,8 @@ int temp_file(char* template){
 
 	fd = mkstemp(template);
 	if (fd < 0){
-		return errno;
+		return err_errno(errno);
 	}
-
 	close(fd);
 	return 0;
 }

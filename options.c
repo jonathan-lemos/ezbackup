@@ -1,7 +1,7 @@
 /* prototypes */
 #include "options.h"
 /* errors */
-#include "evperror.h"
+#include "error.h"
 /* printf */
 #include <stdio.h>
 /* strcmp */
@@ -36,7 +36,7 @@ int parse_options_cmdline(int argc, const char** argv, options* out){
 	int i;
 
 	if (!out){
-		return ERR_ARGUMENT_NULL;
+		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
 
 	memset(out, 0, sizeof(*out));
@@ -100,7 +100,7 @@ int parse_options_cmdline(int argc, const char** argv, options* out){
 			--i;
 		}
 		else{
-			return i;
+			return err_regularerror(i);
 		}
 	}
 
@@ -136,7 +136,7 @@ static int display_menu(const char** options, int num_options, const char* title
 	(void)row;
 
 	if (!options || !title || num_options <= 0){
-		return ERR_ARGUMENT_NULL;
+		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
 
 	my_items = malloc((num_options + 1) * sizeof(ITEM*));
@@ -218,7 +218,7 @@ int parse_options_menu(options* opt){
 	};
 
 	if (!opt){
-		return ERR_ARGUMENT_NULL;
+		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
 
 	/* read directories to back up */
@@ -233,11 +233,11 @@ int parse_options_menu(options* opt){
 			opt->directories_len++;
 			opt->directories = realloc(opt->directories, opt->directories_len * sizeof(*opt->directories));
 			if (!opt->directories){
-				return ERR_OUT_OF_MEMORY;
+				return err_regularerror(ERR_OUT_OF_MEMORY);
 			}
 			opt->directories[opt->directories_len - 1] = malloc(1);
 			if (!opt->directories[opt->directories_len - 1]){
-				return ERR_OUT_OF_MEMORY;
+				return err_regularerror(ERR_OUT_OF_MEMORY);
 			}
 			opt->directories[opt->directories_len - 1][0] = '\0';
 			/* while the entirety of stdin was not read */
@@ -245,7 +245,7 @@ int parse_options_menu(options* opt){
 				/* malloc space for new data */
 				opt->directories[opt->directories_len - 1] = realloc(opt->directories[opt->directories_len - 1], strlen(opt->directories[opt->directories_len - 1]) + strlen(input_buffer) + 1);
 				if (!opt->directories[opt->directories_len - 1]){
-					return ERR_OUT_OF_MEMORY;
+					return err_regularerror(ERR_OUT_OF_MEMORY);
 				}
 				/* concatenate string with input_buffer */
 				strcat(opt->directories[opt->directories_len - 1], input_buffer);
@@ -255,7 +255,7 @@ int parse_options_menu(options* opt){
 			/* allocate space for the input buffer */
 			opt->directories[opt->directories_len - 1] = realloc(opt->directories[opt->directories_len - 1], strlen(opt->directories[opt->directories_len - 1]) + strlen(input_buffer) + 1);
 			if (!opt->directories[opt->directories_len - 1]){
-				return ERR_OUT_OF_MEMORY;
+				return err_regularerror(ERR_OUT_OF_MEMORY);
 			}
 			/* add it to the string */
 			strcat(opt->directories[opt->directories_len - 1], input_buffer);
@@ -267,11 +267,11 @@ int parse_options_menu(options* opt){
 		opt->directories_len = 1;
 		opt->directories = malloc(sizeof(*opt->directories));
 		if (!opt->directories){
-			return ERR_OUT_OF_MEMORY;
+			return err_regularerror(ERR_OUT_OF_MEMORY);
 		}
 		opt->directories[0] = malloc(sizeof("/"));
 		if (!opt->directories[0]){
-			return ERR_OUT_OF_MEMORY;
+			return err_regularerror(ERR_OUT_OF_MEMORY);
 		}
 		strcpy(opt->directories[0], "/");
 	}
@@ -288,11 +288,11 @@ int parse_options_menu(options* opt){
 			opt->exclude_len++;
 			opt->exclude = realloc(opt->exclude, opt->exclude_len * sizeof(*opt->exclude));
 			if (!opt->exclude){
-				return ERR_OUT_OF_MEMORY;
+				return err_regularerror(ERR_OUT_OF_MEMORY);
 			}
 			opt->exclude[opt->exclude_len - 1] = malloc(1);
 			if (!opt->exclude[opt->exclude_len - 1]){
-				return ERR_OUT_OF_MEMORY;
+				return err_regularerror(ERR_OUT_OF_MEMORY);
 			}
 			opt->exclude[opt->exclude_len - 1][0] = '\0';
 			/* while the entirety of stdin was not read */
@@ -300,7 +300,7 @@ int parse_options_menu(options* opt){
 				/* malloc space for new data */
 				opt->exclude[opt->exclude_len - 1] = realloc(opt->exclude[opt->exclude_len - 1], strlen(opt->exclude[opt->exclude_len - 1]) + strlen(input_buffer) + 1);
 				if (!opt->exclude[opt->exclude_len - 1]){
-					return ERR_OUT_OF_MEMORY;
+					return err_regularerror(ERR_OUT_OF_MEMORY);
 				}
 				/* concatenate string with input_buffer */
 				strcat(opt->exclude[opt->exclude_len - 1], input_buffer);
@@ -310,7 +310,7 @@ int parse_options_menu(options* opt){
 			/* allocate space for the input buffer */
 			opt->exclude[opt->exclude_len - 1] = realloc(opt->exclude[opt->exclude_len - 1], strlen(opt->exclude[opt->exclude_len - 1]) + strlen(input_buffer) + 1);
 			if (!opt->exclude[opt->exclude_len - 1]){
-				return ERR_OUT_OF_MEMORY;
+				return err_regularerror(ERR_OUT_OF_MEMORY);
 			}
 			/* add it to the string */
 			strcat(opt->exclude[opt->exclude_len - 1], input_buffer);
@@ -474,7 +474,7 @@ int parse_options_fromfile(const char* file, options* opt){
 
 	fp = fopen(file, "r");
 	if (!fp){
-		return ERR_FILE_INPUT;
+		return err_regularerror(ERR_FILE_INPUT);
 	}
 
 	memset(opt, 0, sizeof(*opt));
@@ -528,12 +528,12 @@ int write_options_tofile(const char* file, options* opt){
 	int i;
 
 	if (!file || !opt){
-		return ERR_ARGUMENT_NULL;
+		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
 
 	fp = fopen(file, "w");
 	if (!fp){
-		return ERR_FILE_INPUT;
+		return err_regularerror(ERR_FILE_INPUT);
 	}
 	fprintf(fp, "[Options]");
 	fprintf(fp, "\nPREV=%s%c", opt->prev_backup, '\0');
