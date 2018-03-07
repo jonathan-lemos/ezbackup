@@ -1,7 +1,8 @@
 #define __TESTING__
 #include "checksum.h"
+#include "checksumsort.h"
 #include "crypt.h"
-#include "evperror.h"
+#include "error.h"
 #include "fileiterator.h"
 #include "options.h"
 #include "progressbar.h"

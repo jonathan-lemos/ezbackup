@@ -1,9 +1,14 @@
+/* prototypes */
 #include "checksumsort.h"
+/* errors */
 #include "error.h"
+/* reading them files */
 #include "readfile.h"
-
+/* strcmp */
 #include <string.h>
+/* malloc */
 #include <stdlib.h>
+/* assert */
 #include <assert.h>
 
 #define MAX_RUN_SIZE (1 << 24)
@@ -20,6 +25,7 @@ static int compare_elements(element* e1, element* e2){
 	return strcmp(e1->file, e2->file);
 }
 
+/* format: <file>\0<checksum>\0 */
 int write_element_to_file(FILE* fp, element* e){
 	if (!fp || !e || !e->file || !e->checksum){
 		return err_regularerror(ERR_ARGUMENT_NULL);
@@ -40,31 +46,42 @@ element* get_next_checksum_element(FILE* fp){
 	size_t len_checksum;
 	element* e;
 
+	if (!fp){
+		return NULL;
+	}
+
 	e = malloc(sizeof(*e));
-	if (!fp || !e){
+	if (!e){
 		return NULL;
 	}
 
 	pos_origin = ftell(fp);
+	/* read two \0's */
 	while (counter < 2){
 		c = fgetc(fp);
+		/* end of file, no more checksums to read */
 		if (c == EOF){
 			free(e);
 			return NULL;
 		}
 		if (c == '\0'){
+			/* positions here include the \0 */
 			counter++;
+			/* if counter is odd, this is the file position */
 			if (counter & 1){
 				pos_file = ftell(fp);
 			}
+			/* otherwise this is the checksum position */
 			else{
 				pos_checksum = ftell(fp);
 			}
 		}
 	}
+	/* calculate length of file + checksum */
 	len_file = pos_file - pos_origin;
 	len_checksum = pos_checksum - pos_file;
 
+	/* make space for file + checksum */
 	e->file = malloc(len_file);
 	if (!e->file){
 		free(e);
@@ -77,17 +94,20 @@ element* get_next_checksum_element(FILE* fp){
 		return NULL;
 	}
 
+	/* go back to where we started */
 	fseek(fp, pos_origin, SEEK_SET);
+	/* and read <length of file> bytes (includes \0)*/
 	fread(e->file, 1, len_file, fp);
 
-	pos_temp = ftell(fp);
-	assert(ftell(fp) == pos_temp);
-
+	/* and read <length of checksum> bytes (includes \0)*/
 	fread(e->checksum, 1, len_checksum, fp);
 
 	return e;
 }
 
+/* much slower than get_next_checksum_element(), since it
+ * has to rewind the file and then go to the nth element,
+ * instead of just getting the next one */
 element* get_checksum_element_index(FILE* fp, int index){
 	long pos_origin;
 	long pos_file;
@@ -98,12 +118,18 @@ element* get_checksum_element_index(FILE* fp, int index){
 	int counter = 0;
 	element* e;
 
+	if (!fp){
+		return NULL;
+	}
+
 	e = malloc(sizeof(*e));
-	if (!fp || !e){
+	if (!e){
 		return NULL;
 	}
 
 	rewind(fp);
+	/* go to the nth element */
+	/* 2 \0's equal one element */
 	while (counter < 2 * index){
 		c = fgetc(fp);
 		if (c == EOF){
@@ -111,12 +137,16 @@ element* get_checksum_element_index(FILE* fp, int index){
 		}
 		if (c == '\0'){
 			counter++;
+			/* if counter is even, meaning if we read an
+			 * entire element */
 			if (!(counter & 1)){
 				pos_origin = ftell(fp);
 			}
 		}
 	}
+	/* get the correct positions of the nth element */
 	counter = 0;
+	/* same thing as get_next_checksum_element() */
 	while (counter < 2){
 		c = fgetc(fp);
 		if (c == EOF){
@@ -166,7 +196,11 @@ void swap_mhn(minheapnode* mhn1, minheapnode* mhn2){
 	*mhn2 = tmp;
 }
 
- int median_of_three(element** elements, int low, int high){
+/* chooses the median of the left element, the right element,
+ * and the middle element.
+ *
+ * this makes choosing a bad pivot much less likely */
+int median_of_three(element** elements, int low, int high){
 	int left = low;
 	int mid = (high - low) / 2;
 	int right = high;
@@ -199,6 +233,10 @@ void swap_mhn(minheapnode* mhn1, minheapnode* mhn2){
 	}
 }
 
+/* partitions the array by putting all the elements on the
+ * correct side of the pivot
+ *
+ * pivot must be the high element */
 static int partition(element** elements, int low, int high){
 	element* pivot = elements[high];
 	int i;
@@ -214,12 +252,15 @@ static int partition(element** elements, int low, int high){
 	return i + 1;
 }
 
+/* swaps the median of three element with the top element,
+ * so it works with the above function */
 static int partition_m3(element** elements, int low, int high){
 	int m3 = median_of_three(elements, low, high);
 	swap(&elements[m3], &elements[high]);
 	return partition(elements, low, high);
 }
 
+/* main quicksort function for sorting the elements */
 void quicksort_elements(element** elements, int low, int high){
 	if (low < high){
 		int pivot = partition_m3(elements, low, high);
@@ -247,6 +288,21 @@ void free_minheapnodes(minheapnode* mhn, size_t size){
 	free(mhn);
 }
 
+void free_strarray(char** elements, size_t size){
+	size_t i;
+	for (i = 0; i < size; ++i){
+		free(elements[i]);
+	}
+	free(elements);
+}
+
+void free_filearray(FILE** elements, size_t size){
+	size_t i;
+	for (i = 0; i < size; ++i){
+		fclose(elements[i]);
+	}
+	free(elements);
+}
 /*
 static __off_t get_file_size(const char* file){
 	struct stat st;
@@ -256,10 +312,18 @@ static __off_t get_file_size(const char* file){
 }
 */
 
+
 /* you know this is going to be good when there's a triple pointer */
+
+/* reads MAX_RUN_SIZE bytes worth of elements into ram,
+ * sorts them, and writes them to a file */
+/* out is char*** and not FILE***, since we need to reopen
+ * them in reading mode and also remove() them when we're
+ * done */
 int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
-	FILE* fp;
+	FILE* fp_in;
 	element** elems = NULL;
+	element* tmp;
 	int elems_len = 0;
 	int total_len = 0;
 
@@ -267,46 +331,53 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
 
-	fp = fopen(in_file, "r");
-	if (!fp){
+	fp_in = fopen(in_file, "r");
+	if (!fp_in){
 		return err_regularerror(ERR_FILE_INPUT);
 	}
 
 	*out = NULL;
 	*n_files = 0;
 
-	while (!feof(fp)){
+	while ((tmp = get_next_checksum_element(fp_in)) != NULL){
 		/* /var/tmp is mounted to disk, not RAM */
 		const char* template = "/var/tmp/merge_XXXXXX";
-		char template_tmp[sizeof("/var/tmp/merge_XXXXXX")];
 		FILE* fp;
 		int i;
 
 		/* make a new temp file */
 		(*n_files)++;
-		*out = realloc(*out, sizeof(FILE*));
-		strcpy(template_tmp, template);
-		if (!temp_file(template_tmp)){
+		/* make space for new string */
+		*out = realloc(*out, sizeof(char*) * *n_files);
+		if (!*out){
+			return err_regularerror(ERR_OUT_OF_MEMORY);
+		}
+		*out[*n_files - 1] = malloc(sizeof("/var/tmp/merge_XXXXXX"));
+		if (!*out[*n_files - 1]){
+			return err_regularerror(ERR_OUT_OF_MEMORY);
+		}
+		/* copy template to new string */
+		strcpy(*out[*n_files - 1], template);
+		/* make a temp file using the template */
+		/* new string now should be a valid temp file */
+		if (!temp_file(*out[*n_files - 1])){
 			return err_regularerror(ERR_FILE_OUTPUT);
 		}
-		fp = fopen(template_tmp, "w");
+		fp = fopen(*out[*n_files - 1], "w");
 		if (!fp){
 			return err_regularerror(ERR_FILE_OUTPUT);
 		}
 
-		*out[*n_files - 1] = fp;
-
 		/* read enough elements to fill MAX_RUN_SIZE */
+		/* TODO: this reads one element above MAX_RUN_SIZE
+		 * make it not do that */
 		while (total_len < MAX_RUN_SIZE){
 			elems_len++;
 			elems = realloc(elems, sizeof(*elems) * elems_len);
 			if (!elems){
 				return err_regularerror(ERR_OUT_OF_MEMORY);
 			}
-			elems[elems_len - 1] = get_next_checksum_element(fp);
-			if (!elems[elems_len - 1]){
-				break;
-			}
+			elems[elems_len - 1] = tmp;
 
 			/* +2 for the 2 \0's */
 			total_len += strlen(elems[elems_len - 1]->file) + strlen(elems[elems_len - 1]->checksum) + 2;
@@ -316,70 +387,109 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 		quicksort_elements(elems, 0, elems_len - 1);
 		/* write them to the file */
 		for (i = 0; i < elems_len; ++i){
-			write_element_to_file(*out[*n_files - 1], elems[i]);
+			write_element_to_file(fp, elems[i]);
 		}
+		/* cleanup */
 		free_elements(elems, elems_len);
+		fclose(fp);
 	}
 	return 0;
 }
 
+/* creates a min heap based on the elements */
+/* this is used so we can merge the files in O(nlogn)
+ * instead of O(n^2) by making a priority queue*/
 void minheapify(minheapnode* elements, int elements_len, int index){
-	int largest = elements_len;
+	int smallest = elements_len;
 	int left = 2 * index + 1;
 	int right = 2 * index + 2;
 
-	if (left < elements_len && compare_elements(elements[left].e, elements[largest].e) < 0){
-		largest = left;
+	/* if left child is smaller than root */
+	if (left < elements_len && compare_elements(elements[left].e, elements[smallest].e) < 0){
+		smallest = left;
 	}
 
-	if (right < elements_len && compare_elements(elements[right].e, elements[largest].e) < 0){
-		largest = right;
+	/* if right child is smaller than smallest so far */
+	if (right < elements_len && compare_elements(elements[right].e, elements[smallest].e) < 0){
+		smallest = right;
 	}
 
-	if (largest != index){
-		swap_mhn(&elements[index], &elements[largest]);
-		minheapify(elements, elements_len, largest);
+	/* if smallest is not root */
+	if (smallest != index){
+		/* get the smallest to root */
+		swap_mhn(&elements[index], &elements[smallest]);
+		/* recursively balance the unbalanced heap */
+		minheapify(elements, elements_len, smallest);
 	}
 }
 
-int merge_files(FILE** in, size_t n_files, const char* out_file){
+/* merges the initial runs into one big file */
+int merge_files(char** files, size_t n_files, const char* out_file){
 	minheapnode* mhn = NULL;
 	size_t count = 0;
 	size_t i;
 	int j;
-	FILE* fp;
+	FILE** in;
+	FILE* fp_out;
 
-	if (!in || !n_files || !out_file){
+	/* verify that arguments are not null */
+	if (!files || !out_file){
 		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
 
-	fp = fopen(out_file, "w");
-	if (!fp){
+	/* open out_file for writing */
+	fp_out = fopen(out_file, "w");
+	if (!fp_out){
 		return err_regularerror(ERR_FILE_OUTPUT);
 	}
 
+	/* allocate space for our file array */
+	in = malloc(sizeof(FILE*) * n_files);
+	if (!in){
+		return err_regularerror(ERR_OUT_OF_MEMORY);
+	}
+
+	/* open each char* as a file* */
+	for (i = 0; i < n_files; ++i){
+		in[i] = fopen(files[i], "r");
+		if (!in[i]){
+			return err_regularerror(ERR_FILE_INPUT);
+		}
+	}
+
+	/* make space for the min heap nodes */
 	mhn = malloc(n_files * sizeof(*mhn));
 	if (!mhn){
 		return err_regularerror(ERR_OUT_OF_MEMORY);
 	}
+	/* get the first element from each file */
 	for (i = 0; i < n_files; ++i){
 		mhn[i].e = get_next_checksum_element(in[i]);
 		mhn[i].i = i;
 	}
+	/* balance our heap */
 	for (j = n_files / 2 - 1; j >= 0; --j){
 		minheapify(mhn, n_files, j);
 	}
 
-	while (count <= i){
-		write_element_to_file(fp, mhn[0].e);
+	/* while the counter is less than the number of files */
+	/* counter tracks which files are empty */
+	while (count < n_files){
+		/* write root element (smallest) to file */
+		write_element_to_file(fp_out, mhn[0].e);
+		/* replace root element with next from that file */
 		mhn[0].e = get_next_checksum_element(in[i]);
+		/* if file is empty */
 		if (!mhn[0].e){
+			/* raise the counter */
 			count++;
 		}
+		/* rebalance our heap */
 		minheapify(mhn, n_files, 0);
 	}
 
+	/* cleanup */
 	free_minheapnodes(mhn, n_files);
+	free_filearray(in, n_files);
 	return 0;
 }
-

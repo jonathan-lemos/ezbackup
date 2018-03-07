@@ -20,6 +20,6 @@ void quicksort_elements(element** elements, int low, int high);
 void free_elements(element** elements, size_t size);
 void free_minheapnodes(minheapnode* mhn, size_t size);
 int create_initial_runs(const char* in_file, char*** out, size_t* n_files);
-int merge_files(FILE** in, size_t n_files, const char* out_file);
+int merge_files(char** in, size_t n_files, const char* out_file);
 
 #endif

@@ -205,6 +205,18 @@ int add_checksum_to_file(const char* file, const char* algorithm, FILE* out){
 	return 0;
 }
 
-int sort_checksum_file(const char* file){
+int sort_checksum_file(const char* in_file, const char* out_file){
+	char** tmp_files;
+	size_t n_files;
+	size_t i;
+
+	create_initial_runs(in_file, &tmp_files, &n_files);
+	merge_files(tmp_files, n_files, out_file);
+	for (i = 0; i < n_files; ++i){
+		free(tmp_files[i]);
+	}
+	free(tmp_files);
 	return 0;
 }
+
+
