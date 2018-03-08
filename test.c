@@ -145,6 +145,7 @@ void test_crypt_h(const char* file){
 	int buf2_len;
 	FILE* fp1;
 	FILE* fp2;
+	int tmp;
 
 	assert(file);
 
@@ -173,8 +174,11 @@ void test_crypt_h(const char* file){
 	fclose(fp1);
 	fclose(fp2);
 	/* decrypt file */
+	assert(crypt_set_encryption("aes-256-cbc", &fk) == 0);
 	assert(crypt_extract_salt(file_crypt, &fk) == 0);
 	assert(memcmp(fk.salt, salt, sizeof(salt)) == 0);
+	tmp = crypt_gen_keys((unsigned char*)"password", strlen("password"), NULL, 1, &fk);
+	assert(tmp == 0);
 	assert(crypt_decrypt(file_crypt, &fk, file_decrypt) == 0);
 
 	/* check decrypted file matches original */
@@ -191,6 +195,7 @@ void test_crypt_h(const char* file){
 	fclose(fp1);
 	fclose(fp2);
 	/* cleanup */
+	remove("secret.aes");
 	remove(file_crypt);
 	remove(file_decrypt);
 }
@@ -311,11 +316,12 @@ int main(void){
 
 	test_checksum_h();
 	printf_green("Checksum.h test succeeded\n");
-	return 0;
 	test_crypt_h(file);
 	printf_green("Crypt.h test succeeded\n");
 	test_maketar_h(file);
 	printf_green("Maketar.h test succeeded\n");
+	remove(file);
+	return 0;
 	test_fileiterator_h("/home/jonathan/Documents\n");
 	printf_green("Fileiterator.h test succeeded\n");
 	test_progressbar_h();

@@ -60,16 +60,25 @@ progress* start_progress(const char* text, int max){
 }
 
 void inc_progress(progress* p, int count){
+	if (!p){
+		return;
+	}
 	p->count += count;
 	display_progress(p);
 }
 
 void set_progress(progress* p, int count){
+	if (!p){
+		return;
+	}
 	p->count = count;
 	display_progress(p);
 }
 
 void finish_progress(progress* p){
+	if (!p){
+		return;
+	}
 	p->count = p->max;
 	display_progress(p);
 	printf("\033[?25h\n");

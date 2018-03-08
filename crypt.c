@@ -143,7 +143,7 @@ int crypt_set_encryption(const char* encryption, crypt_keys* fk){
 		fk->encryption = EVP_enc_null();
 	}
 
-	fk->flags |= FLAG_ENCRYPTION_SET;
+	fk->flags = FLAG_ENCRYPTION_SET;
 	return 0;
 }
 
@@ -167,7 +167,7 @@ int crypt_gen_keys(
 	}
 
 	/* checking if encryption and salt are set */
-	if (fk->flags != FLAG_ENCRYPTION_SET){
+	if (!(fk->flags & FLAG_ENCRYPTION_SET)){
 		return ERR_ENCRYPTION_UNINITIALIZED;
 	}
 
@@ -210,93 +210,6 @@ int crypt_free(crypt_keys* fk){
 
 /* encrypts the file
  * returns 0 on success or err on error */
-int crypt_encrypt(const char* in, crypt_keys* fk, const char* out){
-	/* do not want null terminator */
-	const char salt_prefix[8] = { 'S', 'a', 'l', 't', 'e', 'd', '_', '_'};
-	EVP_CIPHER_CTX* ctx = NULL;
-	unsigned char inbuffer[BUFFER_LEN];
-	unsigned char* outbuffer = NULL;
-	int inlen;
-	int outlen;
-	int ret = 0;
-	FILE* fp_in;
-	FILE* fp_out;
-
-	if (!in || !fk || !out){
-		return ERR_ARGUMENT_NULL;
-	}
-
-	/* checking if keys were actually generated */
-	if (!(fk->flags & FLAG_KEYS_SET)){
-		return ERR_KEYS_UNINITIALIZED;
-	}
-
-	fp_in = fopen(in, "rb");
-	if (!fp_in){
-		return ERR_FILE_INPUT;
-	}
-	fp_out = fopen(out, "wb");
-	if (!fp_out){
-		fclose(fp_in);
-		return ERR_FILE_OUTPUT;
-	}
-
-	/* dealing with salt */
-	fwrite(salt_prefix, 1, sizeof(salt_prefix), fp_out);
-	if (ferror(fp_out)){
-		ret = ERR_FILE_OUTPUT;
-		goto cleanup;
-	}
-	fwrite(fk->salt, 1, 8, fp_out);
-
-	/* initializing cipher context and preparing outbuffer */
-	/* encrypted data is usually longer than input data */
-	outbuffer = malloc(BUFFER_LEN + EVP_CIPHER_block_size(fk->encryption));
-	if (!outbuffer){
-		ret = ERR_OUT_OF_MEMORY;
-		goto cleanup;
-	}
-
-	ctx = EVP_CIPHER_CTX_new();
-	ret = err_evperror();
-	if (ret){
-		goto cleanup;
-	}
-	if (EVP_EncryptInit_ex(ctx, fk->encryption, NULL, fk->key, fk->iv) != 1){
-		ret = err_evperror();
-		goto cleanup;
-	}
-
-	/* reading + encrypting file */
-	while ((inlen = read_file(fp_in, inbuffer, sizeof(inbuffer)))){
-		if (EVP_EncryptUpdate(ctx, outbuffer, &outlen, inbuffer, inlen) != 1){
-			ret = err_evperror();
-			goto cleanup;
-		}
-		fwrite(outbuffer, 1, outlen, fp_out);
-	}
-
-	/* finalizing */
-	if (EVP_EncryptFinal_ex(ctx, outbuffer, &outlen) != 1){
-		ret = err_evperror();
-		goto cleanup;
-	}
-	fwrite(outbuffer, 1, outlen, fp_out);
-
-	/* cleanup */
-cleanup:
-	fclose(fp_in);
-	fclose(fp_out);
-	if (ctx){
-		EVP_CIPHER_CTX_free(ctx);
-	}
-	free(outbuffer);
-	return 0;
-
-}
-
-/* encrypts the file
- * returns 0 on success or err on error */
 int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbose, const char* progress_msg){
 	/* do not want null terminator */
 	const char salt_prefix[8] = { 'S', 'a', 'l', 't', 'e', 'd', '_', '_'};
@@ -310,26 +223,29 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	FILE* fp_in;
 	FILE* fp_out;
 
+	/* checking null arguments */
 	if (!in || !fk || !out){
-		return ERR_ARGUMENT_NULL;
+		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
 
 	/* checking if keys were actually generated */
 	if (!(fk->flags & FLAG_KEYS_SET)){
-		return ERR_KEYS_UNINITIALIZED;
+		return err_regularerror(ERR_KEYS_UNINITIALIZED);
 	}
 
+	/* open input file for reading */
 	fp_in = fopen(in, "rb");
 	if (!fp_in){
-		return ERR_FILE_INPUT;
+		return err_regularerror(ERR_FILE_INPUT);
 	}
+	/* open output file for writing */
 	fp_out = fopen(out, "wb");
 	if (!fp_out){
 		fclose(fp_in);
-		return ERR_FILE_OUTPUT;
+		return err_regularerror(ERR_FILE_OUTPUT);
 	}
 
-	/* dealing with salt */
+	/* write the salt prefix + salt to the file */
 	fwrite(salt_prefix, 1, sizeof(salt_prefix), fp_out);
 	if (ferror(fp_out)){
 		ret = ERR_FILE_OUTPUT;
@@ -348,14 +264,18 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 		p = start_progress(progress_msg, st.st_size);
 	}
 
-	/* initializing cipher context and preparing outbuffer */
-	/* encrypted data is usually longer than input data */
+	/* allocating space for outbuffer */
+
+	/* encrypted data is usually longer than input data,
+	 * so we must use malloc instead of just making another
+	 * buffer[BUFFER_LEN] */
 	outbuffer = malloc(BUFFER_LEN + EVP_CIPHER_block_size(fk->encryption));
 	if (!outbuffer){
 		ret = ERR_OUT_OF_MEMORY;
 		goto cleanup;
 	}
 
+	/* initializing encryption thingy */
 	ctx = EVP_CIPHER_CTX_new();
 	ret = err_evperror();
 	if (ret){
@@ -366,12 +286,14 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 		goto cleanup;
 	}
 
-	/* reading + encrypting file */
+	/* while there is still data to be read in the file */
 	while ((inlen = read_file(fp_in, inbuffer, sizeof(inbuffer)))){
+		/* encrypt it */
 		if (EVP_EncryptUpdate(ctx, outbuffer, &outlen, inbuffer, inlen) != 1){
 			ret = err_evperror();
 			goto cleanup;
 		}
+		/* write it to the out file */
 		fwrite(outbuffer, 1, outlen, fp_out);
 		if (verbose){
 			inc_progress(p, outlen);
@@ -379,14 +301,13 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	}
 	finish_progress(p);
 
-	/* finalizing */
+	/* write any padding data to the file */
 	if (EVP_EncryptFinal_ex(ctx, outbuffer, &outlen) != 1){
 		ret = err_evperror();
 		goto cleanup;
 	}
 	fwrite(outbuffer, 1, outlen, fp_out);
 
-	/* cleanup */
 cleanup:
 	fclose(fp_in);
 	fclose(fp_out);
@@ -394,42 +315,45 @@ cleanup:
 		EVP_CIPHER_CTX_free(ctx);
 	}
 	free(outbuffer);
-	return 0;
+	return ret;
 }
 
+/* simpler wrapper for crypt_encrypt_ex if progressbar is not needed */
+int crypt_encrypt(const char* in, crypt_keys* fk, const char* out){
+	return crypt_encrypt_ex(in, fk, out, 0, NULL);
+}
+
+/* extracts salt from encrypted file */
 int crypt_extract_salt(const char* in, crypt_keys* fk){
 	const char salt_prefix[8] = { 'S', 'a', 'l', 't', 'e', 'd', '_', '_' };
+	char salt_buffer[8];
 	char buffer[8];
 	unsigned i;
 	FILE* fp;
 
+	/* checking null arguments */
 	if (!in || !fk){
-		return ERR_ARGUMENT_NULL;
+		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
 
+	/* open in for reading */
 	fp = fopen(in, "rb");
 	if (!fp){
-		return ERR_FILE_INPUT;
+		return err_regularerror(ERR_FILE_INPUT);
 	}
 
-	if (fread(buffer, 1, sizeof(salt_prefix), fp) != sizeof(salt_prefix)){
+	/* check that fread works properly. also advances the file
+	 * pointer to the beginning of the salt */
+	if (fread(salt_buffer, 1, sizeof(salt_prefix), fp) != sizeof(salt_prefix)){
 		fclose(fp);
-		return ERR_FILE_INPUT;
+		return err_regularerror(ERR_FILE_INPUT);
 	}
 
-	if (memcmp(salt_prefix, buffer, sizeof(salt_prefix))){
-		fclose(fp);
-		return ERR_FILE_INVALID;
-	}
-
-	if (sizeof(fk->salt) != sizeof(buffer)){
-		fclose(fp);
-		return ERR_FUBAR;
-	}
-
+	/* read the salt into the buffer, check if the correct
+	 * amount of bytes were read */
 	if (fread(buffer, 1, sizeof(buffer), fp) != sizeof(buffer)){
 		fclose(fp);
-		return ERR_FILE_INPUT;
+		return err_regularerror(ERR_FILE_INPUT);
 	}
 
 	/* memcpy() leaves data in memory
@@ -443,89 +367,10 @@ int crypt_extract_salt(const char* in, crypt_keys* fk){
 	return 0;
 }
 
-/* encrypts the file
- * returns 0 on success or err on error */
-int crypt_decrypt(const char* in, crypt_keys* fk, const char* out){
-	/* do not want null terminator */
-	const char salt_prefix[8] = { 'S', 'a', 'l', 't', 'e', 'd', '_', '_'};
-	EVP_CIPHER_CTX* ctx = NULL;
-	unsigned char inbuffer[BUFFER_LEN];
-	unsigned char outbuffer[BUFFER_LEN];
-	int inlen;
-	int outlen;
-	int ret = 0;
-	FILE* fp_in;
-	FILE* fp_out;
-
-	if (!in || !fk || !out){
-		return ERR_ARGUMENT_NULL;
-	}
-
-	/* checking if keys were actually generated */
-	if (!(fk->flags & FLAG_KEYS_SET)){
-		return ERR_KEYS_UNINITIALIZED;
-	}
-
-	fp_in = fopen(in, "rb");
-	if (!fp_in){
-		return ERR_FILE_INPUT;
-	}
-	fp_out = fopen(out, "wb");
-	if (!fp_out){
-		fclose(fp_in);
-		return ERR_FILE_OUTPUT;
-	}
-
-	/* dealing with salt */
-	fwrite(salt_prefix, 1, sizeof(salt_prefix), fp_out);
-	if (ferror(fp_out)){
-		ret = ERR_FILE_OUTPUT;
-		goto cleanup;
-	}
-	fwrite(fk->salt, 1, 8, fp_out);
-
-	/* initializing cipher context */
-	ctx = EVP_CIPHER_CTX_new();
-	ret = err_evperror();
-	if (ret){
-		goto cleanup;
-	}
-	if (EVP_DecryptInit_ex(ctx, fk->encryption, NULL, fk->key, fk->iv) != 1){
-		ret = err_evperror();
-		goto cleanup;
-	}
-
-	/* reading + encrypting file */
-	while ((inlen = read_file(fp_in, inbuffer, sizeof(inbuffer)))){
-		if (EVP_DecryptUpdate(ctx, outbuffer, &outlen, inbuffer, inlen) != 1){
-			ret = err_evperror();
-			goto cleanup;
-		}
-		fwrite(outbuffer, 1, outlen, fp_out);
-	}
-
-	/* finalizing */
-	if (EVP_DecryptFinal_ex(ctx, outbuffer, &outlen) != 1){
-		ret = err_evperror();
-		goto cleanup;
-	}
-	fwrite(outbuffer, 1, outlen, fp_out);
-
-	/* cleanup */
-cleanup:
-	fclose(fp_in);
-	fclose(fp_out);
-	if (ctx){
-		EVP_CIPHER_CTX_free(ctx);
-	}
-	return 0;
-}
-
 /* decrypts the file
  * returns 0 on success or err on error */
 int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbose, const char* progress_msg){
 	/* do not want null terminator */
-	const char salt_prefix[8] = { 'S', 'a', 'l', 't', 'e', 'd', '_', '_'};
 	EVP_CIPHER_CTX* ctx = NULL;
 	unsigned char inbuffer[BUFFER_LEN];
 	unsigned char outbuffer[BUFFER_LEN];
@@ -536,32 +381,32 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	FILE* fp_in;
 	FILE* fp_out;
 
+	/* checking null arguments */
 	if (!in || !fk || !out){
-		return ERR_ARGUMENT_NULL;
+		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
 
 	/* checking if keys were actually generated */
 	if (!(fk->flags & FLAG_KEYS_SET)){
-		return ERR_KEYS_UNINITIALIZED;
+		return err_regularerror(ERR_KEYS_UNINITIALIZED);
 	}
 
+	/* checking if salt was extracted */
+	if (!(fk->flags & FLAG_SALT_EXTRACTED)){
+		return err_regularerror(ERR_SALT_UNINITIALIZED);
+	}
+
+	/* open input file for reading */
 	fp_in = fopen(in, "rb");
 	if (!fp_in){
-		return ERR_FILE_INPUT;
+		return err_regularerror(ERR_FILE_INPUT);
 	}
+	/* open output file for writing */
 	fp_out = fopen(out, "wb");
 	if (!fp_out){
 		fclose(fp_in);
-		return ERR_FILE_OUTPUT;
+		return err_regularerror(ERR_FILE_OUTPUT);
 	}
-
-	/* dealing with salt */
-	fwrite(salt_prefix, 1, sizeof(salt_prefix), fp_out);
-	if (ferror(fp_out)){
-		ret = ERR_FILE_OUTPUT;
-		goto cleanup;
-	}
-	fwrite(fk->salt, 1, 8, fp_out);
 
 	/* preparing progress bar */
 	if (verbose){
@@ -574,8 +419,10 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 		p = start_progress(progress_msg, st.st_size);
 	}
 
+	/* no need for malloc() like above, since the decrypted
+	 * data is shorter than encrypted. */
+
 	/* initializing cipher context */
-	/* encrypted data is usually longer than input data */
 	ctx = EVP_CIPHER_CTX_new();
 	ret = err_evperror();
 	if (ret){
@@ -586,12 +433,17 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 		goto cleanup;
 	}
 
-	/* reading + encrypting file */
+	/* advance file pointer beyond salt */
+	fseek(fp_in, 8 + sizeof(fk->salt), SEEK_SET);
+
+	/* while there is data in the input file */
 	while ((inlen = read_file(fp_in, inbuffer, sizeof(inbuffer)))){
+		/* decrypt it */
 		if (EVP_DecryptUpdate(ctx, outbuffer, &outlen, inbuffer, inlen) != 1){
 			ret = err_evperror();
 			goto cleanup;
 		}
+		/* write it to the output file */
 		fwrite(outbuffer, 1, outlen, fp_out);
 		if (verbose){
 			inc_progress(p, outlen);
@@ -599,14 +451,13 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	}
 	finish_progress(p);
 
-	/* finalizing */
+	/* not sure what needs to be finalized, but ehh */
 	if (EVP_DecryptFinal_ex(ctx, outbuffer, &outlen) != 1){
 		ret = err_evperror();
 		goto cleanup;
 	}
 	fwrite(outbuffer, 1, outlen, fp_out);
 
-	/* cleanup */
 cleanup:
 	fclose(fp_in);
 	fclose(fp_out);
@@ -614,4 +465,8 @@ cleanup:
 		EVP_CIPHER_CTX_free(ctx);
 	}
 	return 0;
+}
+
+int crypt_decrypt(const char* in, crypt_keys* fk, const char* out){
+	return crypt_decrypt_ex(in, fk, out, 0, NULL);
 }

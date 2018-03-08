@@ -32,4 +32,4 @@ main.dbg.o: main.c
 	$(CC) -c -o $@ $< $(CFLAGS) $(DBGFLAGS)
 
 clean:
-	rm -f *.o $(NAME) $(CLEANOBJECTS) $(DBGOBJECTS) $(OBJECTS) main.c.* test.c.* vgcore.*
+	rm -f *.o $(NAME) $(CLEANOBJECTS) $(DBGOBJECTS) $(OBJECTS) main.c.* test.c.* vgcore.* test
