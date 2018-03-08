@@ -80,7 +80,7 @@ static int hex_to_bytes(char* hex, unsigned len, unsigned char** out){
 
 /* computes a hash
  * returns 0 on success or err on failure */
- int checksum(const char* file, const char* algorithm, unsigned char** out, unsigned* len){
+int checksum(const char* file, const char* algorithm, unsigned char** out, unsigned* len){
 	EVP_MD_CTX* ctx;
 	const EVP_MD* md;
 	unsigned char buffer[BUFFER_LEN];

@@ -11,7 +11,7 @@
 /* assert */
 #include <assert.h>
 
-#define MAX_RUN_SIZE (1 << 24)
+#define MAX_RUN_SIZE (16)
 
 static int compare_elements(element* e1, element* e2){
 	/* send NULL's to bottom of heap */
@@ -27,11 +27,13 @@ static int compare_elements(element* e1, element* e2){
 
 /* format: <file>\0<checksum>\0 */
 int write_element_to_file(FILE* fp, element* e){
+	int c;
+
 	if (!fp || !e || !e->file || !e->checksum){
 		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
 
-	fprintf(fp, "%s%c%s%c", e->file, '\0', e->checksum, '\0');
+	c = fprintf(fp, "%s%c%s%c", e->file, '\0', e->checksum, '\0');
 	return 0;
 }
 
@@ -39,7 +41,6 @@ element* get_next_checksum_element(FILE* fp){
 	long pos_origin;
 	long pos_file;
 	long pos_checksum;
-	long pos_temp;
 	int c;
 	int counter = 0;
 	size_t len_file;
@@ -269,11 +270,16 @@ void quicksort_elements(element** elements, int low, int high){
 	}
 }
 
-void free_elements(element** elements, size_t size){
+void free_element(element* e){
+	free(e->file);
+	free(e->checksum);
+	free(e);
+}
+
+void free_element_array(element** elements, size_t size){
 	size_t i;
 	for (i = 0; i < size; ++i){
-		free(elements[i]->file);
-		free(elements[i]->checksum);
+		free_element(elements[i]);
 	}
 	free(elements);
 }
@@ -281,9 +287,9 @@ void free_elements(element** elements, size_t size){
 void free_minheapnodes(minheapnode* mhn, size_t size){
 	size_t i;
 	for (i = 0; i < size; ++i){
-		free(mhn[i].e->file);
-		free(mhn[i].e->checksum);
-		free(mhn[i].e);
+		if (mhn[i].e){
+			free_element(mhn[i].e);
+		}
 	}
 	free(mhn);
 }
@@ -304,13 +310,13 @@ void free_filearray(FILE** elements, size_t size){
 	free(elements);
 }
 /*
-static __off_t get_file_size(const char* file){
-	struct stat st;
+   static __off_t get_file_size(const char* file){
+   struct stat st;
 
-	lstat(file, &st);
-	return st.st_size;
-}
-*/
+   lstat(file, &st);
+   return st.st_size;
+   }
+   */
 
 
 /* you know this is going to be good when there's a triple pointer */
@@ -352,18 +358,18 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 		if (!*out){
 			return err_regularerror(ERR_OUT_OF_MEMORY);
 		}
-		*out[*n_files - 1] = malloc(sizeof("/var/tmp/merge_XXXXXX"));
-		if (!*out[*n_files - 1]){
+		(*out)[*n_files - 1] = malloc(sizeof("/var/tmp/merge_XXXXXX"));
+		if (!(*out)[*n_files - 1]){
 			return err_regularerror(ERR_OUT_OF_MEMORY);
 		}
 		/* copy template to new string */
-		strcpy(*out[*n_files - 1], template);
+		strcpy((*out)[*n_files - 1], template);
 		/* make a temp file using the template */
 		/* new string now should be a valid temp file */
-		if (!temp_file(*out[*n_files - 1])){
+		if (temp_file((*out)[*n_files - 1]) != 0){
 			return err_regularerror(ERR_FILE_OUTPUT);
 		}
-		fp = fopen(*out[*n_files - 1], "w");
+		fp = fopen((*out)[*n_files - 1], "w");
 		if (!fp){
 			return err_regularerror(ERR_FILE_OUTPUT);
 		}
@@ -377,10 +383,10 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 			if (!elems){
 				return err_regularerror(ERR_OUT_OF_MEMORY);
 			}
-			elems[elems_len - 1] = tmp;
-
 			/* +2 for the 2 \0's */
-			total_len += strlen(elems[elems_len - 1]->file) + strlen(elems[elems_len - 1]->checksum) + 2;
+			total_len += strlen(tmp->file) + strlen(tmp->checksum) + 2;
+
+			elems[elems_len - 1] = tmp;
 		}
 
 		/* sort elements */
@@ -390,8 +396,11 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 			write_element_to_file(fp, elems[i]);
 		}
 		/* cleanup */
-		free_elements(elems, elems_len);
+		free_element_array(elems, elems_len);
 		fclose(fp);
+		elems = NULL;
+		elems_len = 0;
+		total_len = 0;
 	}
 	return 0;
 }
@@ -400,7 +409,7 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 /* this is used so we can merge the files in O(nlogn)
  * instead of O(n^2) by making a priority queue*/
 void minheapify(minheapnode* elements, int elements_len, int index){
-	int smallest = elements_len;
+	int smallest = index;
 	int left = 2 * index + 1;
 	int right = 2 * index + 2;
 
@@ -438,7 +447,7 @@ int merge_files(char** files, size_t n_files, const char* out_file){
 	}
 
 	/* open out_file for writing */
-	fp_out = fopen(out_file, "w");
+	fp_out = fopen(out_file, "wb");
 	if (!fp_out){
 		return err_regularerror(ERR_FILE_OUTPUT);
 	}
@@ -451,7 +460,7 @@ int merge_files(char** files, size_t n_files, const char* out_file){
 
 	/* open each char* as a file* */
 	for (i = 0; i < n_files; ++i){
-		in[i] = fopen(files[i], "r");
+		in[i] = fopen(files[i], "rb");
 		if (!in[i]){
 			return err_regularerror(ERR_FILE_INPUT);
 		}
@@ -477,6 +486,8 @@ int merge_files(char** files, size_t n_files, const char* out_file){
 	while (count < n_files){
 		/* write root element (smallest) to file */
 		write_element_to_file(fp_out, mhn[0].e);
+		free_element(mhn[0].e);
+
 		/* replace root element with next from that file */
 		mhn[0].e = get_next_checksum_element(in[i]);
 		/* if file is empty */
@@ -491,5 +502,6 @@ int merge_files(char** files, size_t n_files, const char* out_file){
 	/* cleanup */
 	free_minheapnodes(mhn, n_files);
 	free_filearray(in, n_files);
+	fclose(fp_out);
 	return 0;
 }

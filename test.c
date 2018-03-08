@@ -35,14 +35,19 @@ static void printf_green(const char* format, ...){
 
 void test_checksum_h(void){
 	const char* checksum_file = "test_checksums.txt";
+	const char* sorted_file = "sorted.txt";
 	const char* file1 = "file1.txt";
 	const char* file2 = "file2.txt";
 	const char* file3 = "file3.txt";
 	const char* file4 = "file4.txt";
-	element** elems;
-	FILE* fp;
-	int i;
+	element** elems = (element**)-1;
+	char** out = (char**)-1;
+	size_t n_files = -1;
 
+	FILE* fp = (FILE*)-1;
+	int i = -1;
+
+	/* make temp files */
 	fp = fopen(file1, "wb");
 	assert(fp);
 	fprintf(fp, "ayylmao00");
@@ -63,18 +68,23 @@ void test_checksum_h(void){
 	fprintf(fp, "ayylmao4");
 	fclose(fp);
 
+	/* open checksum for writing */
 	fp = fopen(checksum_file, "wb");
 	assert(fp);
 
+	/* add files to checksum file */
 	assert(add_checksum_to_file(file3, "sha1", fp) == 0);
 	assert(add_checksum_to_file(file2, "sha1", fp) == 0);
 	assert(add_checksum_to_file(file1, "sha1", fp) == 0);
 	assert(add_checksum_to_file(file4, "sha1", fp) == 0);
 	fclose(fp);
 
+	/* reopen for reading */
 	fopen(checksum_file, "rb");
 	assert(fp);
 
+	/* get the checksum elements */
+	/* also assert they are in the correct order */
 	elems = malloc(sizeof(*elems) * 4);
 	assert(elems);
 	elems[0] = get_next_checksum_element(fp);
@@ -86,17 +96,37 @@ void test_checksum_h(void){
 	elems[2] = get_checksum_element_index(fp, 2);
 	assert(strcmp(elems[2]->file, "file1.txt") == 0);
 
-	quicksort_elements(elems, 0, 3);
+	/* close the file */
+	for (i = 0; i < 4; ++i) free(elems[i]);
+	fclose(fp);
 
+	/* sorting the file */
+	assert(create_initial_runs(checksum_file, &out, &n_files) == 0);
+	assert(merge_files(out, n_files, sorted_file) == 0);
+
+	/* checking that it's sorted */
+	fp = fopen(sorted_file, "rb");
+	assert(fp);
+	elems[0] = get_next_checksum_element(fp);
 	assert(strcmp(elems[0]->file, "file1.txt") == 0);
+	elems[1] = get_next_checksum_element(fp);
 	assert(strcmp(elems[1]->file, "file2.txt") == 0);
+	elems[2] = get_next_checksum_element(fp);
 	assert(strcmp(elems[2]->file, "file3.txt") == 0);
+	elems[3] = get_next_checksum_element(fp);
 	assert(strcmp(elems[3]->file, "file4.txt") == 0);
 
-	fclose(fp);
+	/* closing file */
 	for (i = 0; i < 4; ++i) free(elems[i]);
+	fclose(fp);
+
+	/* cleanup */
+	for (i = 0; i < (int)n_files; ++i) free(out[i]);
+	free(out);
 	free(elems);
+
 	remove(checksum_file);
+	remove(sorted_file);
 	remove(file1);
 	remove(file2);
 	remove(file3);
@@ -124,7 +154,7 @@ void test_crypt_h(const char* file){
 	system(command);
 
 	assert(crypt_set_encryption("aes-256-cbc", &fk) == 0);
-	assert(crypt_set_salt((unsigned char*)"0000000", &fk) == 0);
+	assert(crypt_set_salt((unsigned char*)"\0\0\0\0\0\0\0", &fk) == 0);
 	assert(crypt_gen_keys((unsigned char*)"password", strlen("password"), NULL, 1, &fk) == 0);
 	assert(crypt_encrypt(file, &fk, file_crypt) == 0);
 	assert(crypt_free(&fk) == 0);
@@ -200,7 +230,7 @@ void test_maketar_h(const char* file){
 	tar_add_file_ex(tp, file, "/file", 1, "Testing tar_add_file_ex()");
 	tar_close(tp);
 
-	tar_extract_file(tartemp, "/file", "test.txt");
+	tar_extract_file(tartemp, "/file", "test.txt", 1);
 
 	assert(checksum(file, "sha256", &hash1, &len1) == 0);
 	assert(checksum("test.txt", "sha256", &hash2, &len2) == 0);
@@ -281,6 +311,7 @@ int main(void){
 
 	test_checksum_h();
 	printf_green("Checksum.h test succeeded\n");
+	return 0;
 	test_crypt_h(file);
 	printf_green("Crypt.h test succeeded\n");
 	test_maketar_h(file);

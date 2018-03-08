@@ -3,7 +3,7 @@
 /* read_file() */
 #include "readfile.h"
 /* handling errors */
-#include "evperror.h"
+#include "error.h"
 /* progress bar */
 #include "progressbar.h"
 /* file size */
@@ -39,7 +39,7 @@ int crypt_scrub(unsigned char* data, int len){
 	}
 
 	res = RAND_bytes(data, len);
-	err = evp_geterror();
+	err = err_evperror();
 
 	if (res != 1){
 		/* generate low grade non-cs-secure random numbers
@@ -135,7 +135,7 @@ int crypt_set_encryption(const char* encryption, crypt_keys* fk){
 		OpenSSL_add_all_algorithms();
 		fk->encryption = EVP_get_cipherbyname(encryption);
 		if (!fk->encryption){
-			return evp_geterror();
+			return err_evperror();
 		}
 	}
 	/* if encryption is NULL, use no encryption */
@@ -184,7 +184,7 @@ int crypt_gen_keys(
 
 	/* generating the key and iv */
 	if (!EVP_BytesToKey(fk->encryption, md, fk->salt, data, data_len, iterations, fk->key, fk->iv)){
-		return evp_geterror();
+		return err_evperror();
 	}
 
 	fk->flags |= FLAG_KEYS_SET;
@@ -258,19 +258,19 @@ int crypt_encrypt(const char* in, crypt_keys* fk, const char* out){
 	}
 
 	ctx = EVP_CIPHER_CTX_new();
-	ret = evp_geterror();
+	ret = err_evperror();
 	if (ret){
 		goto cleanup;
 	}
 	if (EVP_EncryptInit_ex(ctx, fk->encryption, NULL, fk->key, fk->iv) != 1){
-		ret = evp_geterror();
+		ret = err_evperror();
 		goto cleanup;
 	}
 
 	/* reading + encrypting file */
 	while ((inlen = read_file(fp_in, inbuffer, sizeof(inbuffer)))){
 		if (EVP_EncryptUpdate(ctx, outbuffer, &outlen, inbuffer, inlen) != 1){
-			ret = evp_geterror();
+			ret = err_evperror();
 			goto cleanup;
 		}
 		fwrite(outbuffer, 1, outlen, fp_out);
@@ -278,7 +278,7 @@ int crypt_encrypt(const char* in, crypt_keys* fk, const char* out){
 
 	/* finalizing */
 	if (EVP_EncryptFinal_ex(ctx, outbuffer, &outlen) != 1){
-		ret = evp_geterror();
+		ret = err_evperror();
 		goto cleanup;
 	}
 	fwrite(outbuffer, 1, outlen, fp_out);
@@ -357,19 +357,19 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	}
 
 	ctx = EVP_CIPHER_CTX_new();
-	ret = evp_geterror();
+	ret = err_evperror();
 	if (ret){
 		goto cleanup;
 	}
 	if (EVP_EncryptInit_ex(ctx, fk->encryption, NULL, fk->key, fk->iv) != 1){
-		ret = evp_geterror();
+		ret = err_evperror();
 		goto cleanup;
 	}
 
 	/* reading + encrypting file */
 	while ((inlen = read_file(fp_in, inbuffer, sizeof(inbuffer)))){
 		if (EVP_EncryptUpdate(ctx, outbuffer, &outlen, inbuffer, inlen) != 1){
-			ret = evp_geterror();
+			ret = err_evperror();
 			goto cleanup;
 		}
 		fwrite(outbuffer, 1, outlen, fp_out);
@@ -381,7 +381,7 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 
 	/* finalizing */
 	if (EVP_EncryptFinal_ex(ctx, outbuffer, &outlen) != 1){
-		ret = evp_geterror();
+		ret = err_evperror();
 		goto cleanup;
 	}
 	fwrite(outbuffer, 1, outlen, fp_out);
@@ -486,19 +486,19 @@ int crypt_decrypt(const char* in, crypt_keys* fk, const char* out){
 
 	/* initializing cipher context */
 	ctx = EVP_CIPHER_CTX_new();
-	ret = evp_geterror();
+	ret = err_evperror();
 	if (ret){
 		goto cleanup;
 	}
 	if (EVP_DecryptInit_ex(ctx, fk->encryption, NULL, fk->key, fk->iv) != 1){
-		ret = evp_geterror();
+		ret = err_evperror();
 		goto cleanup;
 	}
 
 	/* reading + encrypting file */
 	while ((inlen = read_file(fp_in, inbuffer, sizeof(inbuffer)))){
 		if (EVP_DecryptUpdate(ctx, outbuffer, &outlen, inbuffer, inlen) != 1){
-			ret = evp_geterror();
+			ret = err_evperror();
 			goto cleanup;
 		}
 		fwrite(outbuffer, 1, outlen, fp_out);
@@ -506,7 +506,7 @@ int crypt_decrypt(const char* in, crypt_keys* fk, const char* out){
 
 	/* finalizing */
 	if (EVP_DecryptFinal_ex(ctx, outbuffer, &outlen) != 1){
-		ret = evp_geterror();
+		ret = err_evperror();
 		goto cleanup;
 	}
 	fwrite(outbuffer, 1, outlen, fp_out);
@@ -577,19 +577,19 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	/* initializing cipher context */
 	/* encrypted data is usually longer than input data */
 	ctx = EVP_CIPHER_CTX_new();
-	ret = evp_geterror();
+	ret = err_evperror();
 	if (ret){
 		goto cleanup;
 	}
 	if (EVP_DecryptInit_ex(ctx, fk->encryption, NULL, fk->key, fk->iv) != 1){
-		ret = evp_geterror();
+		ret = err_evperror();
 		goto cleanup;
 	}
 
 	/* reading + encrypting file */
 	while ((inlen = read_file(fp_in, inbuffer, sizeof(inbuffer)))){
 		if (EVP_DecryptUpdate(ctx, outbuffer, &outlen, inbuffer, inlen) != 1){
-			ret = evp_geterror();
+			ret = err_evperror();
 			goto cleanup;
 		}
 		fwrite(outbuffer, 1, outlen, fp_out);
@@ -601,7 +601,7 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 
 	/* finalizing */
 	if (EVP_DecryptFinal_ex(ctx, outbuffer, &outlen) != 1){
-		ret = evp_geterror();
+		ret = err_evperror();
 		goto cleanup;
 	}
 	fwrite(outbuffer, 1, outlen, fp_out);
