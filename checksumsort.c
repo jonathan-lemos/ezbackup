@@ -11,7 +11,7 @@
 /* assert */
 #include <assert.h>
 
-#define MAX_RUN_SIZE (16)
+#define MAX_RUN_SIZE (1 << 24)
 
 static int compare_elements(element* e1, element* e2){
 	/* send NULL's to bottom of heap */
@@ -326,12 +326,14 @@ void free_filearray(FILE** elements, size_t size){
 /* out is char*** and not FILE***, since we need to reopen
  * them in reading mode and also remove() them when we're
  * done */
+/* TODO: refactor */
 int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 	FILE* fp_in;
 	element** elems = NULL;
-	element* tmp;
+	element* tmp = NULL;
 	int elems_len = 0;
 	int total_len = 0;
+	int end_of_file = 0;
 
 	if (!in_file || !out || !n_files){
 		return err_regularerror(ERR_ARGUMENT_NULL);
@@ -345,7 +347,7 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 	*out = NULL;
 	*n_files = 0;
 
-	while ((tmp = get_next_checksum_element(fp_in)) != NULL){
+	while (!end_of_file){
 		/* /var/tmp is mounted to disk, not RAM */
 		const char* template = "/var/tmp/merge_XXXXXX";
 		FILE* fp;
@@ -354,7 +356,7 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 		/* make a new temp file */
 		(*n_files)++;
 		/* make space for new string */
-		*out = realloc(*out, sizeof(char*) * *n_files);
+		*out = realloc(*out, sizeof(**out) * *n_files);
 		if (!*out){
 			return err_regularerror(ERR_OUT_OF_MEMORY);
 		}
@@ -377,7 +379,8 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 		/* read enough elements to fill MAX_RUN_SIZE */
 		/* TODO: this reads one element above MAX_RUN_SIZE
 		 * make it not do that */
-		while (total_len < MAX_RUN_SIZE){
+		while (total_len < MAX_RUN_SIZE &&
+				(tmp = get_next_checksum_element(fp_in)) != NULL){
 			elems_len++;
 			elems = realloc(elems, sizeof(*elems) * elems_len);
 			if (!elems){
@@ -385,10 +388,20 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 			}
 			/* +2 for the 2 \0's */
 			total_len += strlen(tmp->file) + strlen(tmp->checksum) + 2;
-
 			elems[elems_len - 1] = tmp;
 		}
-
+		if (!elems_len){
+			fclose(fp);
+			remove((*out)[(*n_files) - 1]);
+			free((*out)[(*n_files) - 1]);
+			(*n_files)--;
+			*out = realloc(*out, *n_files * sizeof(**out));
+			if (!(*out)){
+				return err_regularerror(ERR_OUT_OF_MEMORY);
+			}
+			end_of_file = 1;
+			continue;
+		}
 		/* sort elements */
 		quicksort_elements(elems, 0, elems_len - 1);
 		/* write them to the file */
@@ -401,6 +414,9 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 		elems = NULL;
 		elems_len = 0;
 		total_len = 0;
+		if (!tmp){
+			end_of_file = 1;
+		}
 	}
 	return 0;
 }

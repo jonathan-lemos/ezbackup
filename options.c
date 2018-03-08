@@ -41,7 +41,7 @@ int parse_options_cmdline(int argc, const char** argv, options* out){
 
 	memset(out, 0, sizeof(*out));
 
-	for (i = 1; i < argc; ++i){
+	for (i = 0; i < argc; ++i){
 		if (!strcmp(argv[i], "-h") ||
 				!strcmp(argv[i], "--help")){
 			usage(argv[0]);
@@ -84,7 +84,7 @@ int parse_options_cmdline(int argc, const char** argv, options* out){
 			while (++i < argc && argv[i][0] != '-'){
 				++out->exclude_len;
 				out->exclude = realloc(out->exclude, sizeof(char*) * out->exclude_len);
-				out->exclude[out->exclude_len] = malloc(strlen(argv[i] + 1));
+				out->exclude[out->exclude_len - 1] = malloc(strlen(argv[i] + 1));
 				strcpy(out->exclude[out->exclude_len - 1], argv[i]);
 			}
 		}
@@ -113,9 +113,20 @@ int parse_options_cmdline(int argc, const char** argv, options* out){
 
 	out->exclude_len += 3;
 	out->exclude = realloc(out->exclude, sizeof(char*) * out->exclude_len);
+	if (!out->exclude){
+		return err_regularerror(ERR_OUT_OF_MEMORY);
+	}
 	/* these directories are made at runtime
 	 * we have no reason to back them up
 	 */
+	out->exclude[out->exclude_len - 3] = malloc(sizeof("/proc"));
+	out->exclude[out->exclude_len - 2] = malloc(sizeof("/sys"));
+	out->exclude[out->exclude_len - 1] = malloc(sizeof("/dev"));
+	if (!out->exclude[out->exclude_len - 3] ||
+			!out->exclude[out->exclude_len - 2] ||
+			!out->exclude[out->exclude_len - 1]){
+		return err_regularerror(ERR_OUT_OF_MEMORY);
+	}
 	strcpy(out->exclude[out->exclude_len - 3], "/proc");
 	strcpy(out->exclude[out->exclude_len - 2], "/sys");
 	strcpy(out->exclude[out->exclude_len - 1], "/dev");
@@ -133,8 +144,6 @@ static int display_menu(const char** options, int num_options, const char* title
 	int col;
 	int ret;
 
-	(void)row;
-
 	if (!options || !title || num_options <= 0){
 		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
@@ -142,24 +151,25 @@ static int display_menu(const char** options, int num_options, const char* title
 	my_items = malloc((num_options + 1) * sizeof(ITEM*));
 
 	for (i = 0; i < num_options; ++i){
-		my_items[i] = new_item(options[i], options[i]);
+		my_items[i] = new_item(options[i], NULL);
 	}
 	my_items[num_options] = NULL;
 
 	my_menu = new_menu(my_items);
 	getmaxyx(stdscr, row, col);
-	mvprintw(0, (col - strlen(title)) / 2, title);
+	clear();
+	mvprintw(row - 1, (col - strlen(title)) / 2, title);
 	post_menu(my_menu);
 	refresh();
 
-	while ((c = getch()) != KEY_ENTER){
+	while ((c = getch()) != '\n'){
 		switch(c){
-			case KEY_DOWN:
-				menu_driver(my_menu, REQ_DOWN_ITEM);
-				break;
-			case KEY_UP:
-				menu_driver(my_menu, REQ_UP_ITEM);
-				break;
+		case KEY_DOWN:
+			menu_driver(my_menu, REQ_DOWN_ITEM);
+			break;
+		case KEY_UP:
+			menu_driver(my_menu, REQ_UP_ITEM);
+			break;
 		}
 	}
 
@@ -171,7 +181,6 @@ static int display_menu(const char** options, int num_options, const char* title
 	}
 	free_menu(my_menu);
 	free(my_items);
-	endwin();
 
 	return ret;
 }
@@ -225,8 +234,9 @@ int parse_options_menu(options* opt){
 	opt->directories = NULL;
 	opt->directories_len = 0;
 	printf("Enter directories to backup (enter to end)\n");
+	/* TODO: refactor */
 	do{
-		printf(": ");
+		printf(":");
 		fgets(input_buffer, sizeof(input_buffer), stdin);
 		if (input_buffer[0] != '\n'){
 			/* make space for new char* */
@@ -279,9 +289,9 @@ int parse_options_menu(options* opt){
 	/* read directories to exclude */
 	opt->exclude = NULL;
 	opt->exclude_len = 0;
-	printf("Enter exclude to exclude (enter to end)\n");
+	printf("Enter directories to exclude (enter to end)\n");
 	do{
-		printf(": ");
+		printf(":");
 		fgets(input_buffer, sizeof(input_buffer), stdin);
 		if (input_buffer[0] != '\n'){
 			/* make space for new char* */
@@ -325,52 +335,52 @@ int parse_options_menu(options* opt){
 
 	res = display_menu(options_compressor, ARRAY_SIZE(options_compressor), "Select a compression algorithm");
 	switch (res){
-		case 0:
-			opt->comp_algorithm = COMPRESSOR_GZIP;
-			break;
-		case 1:
-			opt->comp_algorithm = COMPRESSOR_BZIP2;
-			break;
-		case 2:
-			opt->comp_algorithm = COMPRESSOR_XZ;
-			break;
-		case 3:
-			opt->comp_algorithm = COMPRESSOR_LZ4;
-			break;
-		default:
-			opt->comp_algorithm = COMPRESSOR_NONE;
+	case 0:
+		opt->comp_algorithm = COMPRESSOR_GZIP;
+		break;
+	case 1:
+		opt->comp_algorithm = COMPRESSOR_BZIP2;
+		break;
+	case 2:
+		opt->comp_algorithm = COMPRESSOR_XZ;
+		break;
+	case 3:
+		opt->comp_algorithm = COMPRESSOR_LZ4;
+		break;
+	default:
+		opt->comp_algorithm = COMPRESSOR_NONE;
 	}
 
 	res = display_menu(options_checksum, ARRAY_SIZE(options_checksum), "Select a checksum algorithm");
 	opt->hash_algorithm = malloc(sizeof("sha256"));
 	switch (res){
-		case 0:
-			strcpy(opt->hash_algorithm, "sha1");
-			break;
-		case 1:
-			strcpy(opt->hash_algorithm, "sha256");
-			break;
-		case 2:
-			strcpy(opt->hash_algorithm, "sha512");
-			break;
-		case 3:
-			strcpy(opt->hash_algorithm, "md5");
-			break;
-		default:
-			free(opt->hash_algorithm);
-			opt->hash_algorithm = NULL;
-			break;
+	case 0:
+		strcpy(opt->hash_algorithm, "sha1");
+		break;
+	case 1:
+		strcpy(opt->hash_algorithm, "sha256");
+		break;
+	case 2:
+		strcpy(opt->hash_algorithm, "sha512");
+		break;
+	case 3:
+		strcpy(opt->hash_algorithm, "md5");
+		break;
+	default:
+		free(opt->hash_algorithm);
+		opt->hash_algorithm = NULL;
+		break;
 	}
 
 	encryption = display_menu(options_encryption, ARRAY_SIZE(options_encryption), "Select an encryption algorithm");
 	if (encryption >= 0 && encryption <= 1){
-		keysize = display_menu(options_encryption, ARRAY_SIZE(options_keysize), "Select a key size");
+		keysize = display_menu(options_keysize, ARRAY_SIZE(options_keysize), "Select a key size");
 	}
 	if (encryption >= 0 && encryption <= 2){
-		mode = display_menu(options_encryption, ARRAY_SIZE(options_mode), "Select an encryption mode");
+		mode = display_menu(options_mode, ARRAY_SIZE(options_mode), "Select an encryption mode");
 	}
 	else if (encryption != 5){
-		mode = display_menu(options_encryption, ARRAY_SIZE(options_mode) - 1, "Select an encryption mode");
+		mode = display_menu(options_mode, ARRAY_SIZE(options_mode) - 1, "Select an encryption mode");
 	}
 
 	opt->enc_algorithm = malloc(sizeof("camellia-000-xxx"));
@@ -378,64 +388,64 @@ int parse_options_menu(options* opt){
 		return ERR_OUT_OF_MEMORY;
 	}
 	switch (encryption){
+	case 0:
+		strcpy(opt->enc_algorithm, "aes-");
+		switch (keysize){
 		case 0:
-			strcpy(opt->enc_algorithm, "aes-");
-			switch (keysize){
-				case 0:
-					strcat(opt->enc_algorithm, "256-");
-					break;
-				case 1:
-					strcat(opt->enc_algorithm, "192-");
-					break;
-				case 2:
-					strcat(opt->enc_algorithm, "128-");
-					break;
-			}
+			strcat(opt->enc_algorithm, "256-");
 			break;
 		case 1:
-			strcpy(opt->enc_algorithm, "camellia-");
-			switch (keysize){
-				case 0:
-					strcat(opt->enc_algorithm, "256-");
-					break;
-				case 1:
-					strcat(opt->enc_algorithm, "192-");
-					break;
-				case 2:
-					strcat(opt->enc_algorithm, "128-");
-					break;
-			}
+			strcat(opt->enc_algorithm, "192-");
 			break;
 		case 2:
-			strcpy(opt->enc_algorithm, "seed-");
+			strcat(opt->enc_algorithm, "128-");
+			break;
+		}
+		break;
+	case 1:
+		strcpy(opt->enc_algorithm, "camellia-");
+		switch (keysize){
+		case 0:
+			strcat(opt->enc_algorithm, "256-");
+			break;
+		case 1:
+			strcat(opt->enc_algorithm, "192-");
+			break;
+		case 2:
+			strcat(opt->enc_algorithm, "128-");
+			break;
+		}
+		break;
+	case 2:
+		strcpy(opt->enc_algorithm, "seed-");
+		break;
+	case 3:
+		strcpy(opt->enc_algorithm, "bf-");
+		break;
+	case 4:
+		strcpy(opt->enc_algorithm, "des-ede3-");
+		break;
+	default:
+		free(opt->enc_algorithm);
+		opt->enc_algorithm = NULL;
+	}
+	if (opt->enc_algorithm){
+		switch (mode){
+		case 0:
+			strcat(opt->enc_algorithm, "cbc");
+			break;
+		case 1:
+			strcat(opt->enc_algorithm, "cfb");
+			break;
+		case 2:
+			strcat(opt->enc_algorithm, "ofb");
 			break;
 		case 3:
-			strcpy(opt->enc_algorithm, "bf-");
-			break;
-		case 4:
-			strcpy(opt->enc_algorithm, "des-ede3-");
+			strcat(opt->enc_algorithm, "ctr");
 			break;
 		default:
 			free(opt->enc_algorithm);
 			opt->enc_algorithm = NULL;
-	}
-	if (opt->enc_algorithm){
-		switch (mode){
-			case 0:
-				strcat(opt->enc_algorithm, "cbc");
-				break;
-			case 1:
-				strcat(opt->enc_algorithm, "cfb");
-				break;
-			case 2:
-				strcat(opt->enc_algorithm, "ofb");
-				break;
-			case 3:
-				strcat(opt->enc_algorithm, "ctr");
-				break;
-			default:
-				free(opt->enc_algorithm);
-				opt->enc_algorithm = NULL;
 		}
 	}
 	endwin();

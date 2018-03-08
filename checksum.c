@@ -214,6 +214,7 @@ int sort_checksum_file(const char* in_file, const char* out_file){
 	create_initial_runs(in_file, &tmp_files, &n_files);
 	merge_files(tmp_files, n_files, out_file);
 	for (i = 0; i < n_files; ++i){
+		remove(tmp_files[i]);
 		free(tmp_files[i]);
 	}
 	free(tmp_files);

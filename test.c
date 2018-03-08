@@ -261,12 +261,13 @@ void test_options_h(void){
 		"camellia-256-cbc",
 		"-o",
 		"file.txt",
+		"/in1",
+		"/in2",
+		"/in3",
 		"-x",
 		"/exclude1",
 		"/exclude2",
-		"/in1",
-		"/in2",
-		"/in3"
+		"/exclude3"
 	};
 	int argc = sizeof(argv) / sizeof(argv[0]);
 
@@ -300,6 +301,7 @@ void test_progressbar_h(void){
 	assert (p);
 	for (i = 0; i < 10; ++i){
 		inc_progress(p, 1);
+		sleep(1);
 	}
 	finish_progress(p);
 }
@@ -320,11 +322,12 @@ int main(void){
 	test_maketar_h(file);
 	printf_green("Maketar.h test succeeded\n");
 	remove(file);
-	return 0;
 	test_fileiterator_h("/home/jonathan/Documents\n");
 	printf_green("Fileiterator.h test succeeded\n");
+	/*
 	test_progressbar_h();
 	printf_green("Progressbar.h test succeeded\n");
+	*/
 	test_options_h();
 	printf_green("Options.h test succeeded\n");
 
