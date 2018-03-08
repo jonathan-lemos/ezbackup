@@ -370,10 +370,14 @@ int tar_extract(const char* tarchive, const char* outdir, int verbose){
 	   }
 	   */
 cleanup:
-	archive_read_close(tp);
-	archive_read_free(tp);
-	archive_write_close(ext);
-	archive_write_free(ext);
+	if (tp){
+		archive_read_close(tp);
+		archive_read_free(tp);
+	}
+	if (ext){
+		archive_write_close(ext);
+		archive_write_free(ext);
+	}
 	return ret;
 }
 
@@ -417,6 +421,7 @@ int tar_extract_file(const char* tarchive, const char* file_intar, const char* f
 
 	/* while there are files in the archive */
 	while (ret != ARCHIVE_EOF){
+		entry = NULL;
 		/* read the header */
 		ret = archive_read_next_header(tp, &entry);
 		switch (ret){
@@ -464,6 +469,7 @@ int tar_extract_file(const char* tarchive, const char* file_intar, const char* f
 			break;
 		default:
 			err_archiveerror(ret, tp);
+			goto cleanup;
 		}
 
 		/* extract the file */
@@ -491,34 +497,21 @@ int tar_extract_file(const char* tarchive, const char* file_intar, const char* f
 		archive_entry_free(entry);
 	}
 
-
 	/* cleanup */
 	ret = archive_write_finish_entry(ext);
 
-	/*
-	   switch (ret){
-	   case ARCHIVE_OK:
-	   break;
-	   case ARCHIVE_WARN:
-	   print_error(ret, tp);
-	   break;
-	   default:
-	   print_error(ret, tp);
-	   archive_read_close(tp);
-	   archive_read_free(tp);
-	   archive_write_close(ext);
-	   archive_write_free(ext);
-	   break;
-	   }
-	   */
 cleanup:
 	if (entry){
 		archive_entry_free(entry);
 	}
-	archive_read_close(tp);
-	archive_read_free(tp);
-	archive_write_close(ext);
-	archive_write_free(ext);
+	if (tp){
+		archive_read_close(tp);
+		archive_read_free(tp);
+	}
+	if (ext){
+		archive_write_close(ext);
+		archive_write_free(ext);
+	}
 	return ret;
 }
 

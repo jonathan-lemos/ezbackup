@@ -80,7 +80,7 @@ void test_checksum_h(void){
 	fclose(fp);
 
 	/* reopen for reading */
-	fopen(checksum_file, "rb");
+	fp = fopen(checksum_file, "rb");
 	assert(fp);
 
 	/* get the checksum elements */
@@ -97,7 +97,7 @@ void test_checksum_h(void){
 	assert(strcmp(elems[2]->file, "file1.txt") == 0);
 
 	/* close the file */
-	for (i = 0; i < 4; ++i) free(elems[i]);
+	for (i = 0; i < 4; ++i) free_element(elems[i]);
 	fclose(fp);
 
 	/* sorting the file */
@@ -117,7 +117,7 @@ void test_checksum_h(void){
 	assert(strcmp(elems[3]->file, "file4.txt") == 0);
 
 	/* closing file */
-	for (i = 0; i < 4; ++i) free(elems[i]);
+	for (i = 0; i < 4; ++i) free_element(elems[i]);
 	fclose(fp);
 
 	/* cleanup */
@@ -177,9 +177,9 @@ void test_crypt_h(const char* file){
 	assert(crypt_set_encryption("aes-256-cbc", &fk) == 0);
 	assert(crypt_extract_salt(file_crypt, &fk) == 0);
 	assert(memcmp(fk.salt, salt, sizeof(salt)) == 0);
-	tmp = crypt_gen_keys((unsigned char*)"password", strlen("password"), NULL, 1, &fk);
-	assert(tmp == 0);
+	assert(crypt_gen_keys((unsigned char*)"password", strlen("password"), NULL, 1, &fk) == 0);
 	assert(crypt_decrypt(file_crypt, &fk, file_decrypt) == 0);
+	assert(crypt_free(&fk) == 0);
 
 	/* check decrypted file matches original */
 	fp1 = fopen(file_decrypt, "rb");
@@ -318,10 +318,10 @@ int main(void){
 	printf_green("Checksum.h test succeeded\n");
 	test_crypt_h(file);
 	printf_green("Crypt.h test succeeded\n");
+	return 0;
 	test_maketar_h(file);
 	printf_green("Maketar.h test succeeded\n");
 	remove(file);
-	return 0;
 	test_fileiterator_h("/home/jonathan/Documents\n");
 	printf_green("Fileiterator.h test succeeded\n");
 	test_progressbar_h();

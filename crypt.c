@@ -219,7 +219,7 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	int inlen;
 	int outlen;
 	int ret = 0;
-	progress* p;
+	progress* p = NULL;
 	FILE* fp_in;
 	FILE* fp_out;
 
@@ -377,7 +377,7 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	int inlen;
 	int outlen;
 	int ret = 0;
-	progress* p;
+	progress* p = NULL;
 	FILE* fp_in;
 	FILE* fp_out;
 

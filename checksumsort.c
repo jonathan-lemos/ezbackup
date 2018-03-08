@@ -453,7 +453,7 @@ int merge_files(char** files, size_t n_files, const char* out_file){
 	}
 
 	/* allocate space for our file array */
-	in = malloc(sizeof(FILE*) * n_files);
+	in = malloc(sizeof(*in) * n_files);
 	if (!in){
 		return err_regularerror(ERR_OUT_OF_MEMORY);
 	}
@@ -489,7 +489,7 @@ int merge_files(char** files, size_t n_files, const char* out_file){
 		free_element(mhn[0].e);
 
 		/* replace root element with next from that file */
-		mhn[0].e = get_next_checksum_element(in[i]);
+		mhn[0].e = get_next_checksum_element(in[mhn[0].i]);
 		/* if file is empty */
 		if (!mhn[0].e){
 			/* raise the counter */

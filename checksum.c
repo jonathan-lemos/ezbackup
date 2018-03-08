@@ -156,7 +156,7 @@ int file_to_element(const char* file, const char* algorithm, element** out){
 		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
 
-	*out = malloc(sizeof(*out));
+	*out = malloc(sizeof(**out));
 	if (!out){
 		return err_regularerror(ERR_OUT_OF_MEMORY);
 	}
@@ -167,7 +167,7 @@ int file_to_element(const char* file, const char* algorithm, element** out){
 	strcpy((*out)->file, file);
 
 	/* compute checksum */
-	if((err = checksum(file, algorithm, &buffer, &len)) != 0){
+	if ((err = checksum(file, algorithm, &buffer, &len)) != 0){
 		return err;
 	}
 
@@ -177,6 +177,7 @@ int file_to_element(const char* file, const char* algorithm, element** out){
 		return err;
 	}
 
+	free(buffer);
 	return 0;
 }
 
@@ -201,7 +202,7 @@ int add_checksum_to_file(const char* file, const char* algorithm, FILE* out){
 		return err;
 	}
 
-	free(e);
+	free_element(e);
 	return 0;
 }
 
