@@ -145,7 +145,6 @@ void test_crypt_h(const char* file){
 	int buf2_len;
 	FILE* fp1;
 	FILE* fp2;
-	int tmp;
 
 	assert(file);
 
@@ -318,10 +317,10 @@ int main(void){
 	printf_green("Checksum.h test succeeded\n");
 	test_crypt_h(file);
 	printf_green("Crypt.h test succeeded\n");
-	return 0;
 	test_maketar_h(file);
 	printf_green("Maketar.h test succeeded\n");
 	remove(file);
+	return 0;
 	test_fileiterator_h("/home/jonathan/Documents\n");
 	printf_green("Fileiterator.h test succeeded\n");
 	test_progressbar_h();

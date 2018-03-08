@@ -499,7 +499,7 @@ int tar_extract_file(const char* tarchive, const char* file_intar, const char* f
 
 	/* cleanup */
 	ret = archive_write_finish_entry(ext);
-
+	entry = NULL;
 cleanup:
 	if (entry){
 		archive_entry_free(entry);
