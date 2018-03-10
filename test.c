@@ -43,6 +43,7 @@ void test_checksum_h(void){
 	FILE* fp;
 	element** elems = (element**)-1;
 	char** out = (char**)-1;
+	char* checksum = (char*)-1;
 	size_t n_files = -1;
 	int i;
 
@@ -96,6 +97,9 @@ void test_checksum_h(void){
 		assert(elems[i]);
 		assert(strcmp(str, elems[i]->file) == 0);
 	}
+
+	assert(search_for_checksum(sorted_file, "test99.txt", &checksum) == 0);
+	assert(search_for_checksum(sorted_file, "nexist.txt", &checksum) == 1);
 
 	/* closing file */
 	for (i = 0; i < 100; ++i) free_element(elems[i]);

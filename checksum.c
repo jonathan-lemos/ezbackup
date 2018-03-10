@@ -221,6 +221,6 @@ int sort_checksum_file(const char* in_file, const char* out_file){
 	return 0;
 }
 
-int search_checksum_file(FILE* in, const char* file, char** out){
-
+int search_for_checksum(const char* file, const char* key, char** checksum){
+	return search_file(file, key, checksum);
 }

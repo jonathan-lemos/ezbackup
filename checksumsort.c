@@ -445,6 +445,7 @@ int search_file(const char* file, const char* key, char** checksum){
 	int c;
 	int size;
 	int res;
+	const int end_bsearch_threshold = 16;
 
 	/* check null arguments */
 	if (!file || !key || !checksum){
@@ -466,13 +467,19 @@ int search_file(const char* file, const char* key, char** checksum){
 	 * since fseek is a rather slow operation,
 	 * it's more efficient just to linearly search
 	 * at that point */
-	while (size >= 512){
+	while (size >= end_bsearch_threshold){
 		/* go to pivot */
 		fseek(fp, pivot, SEEK_SET);
 		fgetc(fp);
 		/* move back to beginning of element */
 		do{
-			fseek(fp, -2, SEEK_CUR);
+			if (ftell(fp) <= 1){
+				fseek(fp, 0, SEEK_SET);
+				break;
+			}
+			else{
+				fseek(fp, -2, SEEK_CUR);
+			}
 			c = fgetc(fp);
 			if (ftell(fp) <= 0){
 				break;
@@ -497,26 +504,32 @@ int search_file(const char* file, const char* key, char** checksum){
 		else if (res < 0){
 			/* go to half of left */
 			size /= 2;
-			pivot = size;
+			pivot = size / 2;
 		}
 		else{
 			/* otherwise go to half of right */
 			size /= 2;
-			pivot += size;
+			pivot += size / 2;
 		}
 		free(tmp);
 	}
 
 	/* go back 512 bytes or to beginning of file to make sure we don't miss anything */
-	if (ftell(fp) < 512){
+	if (ftell(fp) < end_bsearch_threshold){
 		fseek(fp, 0, SEEK_SET);
 	}
 	else{
-		fseek(fp, -512, SEEK_CUR);
+		fseek(fp, -end_bsearch_threshold, SEEK_CUR);
 	}
 	/* go to beginning of element */
 	do{
-		fseek(fp, -2, SEEK_CUR);
+		if (ftell(fp) <= 1){
+			fseek(fp, 0, SEEK_SET);
+			break;
+		}
+		else{
+			fseek(fp, -2, SEEK_CUR);
+		}
 		c = fgetc(fp);
 		if (ftell(fp) <= 0){
 			break;
@@ -525,9 +538,13 @@ int search_file(const char* file, const char* key, char** checksum){
 	/* linearly search for our key */
 	do{
 		tmp = get_next_checksum_element(fp);
+		if (!tmp){
+			res = 1;
+			break;
+		}
 		res = strcmp(key, tmp->file);
 		free(tmp);
-	/* while key is less than tmp */
+		/* while key is less than tmp */
 	}while (res < 0);
 	/* if we found our target */
 	if (res == 0){

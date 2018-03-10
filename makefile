@@ -12,6 +12,7 @@ CLEANOBJECTS=$(foreach header,$(HEADERS),$(header).c.*)
 
 release: main.o $(OBJECTS)
 	$(CC) -o $(NAME) main.o $(OBJECTS) $(CFLAGS) $(LINKFLAGS)
+	strip $(NAME)
 
 debug: main.dbg.o $(DBGOBJECTS)
 	$(CC) -o $(NAME) main.dbg.o $(DBGOBJECTS) $(CFLAGS) $(DBGFLAGS) $(LINKFLAGS)
