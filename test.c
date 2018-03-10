@@ -99,6 +99,7 @@ void test_checksum_h(void){
 	}
 
 	assert(search_for_checksum(sorted_file, "test99.txt", &checksum) == 0);
+	assert(strcmp(checksum, "82ACFEE866E781644ABB3E638A4E033EAB89C813") == 0);
 	assert(search_for_checksum(sorted_file, "nexist.txt", &checksum) == 1);
 
 	/* closing file */
@@ -234,7 +235,7 @@ void test_maketar_h(const char* file){
 
 void test_options_h(void){
 	options opt;
-	const char* argv[] = {
+	char* argv[] = {
 		"-v",
 		"-c",
 		"gzip",

@@ -18,7 +18,7 @@ typedef struct options {
 }options;
 
 void usage(const char* progname);
-int parse_options_cmdline(int argc, const char** argv, options* out);
+int parse_options_cmdline(int argc, char** argv, options* out);
 int parse_options_menu(options* opt);
 int parse_options_fromfile(const char* file, options* opt);
 int write_options_tofile(const char* file, options* opt);

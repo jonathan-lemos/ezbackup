@@ -24,8 +24,6 @@
 #include <stdlib.h>
 /* stat to check if directory */
 #include <sys/stat.h>
-/* reading password */
-#include <termios.h>
 /* getting home directory */
 #include <unistd.h>
 #include <pwd.h>
@@ -44,17 +42,14 @@ typedef struct func_params{
 	options     opt;
 }func_params;
 
-int disable_core_dumps(void){
+static int disable_core_dumps(void){
 	struct rlimit rl;
 	rl.rlim_cur = 0;
 	rl.rlim_max = 0;
 	return setrlimit(RLIMIT_CORE, &rl);
 }
 
-int get_pass(char* out, size_t len){
-}
-
-int is_directory(const char* path){
+static int is_directory(const char* path){
 	struct stat st;
 
 	if (!path){
@@ -93,7 +88,7 @@ int fun(const char* file, const char* dir, struct stat* st, void* params){
 	}
 
 	if ((err = add_checksum_to_file(file, fparams->opt.hash_algorithm, fparams->fp_hashes) != 0)){
-		printf("%s: %s\n", file, evp_strerror(err));
+		printf("%s: %s\n", file, err_strerror(err));
 	}
 	return 1;
 }
@@ -131,13 +126,21 @@ int main(int argc, char** argv){
 	fparams.fp_hashes = NULL;
 
 	/* parse command line args */
-	if ((parse_res = parse_options_cmdline(argc, argv, &(fparams.opt))) != 0){
+	if (argc >= 2){
+		parse_res = parse_options_cmdline(argc, argv, &(fparams.opt));
 		if (parse_res < 0 || parse_res > argc){
-			fprintf(stderr, "satan has infected the computer\n");
+			fprintf(stderr, "Failed to parse command line arguments\n");
 			return 1;
 		}
 		else{
 			fprintf(stderr, "Invalid parameter %s\n", argv[parse_res]);
+			return 1;
+		}
+	}
+	else{
+		parse_res = parse_options_menu(&(fparams.opt));
+		if (parse_res != 0){
+			fprintf(stderr, "Failed to get options\n");
 			return 1;
 		}
 	}

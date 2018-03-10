@@ -50,7 +50,7 @@ static int add_string_to_array(char*** array, int* array_len, const char* str){
  *
  * returns -1 if out is NULL, 0 on success
  * index of bad argument on bad argument */
-int parse_options_cmdline(int argc, const char** argv, options* out){
+int parse_options_cmdline(int argc, char** argv, options* out){
 	int i;
 
 	if (!out){

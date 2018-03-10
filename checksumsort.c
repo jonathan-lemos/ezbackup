@@ -498,6 +498,8 @@ int search_file(const char* file, const char* key, char** checksum){
 			if (!(*checksum)){
 				return err_regularerror(ERR_OUT_OF_MEMORY);
 			}
+			strcpy(*checksum, tmp->checksum);
+			free_element(tmp);
 			return 0;
 		}
 		/* if key is before tmp */
@@ -511,7 +513,7 @@ int search_file(const char* file, const char* key, char** checksum){
 			size /= 2;
 			pivot += size / 2;
 		}
-		free(tmp);
+		free_element(tmp);
 	}
 
 	/* go back 512 bytes or to beginning of file to make sure we don't miss anything */
@@ -543,7 +545,10 @@ int search_file(const char* file, const char* key, char** checksum){
 			break;
 		}
 		res = strcmp(key, tmp->file);
-		free(tmp);
+		if (res == 0){
+			break;
+		}
+		free_element(tmp);
 		/* while key is less than tmp */
 	}while (res < 0);
 	/* if we found our target */
@@ -553,6 +558,8 @@ int search_file(const char* file, const char* key, char** checksum){
 		if (!(*checksum)){
 			return err_regularerror(ERR_OUT_OF_MEMORY);
 		}
+		strcpy(*checksum, tmp->checksum);
+		free_element(tmp);
 		return 0;
 	}
 	/* otherwise we failed */
