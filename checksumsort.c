@@ -10,8 +10,10 @@
 #include <stdlib.h>
 /* assert */
 #include <assert.h>
+/* file size */
+#include <sys/stat.h>
 
-#define MAX_RUN_SIZE (1 << 24)
+#define MAX_RUN_SIZE (1024)
 
 static int compare_elements(element* e1, element* e2){
 	/* send NULL's to bottom of heap */
@@ -25,7 +27,7 @@ static int compare_elements(element* e1, element* e2){
 	return strcmp(e1->file, e2->file);
 }
 
-/* format: <file>\0<checksum>\0 */
+/* format: <file>\0<checksum>\n */
 int write_element_to_file(FILE* fp, element* e){
 	int c;
 
@@ -33,7 +35,7 @@ int write_element_to_file(FILE* fp, element* e){
 		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
 
-	c = fprintf(fp, "%s%c%s%c", e->file, '\0', e->checksum, '\0');
+	c = fprintf(fp, "%s%c%s\n", e->file, '\0', e->checksum);
 	return 0;
 }
 
@@ -42,7 +44,6 @@ element* get_next_checksum_element(FILE* fp){
 	long pos_file;
 	long pos_checksum;
 	int c;
-	int counter = 0;
 	size_t len_file;
 	size_t len_checksum;
 	element* e;
@@ -58,26 +59,21 @@ element* get_next_checksum_element(FILE* fp){
 
 	pos_origin = ftell(fp);
 	/* read two \0's */
-	while (counter < 2){
-		c = fgetc(fp);
+	while ((c = fgetc(fp)) != '\0'){
 		/* end of file, no more checksums to read */
 		if (c == EOF){
 			free(e);
 			return NULL;
 		}
-		if (c == '\0'){
-			/* positions here include the \0 */
-			counter++;
-			/* if counter is odd, this is the file position */
-			if (counter & 1){
-				pos_file = ftell(fp);
-			}
-			/* otherwise this is the checksum position */
-			else{
-				pos_checksum = ftell(fp);
-			}
+	}
+	pos_file = ftell(fp);
+	while ((c = fgetc(fp)) != '\n'){
+		if (c == EOF){
+			free(e);
+			return NULL;
 		}
 	}
+	pos_checksum = ftell(fp);
 	/* calculate length of file + checksum */
 	len_file = pos_file - pos_origin;
 	len_checksum = pos_checksum - pos_file;
@@ -102,86 +98,8 @@ element* get_next_checksum_element(FILE* fp){
 
 	/* and read <length of checksum> bytes (includes \0)*/
 	fread(e->checksum, 1, len_checksum, fp);
+	e->checksum[len_checksum - 1] = '\0';
 
-	return e;
-}
-
-/* much slower than get_next_checksum_element(), since it
- * has to rewind the file and then go to the nth element,
- * instead of just getting the next one */
-element* get_checksum_element_index(FILE* fp, int index){
-	long pos_origin;
-	long pos_file;
-	long pos_checksum;
-	size_t len_file;
-	size_t len_checksum;
-	int c;
-	int counter = 0;
-	element* e;
-
-	if (!fp){
-		return NULL;
-	}
-
-	e = malloc(sizeof(*e));
-	if (!e){
-		return NULL;
-	}
-
-	rewind(fp);
-	/* go to the nth element */
-	/* 2 \0's equal one element */
-	while (counter < 2 * index){
-		c = fgetc(fp);
-		if (c == EOF){
-			break;
-		}
-		if (c == '\0'){
-			counter++;
-			/* if counter is even, meaning if we read an
-			 * entire element */
-			if (!(counter & 1)){
-				pos_origin = ftell(fp);
-			}
-		}
-	}
-	/* get the correct positions of the nth element */
-	counter = 0;
-	/* same thing as get_next_checksum_element() */
-	while (counter < 2){
-		c = fgetc(fp);
-		if (c == EOF){
-			break;
-		}
-		if (c == '\0'){
-			counter++;
-			if (counter & 1){
-				pos_file = ftell(fp);
-			}
-			else{
-				pos_checksum = ftell(fp);
-			}
-		}
-	}
-	len_file = pos_file - pos_origin;
-	len_checksum = pos_checksum - pos_file;
-
-	e->file = malloc(len_file);
-	if (!e->file){
-		free(e);
-		return NULL;
-	}
-	fseek(fp, pos_origin, SEEK_SET);
-	fread(e->file, 1, len_file, fp);
-
-	assert(pos_file == ftell(fp));
-	e->checksum = malloc(len_checksum);
-	if (!e->checksum){
-		free(e->file);
-		free(e);
-		return NULL;
-	}
-	fread(e->checksum, 1, len_checksum, fp);
 	return e;
 }
 
@@ -309,15 +227,6 @@ void free_filearray(FILE** elements, size_t size){
 	}
 	free(elements);
 }
-/*
-   static __off_t get_file_size(const char* file){
-   struct stat st;
-
-   lstat(file, &st);
-   return st.st_size;
-   }
-   */
-
 
 /* you know this is going to be good when there's a triple pointer */
 
@@ -520,4 +429,118 @@ int merge_files(char** files, size_t n_files, const char* out_file){
 	free_filearray(in, n_files);
 	fclose(fp_out);
 	return 0;
+}
+
+static __off_t get_file_size(const char* file){
+	struct stat st;
+
+	lstat(file, &st);
+	return st.st_size;
+}
+
+int search_file(const char* file, const char* key, char** checksum){
+	element* tmp;
+	FILE* fp;
+	__off_t pivot;
+	int c;
+	int size;
+	int res;
+
+	/* check null arguments */
+	if (!file || !key || !checksum){
+		return err_regularerror(ERR_ARGUMENT_NULL);
+	}
+
+	/* open file for reading */
+	fp = fopen(file, "rb");
+	if (!fp){
+		return err_regularerror(ERR_FILE_INPUT);
+	}
+
+	/* start at half of file */
+	size = get_file_size(file);
+	pivot = get_file_size(file) / 2;
+
+	/* 512 bytes or below switch to linear search
+	 *
+	 * since fseek is a rather slow operation,
+	 * it's more efficient just to linearly search
+	 * at that point */
+	while (size >= 512){
+		/* go to pivot */
+		fseek(fp, pivot, SEEK_SET);
+		fgetc(fp);
+		/* move back to beginning of element */
+		do{
+			fseek(fp, -2, SEEK_CUR);
+			c = fgetc(fp);
+			if (ftell(fp) <= 0){
+				break;
+			}
+		}while (c != '\n');
+
+		/* get the element */
+		tmp = get_next_checksum_element(fp);
+		if (!tmp){
+			return err_regularerror(ERR_FILE_INPUT);
+		}
+		/* check if it matches our key */
+		res = strcmp(key, tmp->file);
+		if (res == 0){
+			*checksum = malloc(strlen(tmp->checksum) + 1);
+			if (!(*checksum)){
+				return err_regularerror(ERR_OUT_OF_MEMORY);
+			}
+			return 0;
+		}
+		/* if key is before tmp */
+		else if (res < 0){
+			/* go to half of left */
+			size /= 2;
+			pivot = size;
+		}
+		else{
+			/* otherwise go to half of right */
+			size /= 2;
+			pivot += size;
+		}
+		free(tmp);
+	}
+
+	/* go back 512 bytes or to beginning of file to make sure we don't miss anything */
+	if (ftell(fp) < 512){
+		fseek(fp, 0, SEEK_SET);
+	}
+	else{
+		fseek(fp, -512, SEEK_CUR);
+	}
+	/* go to beginning of element */
+	do{
+		fseek(fp, -2, SEEK_CUR);
+		c = fgetc(fp);
+		if (ftell(fp) <= 0){
+			break;
+		}
+	}while (c != '\n');
+	/* linearly search for our key */
+	do{
+		tmp = get_next_checksum_element(fp);
+		res = strcmp(key, tmp->file);
+		free(tmp);
+	/* while key is less than tmp */
+	}while (res < 0);
+	/* if we found our target */
+	if (res == 0){
+		/* return it */
+		*checksum = malloc(strlen(tmp->checksum) + 1);
+		if (!(*checksum)){
+			return err_regularerror(ERR_OUT_OF_MEMORY);
+		}
+		return 0;
+	}
+	/* otherwise we failed */
+	else{
+		*checksum = NULL;
+		return 1;
+	}
 }

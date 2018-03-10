@@ -21,7 +21,7 @@
 /* 16mb */
 #define MAX_RUN_SIZE (1 << 24)
 
-static int bytes_to_hex(unsigned char* bytes, unsigned len, char** out){
+int bytes_to_hex(unsigned char* bytes, unsigned len, char** out){
 	unsigned i;
 	unsigned outptr;
 	unsigned outlen;
@@ -147,7 +147,7 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 	return 0;
 }
 
-int file_to_element(const char* file, const char* algorithm, element** out){
+static int file_to_element(const char* file, const char* algorithm, element** out){
 	unsigned char* buffer;
 	unsigned len;
 	int err;
@@ -221,4 +221,6 @@ int sort_checksum_file(const char* in_file, const char* out_file){
 	return 0;
 }
 
+int search_checksum_file(FILE* in, const char* file, char** out){
 
+}

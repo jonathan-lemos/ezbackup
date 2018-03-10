@@ -5,7 +5,7 @@
 /* read_file() */
 #include "readfile.h"
 /* error handling */
-#include "evperror.h"
+#include "error.h"
 /* making hashes */
 #include "checksum.h"
 /* encryption */
@@ -52,36 +52,6 @@ int disable_core_dumps(void){
 }
 
 int get_pass(char* out, size_t len){
-	struct termios old, new;
-
-	if (tcgetattr(fileno(stdin), &old)){
-		return -1;
-	}
-	new = old;
-	new.c_lflag &= ~ECHO;
-
-	if (tcsetattr(fileno(stdin), TCSAFLUSH, &new)){
-		return -1;
-	}
-
-	fgets(out, len, stdin);
-	/* remove \n */
-	out[strcspn(out, "\r\n")] = '\0';
-
-	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
-	return 0;
-}
-
-int secure_memcmp(void* p1, void* p2, int len){
-	unsigned char* ptr1 = p1;
-	unsigned char* ptr2 = p2;
-	int i;
-	for (i = 0; i < len; ++i){
-		if (ptr1[i] != ptr2[i]){
-			return ptr1[i] - ptr2[i];
-		}
-	}
-	return 0;
 }
 
 int is_directory(const char* path){
@@ -301,7 +271,7 @@ int main(int argc, char** argv){
 
 		if ((err = crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, &fk)) != 0){
 			crypt_scrub((unsigned char*)pwbuffer, strlen(pwbuffer) + 10 + crypt_randc() % 21);
-			printf("%s\n", evp_strerror(err));
+			printf("%s\n", err_strerror(err));
 			return 1;
 		}
 		/* don't need to scrub entire buffer, just where the password was
@@ -310,7 +280,7 @@ int main(int argc, char** argv){
 		/* PASSWORD OUT OF MEMORY */
 
 		if ((err = crypt_encrypt(file_final, &fk, fparams.opt.file_out)) != 0){
-			printf("%s\n", evp_strerror(err));
+			printf("%s\n", err_strerror(err));
 			return 1;
 		}
 		/* shreds keys as well */

@@ -105,7 +105,7 @@ int tar_add_file_ex(TAR* tp, const char* filename, const char* path_in_tar, int 
 	archive_write_header(tp, entry);
 
 	/* no progress bar if it will be 100% instantly */
-	if (st.st_size <= BUFFER_LEN){
+	if (verbose && st.st_size <= BUFFER_LEN){
 		verbose = 0;
 		printf("%s\n", progress_msg);
 	}

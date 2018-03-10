@@ -28,6 +28,24 @@ void usage(const char* progname){
 	printf("\t-x /dir1 /dir2 /...\n");
 }
 
+static int add_string_to_array(char*** array, int* array_len, const char* str){
+	(*array_len)++;
+
+	*array = realloc(*array, *array_len * sizeof(*(*array)));
+	if (!(*array)){
+		(*array_len)--;
+		return err_regularerror(ERR_OUT_OF_MEMORY);
+	}
+
+	(*array)[*array_len - 1] = malloc(strlen(str) + 1);
+	if (!(*array)[*array_len - 1]){
+		return err_regularerror(ERR_OUT_OF_MEMORY);
+	}
+
+	strcpy((*array)[*array_len - 1], str);
+	return 0;
+}
+
 /* parses command line args
  *
  * returns -1 if out is NULL, 0 on success
@@ -82,19 +100,13 @@ int parse_options_cmdline(int argc, const char** argv, options* out){
 		/* exclude */
 		else if (!strcmp(argv[i], "-x")){
 			while (++i < argc && argv[i][0] != '-'){
-				++out->exclude_len;
-				out->exclude = realloc(out->exclude, sizeof(char*) * out->exclude_len);
-				out->exclude[out->exclude_len - 1] = malloc(strlen(argv[i] + 1));
-				strcpy(out->exclude[out->exclude_len - 1], argv[i]);
+				add_string_to_array(&(out->exclude), &(out->exclude_len), argv[i]);
 			}
 		}
 		/* directories */
 		else if (argv[i][0] != '-'){
 			while (i < argc && argv[i][0] != '-'){
-				++out->directories_len;
-				out->directories = realloc(out->directories, sizeof(char*) * out->directories_len);
-				out->directories[out->directories_len - 1] = malloc(strlen(argv[i]) + 1);
-				strcpy(out->directories[out->directories_len - 1], argv[i]);
+				add_string_to_array(&(out->directories), &(out->directories_len), argv[i]);
 				++i;
 			}
 			--i;
@@ -110,27 +122,6 @@ int parse_options_cmdline(int argc, const char** argv, options* out){
 		strcpy(out->directories[0], "/");
 		out->directories_len = 1;
 	}
-
-	out->exclude_len += 3;
-	out->exclude = realloc(out->exclude, sizeof(char*) * out->exclude_len);
-	if (!out->exclude){
-		return err_regularerror(ERR_OUT_OF_MEMORY);
-	}
-	/* these directories are made at runtime
-	 * we have no reason to back them up
-	 */
-	out->exclude[out->exclude_len - 3] = malloc(sizeof("/proc"));
-	out->exclude[out->exclude_len - 2] = malloc(sizeof("/sys"));
-	out->exclude[out->exclude_len - 1] = malloc(sizeof("/dev"));
-	if (!out->exclude[out->exclude_len - 3] ||
-			!out->exclude[out->exclude_len - 2] ||
-			!out->exclude[out->exclude_len - 1]){
-		return err_regularerror(ERR_OUT_OF_MEMORY);
-	}
-	strcpy(out->exclude[out->exclude_len - 3], "/proc");
-	strcpy(out->exclude[out->exclude_len - 2], "/sys");
-	strcpy(out->exclude[out->exclude_len - 1], "/dev");
-
 	return 0;
 }
 
@@ -185,13 +176,61 @@ static int display_menu(const char** options, int num_options, const char* title
 	return ret;
 }
 
+static int read_string_array(char*** array, int* array_len){
+	char input_buffer[4096];
+	char* str;
+	int str_len = 0;
+
+	do{
+		str = malloc(1);
+		if (!str){
+			return err_regularerror(ERR_OUT_OF_MEMORY);
+		}
+		str[0] = '\0';
+		printf(":");
+		fgets(input_buffer, sizeof(input_buffer), stdin);
+		input_buffer[strcspn(input_buffer, "\r\n")] = '\0';
+		while (strlen(input_buffer) >= sizeof(input_buffer) - 2){
+			str_len += strlen(input_buffer) + 1;
+			str = realloc(str, str_len);
+			if (!str){
+				return err_regularerror(ERR_OUT_OF_MEMORY);
+			}
+			strcat(str, input_buffer);
+			fgets(input_buffer, sizeof(input_buffer), stdin);
+		}
+		if (input_buffer[0] != '\0'){
+			str_len += strlen(input_buffer) + 1;
+			str = realloc(str, str_len);
+			if (!str){
+				return err_regularerror(ERR_OUT_OF_MEMORY);
+			}
+			strcat(str, input_buffer);
+
+			(*array_len)++;
+			(*array) = realloc(*array, *array_len * sizeof(*(*array)));
+			if (!(*array)){
+				return err_regularerror(ERR_OUT_OF_MEMORY);
+			}
+
+			(*array)[*array_len - 1] = malloc(strlen(str) + 1);
+			if (!(*array)[*array_len - 1]){
+				return err_regularerror(ERR_OUT_OF_MEMORY);
+			}
+			strcpy((*array)[*array_len - 1], str);
+			free(str);
+		}
+	}while (input_buffer[0] != '\0');
+	return 0;
+}
+
 int parse_options_menu(options* opt){
 	int res;
 	int encryption;
 	int keysize;
 	int mode;
+	int ret;
 
-	char input_buffer[4096];
 	const char* options_compressor[] = {
 		"gzip  (default)",
 		"bzip2 (higher compression, slower)",
@@ -234,99 +273,21 @@ int parse_options_menu(options* opt){
 	opt->directories = NULL;
 	opt->directories_len = 0;
 	printf("Enter directories to backup (enter to end)\n");
-	/* TODO: refactor */
-	do{
-		printf(":");
-		fgets(input_buffer, sizeof(input_buffer), stdin);
-		if (input_buffer[0] != '\n'){
-			/* make space for new char* */
-			opt->directories_len++;
-			opt->directories = realloc(opt->directories, opt->directories_len * sizeof(*opt->directories));
-			if (!opt->directories){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
-			}
-			opt->directories[opt->directories_len - 1] = malloc(1);
-			if (!opt->directories[opt->directories_len - 1]){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
-			}
-			opt->directories[opt->directories_len - 1][0] = '\0';
-			/* while the entirety of stdin was not read */
-			while (strlen(input_buffer) == sizeof(input_buffer) - 1){
-				/* malloc space for new data */
-				opt->directories[opt->directories_len - 1] = realloc(opt->directories[opt->directories_len - 1], strlen(opt->directories[opt->directories_len - 1]) + strlen(input_buffer) + 1);
-				if (!opt->directories[opt->directories_len - 1]){
-					return err_regularerror(ERR_OUT_OF_MEMORY);
-				}
-				/* concatenate string with input_buffer */
-				strcat(opt->directories[opt->directories_len - 1], input_buffer);
-				/* get more from stdin */
-				fgets(input_buffer, sizeof(input_buffer), stdin);
-			}
-			/* allocate space for the input buffer */
-			opt->directories[opt->directories_len - 1] = realloc(opt->directories[opt->directories_len - 1], strlen(opt->directories[opt->directories_len - 1]) + strlen(input_buffer) + 1);
-			if (!opt->directories[opt->directories_len - 1]){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
-			}
-			/* add it to the string */
-			strcat(opt->directories[opt->directories_len - 1], input_buffer);
-		}
-		/* while the user enters input */
-	}while (input_buffer[0] != '\n');
+	read_string_array(&(opt->directories), &(opt->directories_len));
 	/* if no directories were entered, use root directory */
 	if (opt->directories_len == 0){
-		opt->directories_len = 1;
-		opt->directories = malloc(sizeof(*opt->directories));
-		if (!opt->directories){
-			return err_regularerror(ERR_OUT_OF_MEMORY);
+		if ((ret = add_string_to_array(&(opt->directories), &(opt->directories_len), "/")) != 0){
+			return ret;
 		}
-		opt->directories[0] = malloc(sizeof("/"));
-		if (!opt->directories[0]){
-			return err_regularerror(ERR_OUT_OF_MEMORY);
-		}
-		strcpy(opt->directories[0], "/");
 	}
 
 	/* read directories to exclude */
 	opt->exclude = NULL;
 	opt->exclude_len = 0;
 	printf("Enter directories to exclude (enter to end)\n");
-	do{
-		printf(":");
-		fgets(input_buffer, sizeof(input_buffer), stdin);
-		if (input_buffer[0] != '\n'){
-			/* make space for new char* */
-			opt->exclude_len++;
-			opt->exclude = realloc(opt->exclude, opt->exclude_len * sizeof(*opt->exclude));
-			if (!opt->exclude){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
-			}
-			opt->exclude[opt->exclude_len - 1] = malloc(1);
-			if (!opt->exclude[opt->exclude_len - 1]){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
-			}
-			opt->exclude[opt->exclude_len - 1][0] = '\0';
-			/* while the entirety of stdin was not read */
-			while (strlen(input_buffer) == sizeof(input_buffer) - 1){
-				/* malloc space for new data */
-				opt->exclude[opt->exclude_len - 1] = realloc(opt->exclude[opt->exclude_len - 1], strlen(opt->exclude[opt->exclude_len - 1]) + strlen(input_buffer) + 1);
-				if (!opt->exclude[opt->exclude_len - 1]){
-					return err_regularerror(ERR_OUT_OF_MEMORY);
-				}
-				/* concatenate string with input_buffer */
-				strcat(opt->exclude[opt->exclude_len - 1], input_buffer);
-				/* get more from stdin */
-				fgets(input_buffer, sizeof(input_buffer), stdin);
-			}
-			/* allocate space for the input buffer */
-			opt->exclude[opt->exclude_len - 1] = realloc(opt->exclude[opt->exclude_len - 1], strlen(opt->exclude[opt->exclude_len - 1]) + strlen(input_buffer) + 1);
-			if (!opt->exclude[opt->exclude_len - 1]){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
-			}
-			/* add it to the string */
-			strcat(opt->exclude[opt->exclude_len - 1], input_buffer);
-		}
-		/* while the user enters input */
-	}while (input_buffer[0] != '\n');
+	if ((ret = read_string_array(&(opt->exclude), &(opt->exclude_len)) != 0)){
+		return ret;
+	}
 
 	initscr();
 	cbreak();
@@ -492,6 +453,9 @@ int parse_options_fromfile(const char* file, options* opt){
 	fscanf(fp, "[Options]");
 	fscanf(fp, "\nPREV=");
 	opt->prev_backup = read_file_string(fp);
+	if (strcmp(opt->prev_backup, "none")){
+		opt->prev_backup = NULL;
+	}
 	fscanf(fp, "\nDIRECTORIES=");
 	do{
 		tmp = read_file_string(fp);
@@ -546,7 +510,7 @@ int write_options_tofile(const char* file, options* opt){
 		return err_regularerror(ERR_FILE_INPUT);
 	}
 	fprintf(fp, "[Options]");
-	fprintf(fp, "\nPREV=%s%c", opt->prev_backup, '\0');
+	fprintf(fp, "\nPREV=%s%c", opt->prev_backup ? opt->prev_backup : "none", '\0');
 	fprintf(fp, "\nDIRECTORIES=");
 	for (i = 0; i < opt->directories_len; ++i){
 		fprintf(fp, "%s%c", opt->directories[i], '\0');

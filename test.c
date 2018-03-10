@@ -16,12 +16,14 @@
 
 #include <assert.h>
 
+/*
 static void my_pause(void){
 	int c;
 	while ((c = getchar()) != '\n' && c != EOF);
 	printf("Enter a character to continue...");
 	getchar();
 }
+*/
 
 static void printf_green(const char* format, ...){
 	va_list ap;
@@ -36,69 +38,47 @@ static void printf_green(const char* format, ...){
 void test_checksum_h(void){
 	const char* checksum_file = "test_checksums.txt";
 	const char* sorted_file = "sorted.txt";
-	const char* file1 = "file1.txt";
-	const char* file2 = "file2.txt";
-	const char* file3 = "file3.txt";
-	const char* file4 = "file4.txt";
+	char files[100][100];
+	FILE* fptrs[100];
+	FILE* fp;
 	element** elems = (element**)-1;
 	char** out = (char**)-1;
 	size_t n_files = -1;
+	int i;
 
-	FILE* fp = (FILE*)-1;
-	int i = -1;
-
-	/* make temp files */
-	fp = fopen(file1, "wb");
-	assert(fp);
-	fprintf(fp, "ayylmao00");
-	fclose(fp);
-
-	fp = fopen(file2, "wb");
-	assert(fp);
-	fprintf(fp, "ayylmao0");
-	fclose(fp);
-
-	fp = fopen(file3, "wb");
-	assert(fp);
-	fprintf(fp, "ayylmao3");
-	fclose(fp);
-
-	fp = fopen(file4, "wb");
-	assert(fp);
-	fprintf(fp, "ayylmao4");
-	fclose(fp);
+	/* make files test{1..100}.txt */
+	for (i = 0; i < 100; ++i){
+		sprintf(files[i], "test%02d.txt", i);
+	}
+	/* shuffle the list */
+	for (i = 0; i < 100; ++i){
+		char buf[100];
+		int j = rand() % 100;
+		strcpy(buf, files[i]);
+		strcpy(files[i], files[j]);
+		strcpy(files[j], buf);
+	}
+	/* write something to each file */
+	for (i = 0; i < 100; ++i){
+		fptrs[i] = fopen(files[i], "wb");
+		assert(fptrs[i]);
+		fprintf(fptrs[i], "test%d", i << 4);
+		fclose(fptrs[i]);
+	}
 
 	/* open checksum for writing */
 	fp = fopen(checksum_file, "wb");
 	assert(fp);
 
 	/* add files to checksum file */
-	assert(add_checksum_to_file(file3, "sha1", fp) == 0);
-	assert(add_checksum_to_file(file2, "sha1", fp) == 0);
-	assert(add_checksum_to_file(file1, "sha1", fp) == 0);
-	assert(add_checksum_to_file(file4, "sha1", fp) == 0);
+	for (i = 0; i < 100; ++i){
+		assert(add_checksum_to_file(files[i], "sha1", fp) == 0);
+	}
 	fclose(fp);
 
 	/* reopen for reading */
 	fp = fopen(checksum_file, "rb");
 	assert(fp);
-
-	/* get the checksum elements */
-	/* also assert they are in the correct order */
-	elems = malloc(sizeof(*elems) * 4);
-	assert(elems);
-	elems[0] = get_next_checksum_element(fp);
-	assert(strcmp(elems[0]->file, "file3.txt") == 0);
-	elems[1] = get_next_checksum_element(fp);
-	assert(strcmp(elems[1]->file, "file2.txt") == 0);
-	elems[3] = get_checksum_element_index(fp, 3);
-	assert(strcmp(elems[3]->file, "file4.txt") == 0);
-	elems[2] = get_checksum_element_index(fp, 2);
-	assert(strcmp(elems[2]->file, "file1.txt") == 0);
-
-	/* close the file */
-	for (i = 0; i < 4; ++i) free_element(elems[i]);
-	fclose(fp);
 
 	/* sorting the file */
 	assert(create_initial_runs(checksum_file, &out, &n_files) == 0);
@@ -107,30 +87,29 @@ void test_checksum_h(void){
 	/* checking that it's sorted */
 	fp = fopen(sorted_file, "rb");
 	assert(fp);
-	elems[0] = get_next_checksum_element(fp);
-	assert(strcmp(elems[0]->file, "file1.txt") == 0);
-	elems[1] = get_next_checksum_element(fp);
-	assert(strcmp(elems[1]->file, "file2.txt") == 0);
-	elems[2] = get_next_checksum_element(fp);
-	assert(strcmp(elems[2]->file, "file3.txt") == 0);
-	elems[3] = get_next_checksum_element(fp);
-	assert(strcmp(elems[3]->file, "file4.txt") == 0);
+	elems = malloc(100 * sizeof(*elems));
+	assert(elems);
+	for (i = 0; i < 100; ++i){
+		char str[100];
+		sprintf(str, "test%02d.txt", i);
+		elems[i] = get_next_checksum_element(fp);
+		assert(elems[i]);
+		assert(strcmp(str, elems[i]->file) == 0);
+	}
 
 	/* closing file */
-	for (i = 0; i < 4; ++i) free_element(elems[i]);
+	for (i = 0; i < 100; ++i) free_element(elems[i]);
 	fclose(fp);
 
 	/* cleanup */
 	for (i = 0; i < (int)n_files; ++i) free(out[i]);
 	free(out);
+
 	free(elems);
 
 	remove(checksum_file);
 	remove(sorted_file);
-	remove(file1);
-	remove(file2);
-	remove(file3);
-	remove(file4);
+	for (i = 0; i < 100; ++i) remove(files[i]);
 }
 
 void test_crypt_h(const char* file){
@@ -284,12 +263,11 @@ void test_options_h(void){
 	assert(strcmp(opt.directories[0], "/in1") == 0);
 	assert(strcmp(opt.directories[1], "/in2") == 0);
 	assert(strcmp(opt.directories[2], "/in3") == 0);
-
-	assert(write_options_tofile("/dev/stdout", &opt) == 0);
-	my_pause();
 	free_options(&opt);
 
 	parse_options_menu(&opt);
+	assert(write_options_tofile("/dev/stdout", &opt) == 0);
+
 	free_options(&opt);
 }
 
@@ -322,12 +300,12 @@ int main(void){
 	test_maketar_h(file);
 	printf_green("Maketar.h test succeeded\n");
 	remove(file);
-	test_fileiterator_h("/home/jonathan/Documents\n");
+	test_fileiterator_h("/home/jonathan/Documents");
 	printf_green("Fileiterator.h test succeeded\n");
 	/*
-	test_progressbar_h();
-	printf_green("Progressbar.h test succeeded\n");
-	*/
+	   test_progressbar_h();
+	   printf_green("Progressbar.h test succeeded\n");
+	   */
 	test_options_h();
 	printf_green("Options.h test succeeded\n");
 

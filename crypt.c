@@ -6,6 +6,8 @@
 #include "error.h"
 /* progress bar */
 #include "progressbar.h"
+/* swiggity swass get pass */
+#include <termios.h>
 /* file size */
 #include <sys/stat.h>
 /* the special sauce */
@@ -29,13 +31,13 @@
  * writes it to data, or writes low-grade random data on error
  *
  * returns 0 on success, err on error. */
-int crypt_scrub(unsigned char* data, int len){
+int crypt_scrub(void* data, int len){
 	int res;
 	unsigned long err;
 
 	/* checking if data is not NULL */
 	if (!data){
-		return ERR_ARGUMENT_NULL;
+		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
 
 	res = RAND_bytes(data, len);
@@ -84,6 +86,124 @@ unsigned char crypt_randc(void){
 		fclose(fp);
 		return ret;
 	}
+	return ret;
+}
+
+static int crypt_hashpassword(unsigned char* data, int data_len, unsigned char** salt, int* salt_len, unsigned char** hash, int* hash_len){
+	/* we're not actually using this to encrypt anything,
+	 * we're just using it as a parameter to EVP_BytesToKey
+	 * so we can generate our keypair which is irreversable
+	 *
+	 * AES-256-XTS has a 512-bit key vs. others which only
+	 * have 256 bits. This results in a longer hash
+	 * */
+	const EVP_CIPHER*(*keytype)(void) = EVP_aes_256_xts;
+	/* this is not the hash algorithm we are using
+	 * this is just a parameter to EVP_BytesToKey
+	 * which uses something like PBKDF2 to generate
+	 * the keypair
+	 *
+	 * SHA-512 may be a little overkill, but ehh
+	 * */
+	const EVP_MD*(*hashtype)(void) = EVP_sha512;
+	int key_len;
+	int iv_len;
+	int ret;
+
+	if (!salt_len || !salt || !data || !hash || !hash_len){
+		return err_regularerror(ERR_ARGUMENT_NULL);
+	}
+	/* generate salt if it is NULL */
+	if (!(*salt)){
+		*salt_len = 64;
+		salt = malloc(*salt_len);
+		if (!salt){
+			return err_regularerror(ERR_OUT_OF_MEMORY);
+		}
+		if ((ret = gen_csrand(*salt, *salt_len)) != 0){
+			return ret;
+		}
+	}
+
+	key_len = EVP_CIPHER_key_length(keytype());
+	iv_len = EVP_CIPHER_iv_length(keytype());
+	*hash_len = key_len + iv_len;
+
+	*hash = malloc(*hash_len);
+	if (!(*hash)){
+		return err_regularerror(ERR_OUT_OF_MEMORY);
+	}
+
+	if (!EVP_BytesToKey(keytype(), hashtype(), *salt, data, data_len, 1000, *hash, *hash + key_len)){
+		return err_evperror();
+	}
+
+	return 0;
+}
+
+int crypt_secure_memcmp(const void* p1, const void* p2, int len){
+	volatile const unsigned char* ptr1 = p1;
+	volatile const unsigned char* ptr2 = p2;
+	int i;
+	for (i = 0; i < len; ++i){
+		if (ptr1[i] != ptr2[i]){
+			return ptr1[i] - ptr2[i];
+		}
+	}
+	return 0;
+}
+
+int crypt_getpassword(const char* prompt, const char* verify_prompt, char* out, int out_len){
+	struct termios old, new;
+	unsigned char* hash1 = NULL, *hash2 = NULL;
+	unsigned char* salt = NULL;
+	int hash_len, salt_len;
+	int ret = 0;
+
+	/* store old terminal information */
+	if (tcgetattr(fileno(stdin), &old)){
+		return err_regularerror(ERR_FILE_INPUT);
+	}
+
+	/* turn off echo on terminal */
+	new = old;
+	new.c_lflag &= ~ECHO;
+	if (tcsetattr(fileno(stdin), TCSAFLUSH, &new)){
+		return err_regularerror(ERR_FILE_INPUT);
+	}
+
+	/* get password */
+	printf("%s:", prompt);
+	fgets(out, out_len - 15, stdin);
+	/* remove \n */
+	out[strcspn(out, "\r\n")] = '\0';
+	/* it's bad to store the password itself in memory,
+	 * so we store a hash instead. */
+	if ((ret = crypt_hashpassword((unsigned char*)out, strlen(out), &salt, &salt_len, &hash1, &hash_len)) != 0){
+		goto cleanup;
+	}
+	crypt_scrub(out, strlen(out) + 5 + crypt_randc() % 11);
+
+	/* verify it */
+	printf("%s:", verify_prompt);
+	fgets(out, out_len - 15, stdin);
+	/* remove \n */
+	out[strcspn(out, "\r\n")] = '\0';
+	if ((ret = crypt_hashpassword((unsigned char*)out, strlen(out), &salt, &salt_len, &hash2, &hash_len)) != 0){
+		goto cleanup;
+	}
+	if (crypt_secure_memcmp(hash1, hash2, hash_len) != 0){
+		crypt_scrub(out, out_len);
+		ret = 1;
+		goto cleanup;
+	}
+
+cleanup:
+	free(salt);
+	free(hash1);
+	free(hash2);
+	/* restore echo on terminal */
+	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
 	return ret;
 }
 

@@ -19,8 +19,10 @@ typedef struct crypt_keys{
 	int flags;
 }crypt_keys;
 
-int crypt_scrub(unsigned char* data, int len);
+int crypt_scrub(void* data, int len);
 unsigned char crypt_randc(void);
+int crypt_secure_memcmp(const void* p1, const void* p2, int len);
+int crypt_getpassword(const char* prompt, const char* verify_prompt, char* out, int out_len);
 int crypt_set_encryption(const char* encryption, crypt_keys* fk);
 int crypt_gen_salt(crypt_keys* fk);
 int crypt_set_salt(unsigned char salt[8], crypt_keys* fk);
@@ -37,6 +39,5 @@ int crypt_decrypt(const char* in, crypt_keys* fk, const char* out);
 int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbose, const char* progress_msg);
 int crypt_extract_salt(const char* in, crypt_keys* fk);
 int crypt_free(crypt_keys* fk);
-char* crypt_strerror(unsigned long err);
 
 #endif
