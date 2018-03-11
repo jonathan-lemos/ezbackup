@@ -13,5 +13,6 @@ int tar_close(TAR* fp);
 int tar_extract(const char* tarchive, const char* outdir, int verbose);
 int tar_extract_file(const char* tarchive, const char* file_intar, const char* out, int verbose);
 COMPRESSOR get_compressor_byname(const char* compressor);
+const char* compressor_to_string(COMPRESSOR comp);
 
 #endif

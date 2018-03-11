@@ -14,7 +14,12 @@
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
-#define FLAG_VERBOSE (0x1)
+void version(void){
+	const char* program_name = "cbackup";
+	const char* version = "0.1";
+
+	printf("%s %s\n", program_name, version);
+}
 
 void usage(const char* progname){
 	printf("Usage: %s /dir1 /dir2 /... [options]\n", progname);
@@ -60,6 +65,10 @@ int parse_options_cmdline(int argc, char** argv, options* out){
 	memset(out, 0, sizeof(*out));
 
 	for (i = 0; i < argc; ++i){
+		if (!strcmp(argv[i], "--version")){
+			version();
+			exit(0);
+		}
 		if (!strcmp(argv[i], "-h") ||
 				!strcmp(argv[i], "--help")){
 			usage(argv[0]);
@@ -218,8 +227,8 @@ static int read_string_array(char*** array, int* array_len){
 				return err_regularerror(ERR_OUT_OF_MEMORY);
 			}
 			strcpy((*array)[*array_len - 1], str);
-			free(str);
 		}
+		free(str);
 	}while (input_buffer[0] != '\0');
 	return 0;
 }
@@ -268,6 +277,10 @@ int parse_options_menu(options* opt){
 	if (!opt){
 		return err_regularerror(ERR_ARGUMENT_NULL);
 	}
+
+	opt->prev_backup = NULL;
+	opt->file_out = NULL;
+	opt->flags = 0;
 
 	/* read directories to back up */
 	opt->directories = NULL;
@@ -459,19 +472,31 @@ int parse_options_fromfile(const char* file, options* opt){
 	fscanf(fp, "\nDIRECTORIES=");
 	do{
 		tmp = read_file_string(fp);
-		if (tmp && tmp[0] != '\0'){
+		if (!tmp){
+			break;
+		}
+		if (tmp[0] != '\0'){
 			opt->directories_len++;
 			opt->directories = realloc(opt->directories, sizeof(char*) * opt->directories_len);
 			opt->directories[opt->directories_len - 1] = tmp;
+		}
+		else{
+			free(tmp);
 		}
 	}while (tmp && tmp[0] != '\0');
 	fscanf(fp, "\nEXCLUDE=");
 	do{
 		tmp = read_file_string(fp);
-		if (tmp && tmp[0] != '\0'){
+		if (!tmp){
+			break;
+		}
+		if (tmp[0] != '\0'){
 			opt->exclude_len++;
 			opt->exclude = realloc(opt->exclude, sizeof(char*) * opt->exclude_len);
 			opt->exclude[opt->exclude_len - 1] = tmp;
+		}
+		else{
+			free(tmp);
 		}
 	}while (tmp && tmp[0] != '\0');
 	fscanf(fp, "\nCHECKSUM=");
@@ -533,9 +558,12 @@ int write_options_tofile(const char* file, options* opt){
 void free_options(options* opt){
 	int i;
 	/* freeing a nullptr is ok */
-	free(opt->prev_backup);
+	if (opt->prev_backup != opt->file_out){
+		free(opt->prev_backup);
+	}
 	free(opt->enc_algorithm);
 	free(opt->hash_algorithm);
+	free(opt->file_out);
 	for (i = 0; i < opt->exclude_len; ++i){
 		free(opt->exclude[i]);
 	}

@@ -12,8 +12,10 @@
 #include <openssl/evp.h>
 /* strstr() */
 #include <string.h>
-/* file size */
+/* file size + does_file_exist() */
 #include <sys/stat.h>
+/* does_file_exist() */
+#include <errno.h>
 
 /* debugging purposes */
 #include <assert.h>
@@ -190,20 +192,31 @@ static int file_to_element(const char* file, const char* algorithm, element** ou
  * way to seperate the hash from its filename is to use a '\0'
  *
  * returns 0 on success or err on error */
-int add_checksum_to_file(const char* file, const char* algorithm, FILE* out){
+int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, const char* prev_checksums){
 	element* e;
+	char* checksum = NULL;
 	int err;
 
 	if ((err = file_to_element(file, algorithm, &e)) != 0){
 		return err;
 	}
 
+	if (prev_checksums &&
+			search_for_checksum(prev_checksums, e->file, &checksum) == 0 &&
+			strcmp(checksum, e->checksum) == 0){
+		err = 1;
+	}
+	else{
+		err = 0;
+	}
+	free(checksum);
+
 	if ((err = write_element_to_file(out, e)) != 0){
 		return err;
 	}
 
 	free_element(e);
-	return 0;
+	return err;
 }
 
 int sort_checksum_file(const char* in_file, const char* out_file){
@@ -223,4 +236,87 @@ int sort_checksum_file(const char* in_file, const char* out_file){
 
 int search_for_checksum(const char* file, const char* key, char** checksum){
 	return search_file(file, key, checksum);
+}
+
+static int check_file_exists(const char* file){
+	struct stat st;
+
+	if (lstat(file, &st) == 0){
+		return 0;
+	}
+	switch (errno){
+	case ENOENT:
+	case ENOTDIR:
+		return -1;
+	default:
+		return err_errno(errno);
+	}
+}
+
+int create_removed_list(const char* checksum_file, const char* out_file){
+	element* tmp;
+	FILE* fp_in;
+	FILE* fp_out;
+	int err;
+
+	fp_in = fopen(checksum_file, "rb");
+	if (!fp_in){
+		return err_regularerror(ERR_FILE_INPUT);
+	}
+
+	fp_out = fopen(out_file, "wb");
+	if (!fp_out){
+		return err_regularerror(ERR_FILE_OUTPUT);
+	}
+
+	while ((tmp = get_next_checksum_element(fp_in)) != NULL){
+		err = check_file_exists(tmp->file);
+		switch (err){
+		case 0:
+			break;
+		case -1:
+			fprintf(fp_out, "%s%c\n", tmp->file, '\0');
+			break;
+		default:
+			free_element(tmp);
+			return err;
+		}
+		free_element(tmp);
+	}
+
+	return 0;
+}
+
+char* get_next_removed(FILE* fp){
+	long pos_origin;
+	long pos_file;
+	int c;
+	size_t len_file;
+	char* ret;
+
+	if (!fp){
+		return NULL;
+	}
+
+	pos_origin = ftell(fp);
+
+	while ((c = fgetc(fp)) != '\0'){
+		if (c == EOF){
+			return NULL;
+		}
+	}
+	pos_file = ftell(fp);
+	len_file = pos_file - pos_origin;
+
+	ret = malloc(len_file);
+	if (!ret){
+		return NULL;
+	}
+
+	fseek(fp, pos_origin, SEEK_SET);
+	fread(ret, 1, len_file, fp);
+	/* advance file pointer beyond '\n' */
+	fgetc(fp);
+
+	return ret;
 }

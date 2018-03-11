@@ -11,7 +11,8 @@ DBGOBJECTS=$(foreach header,$(HEADERS),$(header).dbg.o)
 CLEANOBJECTS=$(foreach header,$(HEADERS),$(header).c.*)
 
 release: main.o $(OBJECTS)
-	$(CC) -o $(NAME) main.o $(OBJECTS) $(CFLAGS) $(LINKFLAGS)
+	$(CC) -o $(NAME)_unstripped main.o $(OBJECTS) $(CFLAGS) $(LINKFLAGS)
+	cp $(NAME)_unstripped $(NAME)
 	strip $(NAME)
 
 debug: main.dbg.o $(DBGOBJECTS)

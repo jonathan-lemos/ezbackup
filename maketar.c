@@ -538,3 +538,20 @@ COMPRESSOR get_compressor_byname(const char* compressor){
 		return COMPRESSOR_INVALID;
 	}
 }
+
+const char* compressor_to_string(COMPRESSOR comp){
+	switch(comp){
+		case COMPRESSOR_GZIP:
+			return "gzip";
+		case COMPRESSOR_BZIP2:
+			return "bzip2";
+		case COMPRESSOR_XZ:
+			return "xz";
+		case COMPRESSOR_LZ4:
+			return "lz4";
+		case COMPRESSOR_NONE:
+			return "none";
+		default:
+			return "unknown";
+	}
+}

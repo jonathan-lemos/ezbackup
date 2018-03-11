@@ -4,6 +4,8 @@
 /* compressor */
 #include "maketar.h"
 
+#define FLAG_VERBOSE (0x1)
+
 typedef struct options {
 	char*      prev_backup;
 	char**     directories;

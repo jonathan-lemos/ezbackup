@@ -57,7 +57,7 @@ int crypt_scrub(void* data, int len){
 
 		fp = fopen("/dev/urandom", "rb");
 		if (!fp){
-			fprintf(stderr, "Not enough entropy to generate cryptographically-secure random numbers, and could not open /dev/urandom for reading. Aborting...");
+			fprintf(stderr, "Not enough entropy to generate cryptographically-secure random numbers, and could not open /dev/urandom for reading. Aborting...\n");
 			exit(1);
 		}
 
@@ -116,7 +116,7 @@ static int crypt_hashpassword(unsigned char* data, int data_len, unsigned char**
 	/* generate salt if it is NULL */
 	if (!(*salt)){
 		*salt_len = 64;
-		salt = malloc(*salt_len);
+		*salt = malloc(*salt_len);
 		if (!salt){
 			return err_regularerror(ERR_OUT_OF_MEMORY);
 		}
@@ -175,24 +175,35 @@ int crypt_getpassword(const char* prompt, const char* verify_prompt, char* out, 
 	/* get password */
 	printf("%s:", prompt);
 	fgets(out, out_len - 15, stdin);
+	printf("\n");
 	/* remove \n */
 	out[strcspn(out, "\r\n")] = '\0';
+	/* if no verify prompt is specified, we can just return now */
+	if (!verify_prompt){
+		return 0;
+	}
 	/* it's bad to store the password itself in memory,
 	 * so we store a hash instead. */
 	if ((ret = crypt_hashpassword((unsigned char*)out, strlen(out), &salt, &salt_len, &hash1, &hash_len)) != 0){
 		goto cleanup;
 	}
+	/* scrub the old password out of memory, so it can't be
+	 * captured anymore by an attacker */
 	crypt_scrub(out, strlen(out) + 5 + crypt_randc() % 11);
 
-	/* verify it */
+	/* verify the password */
 	printf("%s:", verify_prompt);
 	fgets(out, out_len - 15, stdin);
+	printf("\n");
 	/* remove \n */
 	out[strcspn(out, "\r\n")] = '\0';
+	/* same old deal */
 	if ((ret = crypt_hashpassword((unsigned char*)out, strlen(out), &salt, &salt_len, &hash2, &hash_len)) != 0){
 		goto cleanup;
 	}
+	/* verify that the hashes match */
 	if (crypt_secure_memcmp(hash1, hash2, hash_len) != 0){
+		/* scrub the password if they don't */
 		crypt_scrub(out, out_len);
 		ret = 1;
 		goto cleanup;
