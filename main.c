@@ -42,6 +42,10 @@ typedef struct func_params{
 	options opt;
 }func_params;
 
+static void print_error(const char* msg, int err){
+	fprintf(stderr, "%s\nReason: %s\n", msg, err_strerror(err));
+}
+
 static int disable_core_dumps(void){
 	struct rlimit rl;
 	rl.rlim_cur = 0;
@@ -251,6 +255,7 @@ int main(int argc, char** argv){
 	/* cannot be char*, because this memory has to be writable */
 	char file_hashes[] = "/var/tmp/hashes_XXXXXX";
 	char file_hashes_prev[] = "/var/tmp/prev_XXXXXX";
+	char file_hashes_sorted[] = "/var/tmp/sorted_XXXXXX";
 	char file_tar[] = "/var/tmp/tar_XXXXXX";
 	char file_final[] = "/var/tmp/final_XXXXXX";
 	char file_removed[] = "/var/tmp/removed_XXXXXX";
@@ -280,7 +285,7 @@ int main(int argc, char** argv){
 	}
 	else{
 		if ((err = get_config_name(&backup_conf)) != 0){
-			fprintf(stderr, "%s\n", err_strerror(err));
+			print_error("Could not open backup configuration file.", err);
 			return 1;
 		}
 
@@ -292,12 +297,12 @@ int main(int argc, char** argv){
 		case ERR_FILE_INPUT:
 			err = parse_options_menu(&(fparams.opt));
 			if (err != 0){
-				fprintf(stderr, "Failed to get options\n");
+				print_error("Failed to get options from menu.", err);
 				return 1;
 			}
 			break;
 		default:
-			fprintf(stderr, "%s\n", err_strerror(err));
+			print_error("Could not parse options from file.", err);
 			return 1;
 		}
 	}
@@ -305,29 +310,68 @@ int main(int argc, char** argv){
 	/* put in /home/<user>/Backups/backup-<unixtime>.tar(.bz2)(.crypt) */
 	if (!fparams.opt.file_out &&
 			(err = get_default_backup_name(&(fparams.opt))) != 0){
-		fprintf(stderr, "%s\n", err_strerror(err));
+		print_error("Could not determine backup name.", err);
 	}
 
 	/* create temporary files */
-	if (temp_file(file_hashes) != 0 ||
-			temp_file(file_tar) != 0 ||
-			temp_file(file_final) != 0 ||
-			temp_file(file_hashes_prev) != 0 ||
-			temp_file(file_removed) != 0){
-		fprintf(stderr, "Could not create temporary file.\n");
+	if ((err = temp_file(file_hashes)) != 0 ||
+			(err = temp_file(file_tar)) != 0 ||
+			(err = temp_file(file_final)) != 0 ||
+			(err = temp_file(file_hashes_prev)) != 0 ||
+			(err = temp_file(file_removed)) != 0 ||
+			(err = temp_file(file_hashes_sorted)) != 0
+			){
+		print_error("Could not create temporary file.", err);
 		return 1;
 	}
 
 	fparams.fp_hashes = fopen(file_hashes, "wb");
 	if (!fparams.fp_hashes){
-		fprintf(stderr, "Could not open temporary file.\n");
+		int e = errno;
+		err_errno(e);
+		print_error("Could not open temporary file.", e);
 		return 1;
 	}
 
 	/* load previous backup if it exists */
 	if (fparams.opt.prev_backup){
-		tar_extract_file(fparams.opt.prev_backup, "/checksums", file_hashes_prev, fparams.opt.flags & FLAG_VERBOSE);
+		char pwbuffer[1024];
+		crypt_keys fk;
+		char file_decrypt[] = "/var/tmp/decrypt_XXXXXX";
+
+		if ((err = temp_file(file_decrypt)) != 0){
+			print_error("Failed to create temporary file for decryption.", err);
+		}
+		if ((err = crypt_set_encryption(fparams.opt.enc_algorithm, &fk)) != 0){
+			print_error("Failed to set encryption type.", err);
+			return 1;
+		}
+		if ((err = crypt_extract_salt(fparams.opt.prev_backup, &fk)) != 0){
+			print_error("Failed to extract salt from previous backup.", err);
+			return 1;
+		}
+		if ((err = crypt_getpassword("Enter decryption password", NULL, pwbuffer, sizeof(pwbuffer))) != 0){
+			print_error("Failed to read password from terminal.", err);
+			return 1;
+		}
+		if ((err = crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, &fk)) != 0){
+			crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
+			print_error("Failed to generate decryption keys.", err);
+			return 1;
+		}
+		crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
+		if ((err = crypt_decrypt(fparams.opt.prev_backup, &fk, file_decrypt)) != 0){
+			crypt_free(&fk);
+			print_error("Failed to decrypt previous backup.", err);
+			return 1;
+		}
+		crypt_free(&fk);
+		if ((err = tar_extract_file(file_decrypt, "/checksums", file_hashes_prev, fparams.opt.flags & FLAG_VERBOSE)) != 0){
+			print_error("Failed to extract checksums from decrypted tar.", err);
+			return 1;
+		}
 		fparams.hashes_prev = file_hashes_prev;
+		remove(file_decrypt);
 	}
 	else{
 		fparams.hashes_prev = NULL;
@@ -355,7 +399,8 @@ int main(int argc, char** argv){
 	tar_final = tar_create(file_final, fparams.opt.comp_algorithm);
 	sprintf(compression_string, "Compressing files with compressor %s...", compressor_to_string(fparams.opt.comp_algorithm));
 	tar_add_file_ex(tar_final, file_tar, "/files", 1, compression_string);
-	tar_add_file_ex(tar_final, file_hashes, "/checksums", 1, "Adding checksum list...");
+	sort_checksum_file(file_hashes, file_hashes_sorted);
+	tar_add_file_ex(tar_final, file_hashes_sorted, "/checksums", 1, "Adding checksum list...");
 	tar_add_file_ex(tar_final, file_removed, "/removed", 1, "Adding removed file list...");
 	tar_close(tar_final);
 
@@ -379,14 +424,14 @@ int main(int argc, char** argv){
 			printf("\nPasswords do not match\n");
 		}
 		if (err < 0){
-			fprintf(stderr, "%s\n", err_strerror(err));
+			print_error("Failed to read password.", err);
 			crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
 			return 1;
 		}
 
 		if ((err = crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, &fk)) != 0){
-			crypt_scrub((unsigned char*)pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-			fprintf(stderr, "%s\n", err_strerror(err));
+			crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
+			print_error("Failed to generate encryption keys.", err);
 			return 1;
 		}
 		/* don't need to scrub entire buffer, just where the password was
@@ -396,7 +441,7 @@ int main(int argc, char** argv){
 
 		if ((err = crypt_encrypt(file_final, &fk, fparams.opt.file_out)) != 0){
 			crypt_free(&fk);
-			fprintf(stderr, "%s\n", err_strerror(err));
+			print_error("Failed to encrypt file.", err);
 			return 1;
 		}
 		/* shreds keys as well */
@@ -404,7 +449,7 @@ int main(int argc, char** argv){
 	}
 	else{
 		if ((err = rename_ex(file_final, fparams.opt.file_out)) != 0){
-			fprintf(stderr, "%s\n", err_strerror(err));
+			print_error("Failed to move temporary file to destination.", err);
 			return 1;
 		}
 	}
@@ -412,11 +457,11 @@ int main(int argc, char** argv){
 	fparams.opt.prev_backup = fparams.opt.file_out;
 
 	if ((err = get_config_name(&backup_conf)) != 0){
-		fprintf(stderr, "Warning: cannot write settings for incremental backup.\n");
+		print_error("Warning: cannot write settings for incremental backup.", err);
 	}
 	else{
 		if ((err = write_options_tofile(backup_conf, &(fparams.opt))) != 0){
-			fprintf(stderr, "Warning: failed to write settings for incremental backup.\n");
+			print_error("Warning: failed to write settings for incremental backup.", err);
 		}
 	}
 	free(backup_conf);
@@ -426,6 +471,7 @@ int main(int argc, char** argv){
 	remove(file_final);
 	remove(file_hashes);
 	remove(file_hashes_prev);
+	remove(file_hashes_sorted);
 	remove(file_removed);
 	return 0;
 }

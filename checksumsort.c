@@ -521,7 +521,7 @@ int search_file(const char* file, const char* key, char** checksum){
 		fseek(fp, 0, SEEK_SET);
 	}
 	else{
-		fseek(fp, -end_bsearch_threshold, SEEK_CUR);
+		fseek(fp, -end_bsearch_threshold - 1, SEEK_CUR);
 	}
 	/* go to beginning of element */
 	do{
@@ -549,8 +549,8 @@ int search_file(const char* file, const char* key, char** checksum){
 			break;
 		}
 		free_element(tmp);
-		/* while key is less than tmp */
-	}while (res < 0);
+		/* while key is greater than tmp */
+	}while (res > 0);
 	/* if we found our target */
 	if (res == 0){
 		/* return it */

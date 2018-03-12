@@ -466,7 +466,8 @@ int parse_options_fromfile(const char* file, options* opt){
 	fscanf(fp, "[Options]");
 	fscanf(fp, "\nPREV=");
 	opt->prev_backup = read_file_string(fp);
-	if (strcmp(opt->prev_backup, "none")){
+	if (strcmp(opt->prev_backup, "none") == 0){
+		free(opt->prev_backup);
 		opt->prev_backup = NULL;
 	}
 	fscanf(fp, "\nDIRECTORIES=");
@@ -482,6 +483,7 @@ int parse_options_fromfile(const char* file, options* opt){
 		}
 		else{
 			free(tmp);
+			tmp = NULL;
 		}
 	}while (tmp && tmp[0] != '\0');
 	fscanf(fp, "\nEXCLUDE=");
@@ -497,6 +499,7 @@ int parse_options_fromfile(const char* file, options* opt){
 		}
 		else{
 			free(tmp);
+			tmp = NULL;
 		}
 	}while (tmp && tmp[0] != '\0');
 	fscanf(fp, "\nCHECKSUM=");

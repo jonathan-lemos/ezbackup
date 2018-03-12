@@ -427,7 +427,7 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 		/* write it to the out file */
 		fwrite(outbuffer, 1, outlen, fp_out);
 		if (verbose){
-			inc_progress(p, outlen);
+			inc_progress(p, inlen);
 		}
 	}
 	finish_progress(p);
@@ -504,7 +504,7 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	/* do not want null terminator */
 	EVP_CIPHER_CTX* ctx = NULL;
 	unsigned char inbuffer[BUFFER_LEN];
-	unsigned char outbuffer[BUFFER_LEN];
+	unsigned char* outbuffer = NULL;
 	int inlen;
 	int outlen;
 	int ret = 0;
@@ -537,6 +537,16 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	if (!fp_out){
 		fclose(fp_in);
 		return err_regularerror(ERR_FILE_OUTPUT);
+	}
+
+	/* isn't the decrypted length supposed to be lower than
+	 * the encrypted length?
+	 *
+	 * apparently not. that's why we have to do this malloc.
+	 */
+	outbuffer = malloc(BUFFER_LEN + EVP_CIPHER_block_size(fk->encryption));
+	if (!outbuffer){
+		return err_regularerror(ERR_OUT_OF_MEMORY);
 	}
 
 	/* preparing progress bar */
@@ -577,7 +587,7 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 		/* write it to the output file */
 		fwrite(outbuffer, 1, outlen, fp_out);
 		if (verbose){
-			inc_progress(p, outlen);
+			inc_progress(p, inlen);
 		}
 	}
 	finish_progress(p);
@@ -590,12 +600,13 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	fwrite(outbuffer, 1, outlen, fp_out);
 
 cleanup:
+	free(outbuffer);
 	fclose(fp_in);
 	fclose(fp_out);
 	if (ctx){
 		EVP_CIPHER_CTX_free(ctx);
 	}
-	return 0;
+	return ret;
 }
 
 int crypt_decrypt(const char* in, crypt_keys* fk, const char* out){

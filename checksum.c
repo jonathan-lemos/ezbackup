@@ -196,6 +196,7 @@ int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, con
 	element* e;
 	char* checksum = NULL;
 	int err;
+	int ret;
 
 	if ((err = file_to_element(file, algorithm, &e)) != 0){
 		return err;
@@ -204,10 +205,10 @@ int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, con
 	if (prev_checksums &&
 			search_for_checksum(prev_checksums, e->file, &checksum) == 0 &&
 			strcmp(checksum, e->checksum) == 0){
-		err = 1;
+		ret = 1;
 	}
 	else{
-		err = 0;
+		ret = 0;
 	}
 	free(checksum);
 
@@ -216,7 +217,7 @@ int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, con
 	}
 
 	free_element(e);
-	return err;
+	return ret;
 }
 
 int sort_checksum_file(const char* in_file, const char* out_file){
