@@ -180,7 +180,7 @@ int crypt_getpassword(const char* prompt, const char* verify_prompt, char* out, 
 	out[strcspn(out, "\r\n")] = '\0';
 	/* if no verify prompt is specified, we can just return now */
 	if (!verify_prompt){
-		return 0;
+		goto cleanup;
 	}
 	/* it's bad to store the password itself in memory,
 	 * so we store a hash instead. */

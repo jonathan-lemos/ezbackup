@@ -454,6 +454,7 @@ int main(int argc, char** argv){
 		}
 	}
 
+	free(fparams.opt.prev_backup);
 	fparams.opt.prev_backup = fparams.opt.file_out;
 
 	if ((err = get_config_name(&backup_conf)) != 0){
