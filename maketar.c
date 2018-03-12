@@ -219,15 +219,15 @@ static int copy_data(TAR* in, TAR* out, int verbose){
 }
 
 int tar_extract(const char* tarchive, const char* outdir, int verbose){
-	TAR* tp;
-	TAR* ext;
-	struct archive_entry* entry;
+	TAR* tp = NULL;
+	TAR* ext = NULL;
+	struct archive_entry* entry = NULL;
 	int flags = ARCHIVE_EXTRACT_TIME |
 		ARCHIVE_EXTRACT_PERM |
 		ARCHIVE_EXTRACT_ACL |
 		ARCHIVE_EXTRACT_FFLAGS |
 		ARCHIVE_EXTRACT_OWNER;
-	int ret;
+	int ret = 0;
 
 	/* open tar for reading */
 	tp = archive_read_new();
