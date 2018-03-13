@@ -2,6 +2,8 @@
 #include "checksum.h"
 /* error handling */
 #include "error.h"
+#include <errno.h>
+#include <openssl/err.h>
 /* read_file() */
 #include "readfile.h"
 /* sorting the file */
@@ -34,7 +36,7 @@ int bytes_to_hex(unsigned char* bytes, unsigned len, char** out){
 		'C', 'D', 'E', 'F'};
 
 	if (!out || !bytes){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_NULLARG);
 	}
 
 	/* 2 hex chars = 1 byte */
@@ -42,7 +44,8 @@ int bytes_to_hex(unsigned char* bytes, unsigned len, char** out){
 	outlen = len * 2 + 1;
 	*out = malloc(outlen);
 	if (!out){
-		return err_regularerror(ERR_OUT_OF_MEMORY);
+		log_fatal(STR_ENOMEM);
+		return -1;
 	}
 
 	for (i = 0, outptr = 0; i < len; ++i, outptr += 2){
@@ -61,22 +64,22 @@ int bytes_to_hex(unsigned char* bytes, unsigned len, char** out){
 }
 
 /*
-static int hex_to_bytes(char* hex, unsigned len, unsigned char** out){
-	unsigned ptr;
-	unsigned hexptr;
-	unsigned c;
-	// 2 hex digits = 1 byte //
-	out = malloc(len / 2);
-	if (!out){
-		return ERR_OUT_OF_MEMORY;
-	}
+   static int hex_to_bytes(char* hex, unsigned len, unsigned char** out){
+   unsigned ptr;
+   unsigned hexptr;
+   unsigned c;
+// 2 hex digits = 1 byte //
+out = malloc(len / 2);
+if (!out){
+return ERR_OUT_OF_MEMORY;
+}
 
-	for (ptr = 0, hexptr = 0; hexptr < len; ptr++, hexptr += 2){
-		sscanf(&(hex[hexptr]), "%2x", &c);
-		(*out)[ptr] = c;
-	}
+for (ptr = 0, hexptr = 0; hexptr < len; ptr++, hexptr += 2){
+sscanf(&(hex[hexptr]), "%2x", &c);
+(*out)[ptr] = c;
+}
 
-	return 0;
+return 0;
 }
 */
 
@@ -88,15 +91,18 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 	unsigned char buffer[BUFFER_LEN];
 	int length;
 	FILE* fp;
-	int ret;
+	int ret = 0;
 
 	fp = fopen(file, "rb");
 	if (!fp){
-		return err_regularerror(ERR_FILE_INPUT);
+		log_error("Failed to open file (%s)", strerror(errno));
+		return -1;
 	}
 
 	if (!(ctx = EVP_MD_CTX_create())){
-		ret = err_evperror();
+		log_error("Failed to initialize EVP_MD_CTX");
+		ERR_print_errors_fp(stderr);
+		ret = -1;
 		goto cleanup;
 	}
 
@@ -104,7 +110,10 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 	if (algorithm){
 		OpenSSL_add_all_algorithms();
 		if (!(md = EVP_get_digestbyname(algorithm))){
-			ret = err_evperror();
+			log_error("Failed to load digest algorithm");
+			ERR_print_errors_fp(stderr);
+			ret = -1;
+			goto cleanup;
 		}
 	}
 	/* default to sha1 if NULL algorithm */
@@ -113,33 +122,38 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 	}
 
 	if (EVP_DigestInit_ex(ctx, md, NULL) != 1){
-		ret = err_evperror();
+		log_error("Failed to initialize checksum calculation");
+		ERR_print_errors_fp(stderr);
+		ret = -1;
 		goto cleanup;
 	}
 
 	/* both of these must point to valid locations */
 	if (!len || !out){
-		ret = err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_NULLARG);
+		ret = -1;
 		goto cleanup;
 	}
 	*len = EVP_MD_size(md);
 	if (!(*out = malloc(EVP_MD_size(md)))){
-		ret = err_regularerror(ERR_OUT_OF_MEMORY);
+		log_fatal(STR_ENOMEM);
+		ret = -1;
 		goto cleanup;
 	}
 
 	while ((length = read_file(fp, buffer, sizeof(buffer))) > 0){
 		if (EVP_DigestUpdate(ctx, buffer, length) != 1){
-			/* must get error now or EVP_MD_CTX_destroy() will overwrite it */
-			ret = err_evperror();
+			log_error("Failed to calculate checksum");
+			ERR_print_errors_fp(stderr);
 			goto cleanup;
 		}
 	}
 
 	if (EVP_DigestFinal_ex(ctx, *out, len) != 1){
-		ret = err_evperror();
+		log_error("Failed to finalize checksum calculation");
 		goto cleanup;
 	}
+
 cleanup:
 	EVP_MD_CTX_destroy(ctx);
 	fclose(fp);
@@ -147,37 +161,57 @@ cleanup:
 }
 
 static int file_to_element(const char* file, const char* algorithm, element** out){
-	unsigned char* buffer;
-	unsigned len;
-	int err;
+	unsigned char* buffer = NULL;
+	unsigned len = 0;
+	int ret = 0;
 
 	if (!file || !out){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_NULLARG);
+		return -1;
 	}
 
 	*out = malloc(sizeof(**out));
 	if (!out){
-		return err_regularerror(ERR_OUT_OF_MEMORY);
+		log_fatal(STR_ENOMEM);
+		return -1;
 	}
 	(*out)->file = malloc(strlen(file) + 1);
+	(*out)->checksum = NULL;
 	if (!(*out)->file){
-		return err_regularerror(ERR_OUT_OF_MEMORY);
+		log_fatal(STR_ENOMEM);
+		ret = -1;
+		goto cleanup;
 	}
 	strcpy((*out)->file, file);
 
 	/* compute checksum */
-	if ((err = checksum(file, algorithm, &buffer, &len)) != 0){
-		return err;
+	if (checksum(file, algorithm, &buffer, &len) != 0){
+		log_error(LEVEL_DEBUG, "checksum() in file_to_element() did not return 0");
+		ret = -1;
+		goto cleanup;
 	}
 
 	/* convert it to hex */
-	if ((err = bytes_to_hex(buffer, len, &(*out)->checksum)) != 0){
-		free(buffer);
-		return err;
+	if (bytes_to_hex(buffer, len, &(*out)->checksum) != 0){
+		log_warning("Failed to convert raw checksum to hexadecimal");
+		ret = -1;
+		goto cleanup;
 	}
 
 	free(buffer);
-	return 0;
+	if (ret == 0){
+		return 0;
+	}
+
+cleanup:
+	if (*out){
+		free((*out)->file);
+		free((*out)->checksum);
+		free(*out);
+		*out = NULL;
+	}
+	free(buffer);
+	return ret;
 }
 
 /* adds a checksum to a file
@@ -192,11 +226,16 @@ static int file_to_element(const char* file, const char* algorithm, element** ou
 int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, const char* prev_checksums){
 	element* e;
 	char* checksum = NULL;
-	int err;
 	int ret;
 
-	if ((err = file_to_element(file, algorithm, &e)) != 0){
-		return err;
+	if (!file || !out){
+		log_error(STR_NULLARG);
+		return -1;
+	}
+
+	if (file_to_element(file, algorithm, &e) != 0){
+		puts_debug("Could not create element from file");
+		return -1;
 	}
 
 	if (prev_checksums &&
@@ -209,8 +248,10 @@ int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, con
 	}
 	free(checksum);
 
-	if ((err = write_element_to_file(out, e)) != 0){
-		return err;
+	if (write_element_to_file(out, e) != 0){
+		free_element(e);
+		puts_debug("Could not write element to file");
+		return -1;
 	}
 
 	free_element(e);
@@ -240,14 +281,15 @@ static int check_file_exists(const char* file){
 	struct stat st;
 
 	if (lstat(file, &st) == 0){
-		return 0;
+		return 1;
 	}
 	switch (errno){
 	case ENOENT:
 	case ENOTDIR:
-		return -1;
+		return 0;
 	default:
-		return err_errno(errno);
+		log_error("Could not check for existence of %s (%s)", file, strerror(errno));
+		return -1;
 	}
 }
 
@@ -259,20 +301,22 @@ int create_removed_list(const char* checksum_file, const char* out_file){
 
 	fp_in = fopen(checksum_file, "rb");
 	if (!fp_in){
-		return err_regularerror(ERR_FILE_INPUT);
+		log_error(STR_BADFILE, checksum_file, strerror(errno));
+		return -1;
 	}
 
 	fp_out = fopen(out_file, "wb");
 	if (!fp_out){
-		return err_regularerror(ERR_FILE_OUTPUT);
+		log_error(STR_BADFILE, out_file, strerror(errno));
+		return -1;
 	}
 
 	while ((tmp = get_next_checksum_element(fp_in)) != NULL){
 		err = check_file_exists(tmp->file);
 		switch (err){
-		case 0:
+		case 1:
 			break;
-		case -1:
+		case 0:
 			fprintf(fp_out, "%s%c\n", tmp->file, '\0');
 			break;
 		default:
@@ -290,9 +334,10 @@ char* get_next_removed(FILE* fp){
 	long pos_file;
 	int c;
 	size_t len_file;
-	char* ret;
+	char* ret = NULL;
 
 	if (!fp){
+		log_error(STR_NULLARG);
 		return NULL;
 	}
 
@@ -300,6 +345,7 @@ char* get_next_removed(FILE* fp){
 
 	while ((c = fgetc(fp)) != '\0'){
 		if (c == EOF){
+			puts_debug("get_next_removed(): reached EOF");
 			return NULL;
 		}
 	}
@@ -308,6 +354,7 @@ char* get_next_removed(FILE* fp){
 
 	ret = malloc(len_file);
 	if (!ret){
+		log_fatal(STR_ENOMEM);
 		return NULL;
 	}
 

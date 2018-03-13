@@ -2,6 +2,7 @@
 #include "options.h"
 /* errors */
 #include "error.h"
+#include <errno.h>
 /* printf */
 #include <stdio.h>
 /* strcmp */
@@ -38,12 +39,14 @@ static int add_string_to_array(char*** array, int* array_len, const char* str){
 
 	*array = realloc(*array, *array_len * sizeof(*(*array)));
 	if (!(*array)){
+		log_fatal(STR_ENOMEM);
 		(*array_len)--;
-		return err_regularerror(ERR_OUT_OF_MEMORY);
+		return -1;
 	}
 
 	(*array)[*array_len - 1] = malloc(strlen(str) + 1);
 	if (!(*array)[*array_len - 1]){
+		log_fatal(STR_ENOMEM);
 		return err_regularerror(ERR_OUT_OF_MEMORY);
 	}
 

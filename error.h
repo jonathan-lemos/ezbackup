@@ -1,34 +1,25 @@
 #ifndef __EVPERROR_H
 #define __EVPERROR_H
 
-/* TAR* */
-#include "maketar.h"
+#include <stdarg.h>
 
-#define ERR_ENCRYPTION_UNINITIALIZED (-1)
-#define ERR_OUT_OF_MEMORY (-2)
-#define ERR_KEYS_UNINITIALIZED (-3)
-#define ERR_FILE_OUTPUT (-4)
-#define ERR_FILE_INPUT (-5)
-#define ERR_FILE_INVALID (-6)
-#define ERR_FUBAR (-7)
-#define ERR_SALT_UNINITIALIZED (-8)
-#define ERR_ARGUMENT_NULL (-9)
-#define ERR_INVALID_ARGUMENT (-10)
-#define ERR_EOF (-11)
-#define ERR_OUT_OF_DISK (-12)
+const char* STR_ENOMEM  = "Failed to allocate memory.";
+const char* STR_NULLARG = "A required argument was NULL.";
+const char* STR_BADFILE = "Could not open %s (%s)";
 
-typedef enum ERR_CONTEXT{
-	CONTEXT_INVALID = -1,
-	CONTEXT_REGULAR = 0,
-	CONTEXT_EVP = 1,
-	CONTEXT_ARCHIVE = 2,
-	CONTEXT_ERRNO = 3
-}ERR_CONTEXT;
+typedef enum LOG_LEVEL{
+	LEVEL_NONE    = 0,
+	LEVEL_FATAL   = 1,
+	LEVEL_ERROR   = 2,
+	LEVEL_WARNING = 3,
+	LEVEL_DEBUG   = 4
+}LOG_LEVEL;
 
-int err_regularerror(int err);
-int err_evperror(void);
-int err_archiveerror(int err, TAR* tp);
-int err_errno(int __errno);
-char* err_strerror(int err);
+void log_setlevel(LOG_LEVEL level);
+void log_fatal(const char* format, ...);
+void log_error(const char* format, ...);
+void log_warning(const char* format, ...);
+#define puts_debug(str) log_debug(__FILE__, __LINE__, str)
+void log_debug(const char* file, int line, const char* format, ...);
 
 #endif

@@ -4,6 +4,8 @@
 #include "readfile.h"
 /* handling errors */
 #include "error.h"
+#include <errno.h>
+#include <openssl/err.h>
 /* progress bar */
 #include "progressbar.h"
 /* swiggity swass get pass */
@@ -37,12 +39,11 @@ int crypt_scrub(void* data, int len){
 
 	/* checking if data is not NULL */
 	if (!data){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_NULLARG);
+		return -1;
 	}
 
 	res = RAND_bytes(data, len);
-	err = err_evperror();
-
 	if (res != 1){
 		/* generate low grade non-cs-secure random numbers
 		 * this is so we can return something in case
@@ -57,15 +58,15 @@ int crypt_scrub(void* data, int len){
 
 		fp = fopen("/dev/urandom", "rb");
 		if (!fp){
-			fprintf(stderr, "Not enough entropy to generate cryptographically-secure random numbers, and could not open /dev/urandom for reading. Aborting...\n");
-			exit(1);
+			log_fatal("Could not generate cryptographically secure numbers, and could not open /dev/urandom for reading");
+			return -1;
 		}
 
 		for (i = 0; i < len; ++i){
 			data_vol[i] = fgetc(fp);
 		}
 		fclose(fp);
-		return err;
+		return 1;
 	}
 	return 0;
 }
@@ -111,16 +112,19 @@ static int crypt_hashpassword(unsigned char* data, int data_len, unsigned char**
 	int ret;
 
 	if (!salt_len || !salt || !data || !hash || !hash_len){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_NULLARG);
+		return -1;
 	}
 	/* generate salt if it is NULL */
 	if (!(*salt)){
 		*salt_len = 64;
 		*salt = malloc(*salt_len);
 		if (!salt){
-			return err_regularerror(ERR_OUT_OF_MEMORY);
+			log_fatal(STR_ENOMEM);
+			return -1;
 		}
 		if ((ret = gen_csrand(*salt, *salt_len)) != 0){
+			puts_debug("gen_csrand() failed");
 			return ret;
 		}
 	}
@@ -131,11 +135,14 @@ static int crypt_hashpassword(unsigned char* data, int data_len, unsigned char**
 
 	*hash = malloc(*hash_len);
 	if (!(*hash)){
-		return err_regularerror(ERR_OUT_OF_MEMORY);
+		log_fatal(STR_ENOMEM);
+		return -1;
 	}
 
 	if (!EVP_BytesToKey(keytype(), hashtype(), *salt, data, data_len, 1000, *hash, *hash + key_len)){
-		return err_evperror();
+		log_error("Failed to generate keys from data");
+		ERR_print_errors_fp(stderr);
+		return -1;
 	}
 
 	return 0;
@@ -161,15 +168,15 @@ int crypt_getpassword(const char* prompt, const char* verify_prompt, char* out, 
 	int ret = 0;
 
 	/* store old terminal information */
-	if (tcgetattr(fileno(stdin), &old)){
-		return err_regularerror(ERR_FILE_INPUT);
+	if (tcgetattr(fileno(stdin), &old) != 0){
+		log_warning("Failed to store terminal settings");
 	}
 
 	/* turn off echo on terminal */
 	new = old;
 	new.c_lflag &= ~ECHO;
-	if (tcsetattr(fileno(stdin), TCSAFLUSH, &new)){
-		return err_regularerror(ERR_FILE_INPUT);
+	if (tcsetattr(fileno(stdin), TCSAFLUSH, &new) != 0){
+		log_warning("Failed to turn off terminal echo");
 	}
 
 	/* get password */
@@ -180,16 +187,19 @@ int crypt_getpassword(const char* prompt, const char* verify_prompt, char* out, 
 	out[strcspn(out, "\r\n")] = '\0';
 	/* if no verify prompt is specified, we can just return now */
 	if (!verify_prompt){
+		puts_debug("Returning now since no verify_prompt specified");
 		goto cleanup;
 	}
 	/* it's bad to store the password itself in memory,
 	 * so we store a hash instead. */
 	if ((ret = crypt_hashpassword((unsigned char*)out, strlen(out), &salt, &salt_len, &hash1, &hash_len)) != 0){
+		log_error("Failed to hash password input");
 		goto cleanup;
 	}
 	/* scrub the old password out of memory, so it can't be
 	 * captured anymore by an attacker */
 	crypt_scrub(out, strlen(out) + 5 + crypt_randc() % 11);
+	puts_debug("Password should be out of memory now");
 
 	/* verify the password */
 	printf("%s:", verify_prompt);
@@ -199,10 +209,12 @@ int crypt_getpassword(const char* prompt, const char* verify_prompt, char* out, 
 	out[strcspn(out, "\r\n")] = '\0';
 	/* same old deal */
 	if ((ret = crypt_hashpassword((unsigned char*)out, strlen(out), &salt, &salt_len, &hash2, &hash_len)) != 0){
+		log_error("Failed to hash verify password input");
 		goto cleanup;
 	}
 	/* verify that the hashes match */
 	if (crypt_secure_memcmp(hash1, hash2, hash_len) != 0){
+		puts_debug("The password hashes do not match");
 		/* scrub the password if they don't */
 		crypt_scrub(out, out_len);
 		ret = 1;
@@ -214,7 +226,9 @@ cleanup:
 	free(hash1);
 	free(hash2);
 	/* restore echo on terminal */
-	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+	if (tcsetattr(fileno(stdin), TCSAFLUSH, &old) != 0){
+		log_warning("Failed to restore terminal echo");
+	}
 	return ret;
 }
 
@@ -222,7 +236,8 @@ cleanup:
  * returns 0 if salt is csrand, err if not */
 int crypt_gen_salt(crypt_keys* fk){
 	if (!fk){
-		return ERR_ARGUMENT_NULL;
+		log_error(STR_NULLARG);
+		return -1;
 	}
 	return gen_csrand(fk->salt, sizeof(fk->salt));
 }
@@ -233,7 +248,8 @@ int crypt_set_salt(unsigned char salt[8], crypt_keys* fk){
 	unsigned i;
 
 	if (!fk){
-		return ERR_ARGUMENT_NULL;
+		log_error(STR_NULLARG);
+		return -1;
 	}
 
 	if (salt){
@@ -256,7 +272,8 @@ int crypt_set_salt(unsigned char salt[8], crypt_keys* fk){
  * returns 0 on success or 1 if cipher is not recognized */
 int crypt_set_encryption(const char* encryption, crypt_keys* fk){
 	if (!fk){
-		return ERR_ARGUMENT_NULL;
+		log_error(STR_NULLARG);
+		return -1;
 	}
 
 	fk->flags = FLAG_UNINITIALIZED;
@@ -266,7 +283,9 @@ int crypt_set_encryption(const char* encryption, crypt_keys* fk){
 		OpenSSL_add_all_algorithms();
 		fk->encryption = EVP_get_cipherbyname(encryption);
 		if (!fk->encryption){
-			return err_evperror();
+			log_error("Could not set encryption type");
+			ERR_print_errors_fp(stderr);
+			return -1;
 		}
 	}
 	/* if encryption is NULL, use no encryption */
@@ -289,7 +308,8 @@ int crypt_gen_keys(
 		){
 
 	if (!fk || !data){
-		return ERR_ARGUMENT_NULL;
+		log_error(STR_NULLARG);
+		return -1;
 	}
 
 	/* if md is NULL, default to sha256 */
@@ -297,9 +317,10 @@ int crypt_gen_keys(
 		md = EVP_sha256();
 	}
 
-	/* checking if encryption and salt are set */
+	/* checking if encryption is set */
 	if (!(fk->flags & FLAG_ENCRYPTION_SET)){
-		return ERR_ENCRYPTION_UNINITIALIZED;
+		log_error("Encryption type was not set (call crypt_set_encryption())");
+		return -1;
 	}
 
 	/* determining key and iv length */
@@ -310,12 +331,15 @@ int crypt_gen_keys(
 	fk->key = malloc(fk->key_length);
 	fk->iv = malloc(fk->iv_length);
 	if (!fk->key || !fk->iv){
-		return ERR_OUT_OF_MEMORY;
+		log_fatal(STR_ENOMEM);
+		return -1;
 	}
 
 	/* generating the key and iv */
 	if (!EVP_BytesToKey(fk->encryption, md, fk->salt, data, data_len, iterations, fk->key, fk->iv)){
-		return err_evperror();
+		log_error("Failed to generate keys from data");
+		ERR_print_errors_fp(stderr);
+		return -1;
 	}
 
 	fk->flags |= FLAG_KEYS_SET;
@@ -326,7 +350,8 @@ int crypt_gen_keys(
  * returns 0 if fk is not NULL */
 int crypt_free(crypt_keys* fk){
 	if (!fk){
-		return ERR_ARGUMENT_NULL;
+		puts_debug("crypt_free() arg was NULL");
+		return -1;
 	}
 
 	/* scrub keys so they can't be retrieved from memory */
@@ -356,30 +381,35 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 
 	/* checking null arguments */
 	if (!in || !fk || !out){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_NULLARG);
+		return -1;
 	}
 
 	/* checking if keys were actually generated */
 	if (!(fk->flags & FLAG_KEYS_SET)){
-		return err_regularerror(ERR_KEYS_UNINITIALIZED);
+		log_error("Encryption keys were not generated (call crypt_gen_keys())");
+		return -1;
 	}
 
 	/* open input file for reading */
 	fp_in = fopen(in, "rb");
 	if (!fp_in){
-		return err_regularerror(ERR_FILE_INPUT);
+		log_error(STR_BADFILE, in, strerror(errno));
+		return -1;
 	}
 	/* open output file for writing */
 	fp_out = fopen(out, "wb");
 	if (!fp_out){
 		fclose(fp_in);
-		return err_regularerror(ERR_FILE_OUTPUT);
+		log_error(STR_BADFILE, out, strerror(errno));
+		return -1;
 	}
 
 	/* write the salt prefix + salt to the file */
 	fwrite(salt_prefix, 1, sizeof(salt_prefix), fp_out);
 	if (ferror(fp_out)){
-		ret = ERR_FILE_OUTPUT;
+		log_error("There was an error writing to %s", out);
+		ret = -1;
 		goto cleanup;
 	}
 	fwrite(fk->salt, 1, 8, fp_out);
@@ -402,26 +432,29 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	 * buffer[BUFFER_LEN] */
 	outbuffer = malloc(BUFFER_LEN + EVP_CIPHER_block_size(fk->encryption));
 	if (!outbuffer){
-		ret = ERR_OUT_OF_MEMORY;
+		log_fatal(STR_ENOMEM);
+		ret = -1;
 		goto cleanup;
 	}
 
 	/* initializing encryption thingy */
 	ctx = EVP_CIPHER_CTX_new();
-	ret = err_evperror();
-	if (ret){
+	if (!ctx){
+		log_error("Failed to initialize EVP_CIPHER_CTX");
 		goto cleanup;
 	}
 	if (EVP_EncryptInit_ex(ctx, fk->encryption, NULL, fk->key, fk->iv) != 1){
-		ret = err_evperror();
+		log_error("Failed to initialize encryption");
+		ret = -1;
 		goto cleanup;
 	}
 
 	/* while there is still data to be read in the file */
-	while ((inlen = read_file(fp_in, inbuffer, sizeof(inbuffer)))){
+	while ((inlen = read_file(fp_in, inbuffer, sizeof(inbuffer))) > 0){
 		/* encrypt it */
 		if (EVP_EncryptUpdate(ctx, outbuffer, &outlen, inbuffer, inlen) != 1){
-			ret = err_evperror();
+			log_error("Failed to encrypt data completely");
+			ret = -1;
 			goto cleanup;
 		}
 		/* write it to the out file */
@@ -434,7 +467,8 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 
 	/* write any padding data to the file */
 	if (EVP_EncryptFinal_ex(ctx, outbuffer, &outlen) != 1){
-		ret = err_evperror();
+		log_error("Failed to write padding data to file");
+		ret = -1;
 		goto cleanup;
 	}
 	fwrite(outbuffer, 1, outlen, fp_out);
@@ -464,27 +498,31 @@ int crypt_extract_salt(const char* in, crypt_keys* fk){
 
 	/* checking null arguments */
 	if (!in || !fk){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_NULLARG);
+		return -1;
 	}
 
 	/* open in for reading */
 	fp = fopen(in, "rb");
 	if (!fp){
-		return err_regularerror(ERR_FILE_INPUT);
+		log_error(STR_BADFILE, in, strerror(errno));
+		return -1;
 	}
 
 	/* check that fread works properly. also advances the file
 	 * pointer to the beginning of the salt */
 	if (fread(salt_buffer, 1, sizeof(salt_prefix), fp) != sizeof(salt_prefix)){
+		log_error("Failed to read salt prefix from file");
 		fclose(fp);
-		return err_regularerror(ERR_FILE_INPUT);
+		return -1;
 	}
 
 	/* read the salt into the buffer, check if the correct
 	 * amount of bytes were read */
 	if (fread(buffer, 1, sizeof(buffer), fp) != sizeof(buffer)){
+		log_error("Failed to read salt from file");
 		fclose(fp);
-		return err_regularerror(ERR_FILE_INPUT);
+		return -1;
 	}
 
 	/* memcpy() leaves data in memory
@@ -514,29 +552,34 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 
 	/* checking null arguments */
 	if (!in || !fk || !out){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_NULLARG);
+		return -1;
 	}
 
 	/* checking if keys were actually generated */
 	if (!(fk->flags & FLAG_KEYS_SET)){
-		return err_regularerror(ERR_KEYS_UNINITIALIZED);
+		log_error("Decryption keys were not generated (call crypt_gen_keys())");
+		return -1;
 	}
 
 	/* checking if salt was extracted */
 	if (!(fk->flags & FLAG_SALT_EXTRACTED)){
-		return err_regularerror(ERR_SALT_UNINITIALIZED);
+		log_error("Salt was not extracted from the file (call crypt_extract_salt())");
+		return -1;
 	}
 
 	/* open input file for reading */
 	fp_in = fopen(in, "rb");
 	if (!fp_in){
-		return err_regularerror(ERR_FILE_INPUT);
+		log_error(STR_BADFILE, in, strerror(errno));
+		return -1;
 	}
 	/* open output file for writing */
 	fp_out = fopen(out, "wb");
 	if (!fp_out){
+		log_error(STR_BADFILE, out, strerror(errno));
 		fclose(fp_in);
-		return err_regularerror(ERR_FILE_OUTPUT);
+		return -1;
 	}
 
 	/* isn't the decrypted length supposed to be lower than
@@ -546,7 +589,8 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	 */
 	outbuffer = malloc(BUFFER_LEN + EVP_CIPHER_block_size(fk->encryption));
 	if (!outbuffer){
-		return err_regularerror(ERR_OUT_OF_MEMORY);
+		log_fatal(STR_ENOMEM);
+		return -1;
 	}
 
 	/* preparing progress bar */
@@ -565,12 +609,13 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 
 	/* initializing cipher context */
 	ctx = EVP_CIPHER_CTX_new();
-	ret = err_evperror();
-	if (ret){
+	if (!ctx){
+		log_error("Failed to initialize EVP_CIPHER_CTX");
 		goto cleanup;
 	}
 	if (EVP_DecryptInit_ex(ctx, fk->encryption, NULL, fk->key, fk->iv) != 1){
-		ret = err_evperror();
+		log_error("Failed to intitialize decryption process");
+		ret = -1;
 		goto cleanup;
 	}
 
@@ -578,10 +623,11 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	fseek(fp_in, 8 + sizeof(fk->salt), SEEK_SET);
 
 	/* while there is data in the input file */
-	while ((inlen = read_file(fp_in, inbuffer, sizeof(inbuffer)))){
+	while ((inlen = read_file(fp_in, inbuffer, sizeof(inbuffer))) > 0){
 		/* decrypt it */
 		if (EVP_DecryptUpdate(ctx, outbuffer, &outlen, inbuffer, inlen) != 1){
-			ret = err_evperror();
+			log_error("Failed to completely decrypt file");
+			ret = -1;
 			goto cleanup;
 		}
 		/* write it to the output file */
@@ -594,7 +640,8 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 
 	/* not sure what needs to be finalized, but ehh */
 	if (EVP_DecryptFinal_ex(ctx, outbuffer, &outlen) != 1){
-		ret = err_evperror();
+		log_error("Failed to write padding data to file");
+		ret = -1;
 		goto cleanup;
 	}
 	fwrite(outbuffer, 1, outlen, fp_out);

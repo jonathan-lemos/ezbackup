@@ -2,6 +2,7 @@
 #include "checksumsort.h"
 /* errors */
 #include "error.h"
+#include <errno.h>
 /* reading them files */
 #include "readfile.h"
 /* strcmp */
@@ -12,8 +13,10 @@
 #include <assert.h>
 /* file size */
 #include <sys/stat.h>
+/* increasing file limit */
+#include <sys/resource.h>
 
-#define MAX_RUN_SIZE (1024)
+#define MAX_RUN_SIZE (1 << 24)
 
 static int compare_elements(element* e1, element* e2){
 	/* send NULL's to bottom of heap */
@@ -32,7 +35,7 @@ int write_element_to_file(FILE* fp, element* e){
 	int c;
 
 	if (!fp || !e || !e->file || !e->checksum){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_NULLARG);
 	}
 
 	c = fprintf(fp, "%s%c%s\n", e->file, '\0', e->checksum);
@@ -49,11 +52,13 @@ element* get_next_checksum_element(FILE* fp){
 	element* e;
 
 	if (!fp){
+		log_error(STR_NULLARG);
 		return NULL;
 	}
 
 	e = malloc(sizeof(*e));
 	if (!e){
+		log_fatal(STR_ENOMEM);
 		return NULL;
 	}
 
@@ -62,6 +67,7 @@ element* get_next_checksum_element(FILE* fp){
 	while ((c = fgetc(fp)) != '\0'){
 		/* end of file, no more checksums to read */
 		if (c == EOF){
+			puts_debug("get_next_checksum_element(): reached EOF");
 			free(e);
 			return NULL;
 		}
@@ -69,6 +75,7 @@ element* get_next_checksum_element(FILE* fp){
 	pos_file = ftell(fp);
 	while ((c = fgetc(fp)) != '\n'){
 		if (c == EOF){
+			puts_debug("get_next_checksum_element(): reached EOF");
 			free(e);
 			return NULL;
 		}
@@ -81,11 +88,13 @@ element* get_next_checksum_element(FILE* fp){
 	/* make space for file + checksum */
 	e->file = malloc(len_file);
 	if (!e->file){
+		log_fatal(STR_ENOMEM);
 		free(e);
 		return NULL;
 	}
 	e->checksum = malloc(len_checksum);
 	if (!e){
+		log_fatal(STR_ENOMEM);
 		free(e->file);
 		free(e);
 		return NULL;
@@ -228,6 +237,20 @@ void free_filearray(FILE** elements, size_t size){
 	free(elements);
 }
 
+static __off_t get_file_size(const char* file){
+	struct stat st;
+
+	lstat(file, &st);
+	return st.st_size;
+}
+
+static int set_file_limit(int num){
+	struct rlimit rl;
+	rl.rlim_cur = num + 1;
+	rl.rlim_max = num + 1;
+	return setrlimit(RLIMIT_NOFILE, &rl);
+}
+
 /* you know this is going to be good when there's a triple pointer */
 
 /* reads MAX_RUN_SIZE bytes worth of elements into ram,
@@ -245,12 +268,18 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 	int end_of_file = 0;
 
 	if (!in_file || !out || !n_files){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_NULLARG);
+		return -1;
 	}
 
 	fp_in = fopen(in_file, "r");
 	if (!fp_in){
-		return err_regularerror(ERR_FILE_INPUT);
+		log_error("Failed to open %s (%s)", in_file, strerror(errno));
+		return -1;
+	}
+
+	if (set_file_limit(get_file_size(in_file) / MAX_RUN_SIZE * 3 / 2) != 0){
+		log_warning("Could not set max file limit (%s)", strerror(errno));
 	}
 
 	*out = NULL;
@@ -267,34 +296,32 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 		/* make space for new string */
 		*out = realloc(*out, sizeof(**out) * *n_files);
 		if (!*out){
-			return err_regularerror(ERR_OUT_OF_MEMORY);
+			log_fatal(STR_ENOMEM);
+			return -1;
 		}
 		(*out)[*n_files - 1] = malloc(sizeof("/var/tmp/merge_XXXXXX"));
 		if (!(*out)[*n_files - 1]){
-			return err_regularerror(ERR_OUT_OF_MEMORY);
+			log_fatal(STR_ENOMEM);
+			return -1;
 		}
 		/* copy template to new string */
 		strcpy((*out)[*n_files - 1], template);
 		/* make a temp file using the template */
 		/* new string now should be a valid temp file */
 		if (temp_file((*out)[*n_files - 1]) != 0){
+			log_error("Failed to create temporary merge file");
 			free((*out)[(*n_files) - 1]);
 			(*n_files)--;
 			*out = realloc(*out, *n_files * sizeof(**out));
-			if (!(*out)){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
-			}
-			return err_regularerror(ERR_FILE_OUTPUT);
+			return -1;
 		}
-		fp = fopen((*out)[*n_files - 1], "w");
+		fp = fopen((*out)[*n_files - 1], "wb");
 		if (!fp){
+			log_error("Failed to open %s (%s)", (*out)[*n_files - 1], strerror(errno));
 			free((*out)[(*n_files) - 1]);
 			(*n_files)--;
 			*out = realloc(*out, *n_files * sizeof(**out));
-			if (!(*out)){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
-			}
-			return err_regularerror(ERR_FILE_OUTPUT);
+			return -1;
 		}
 
 		/* read enough elements to fill MAX_RUN_SIZE */
@@ -305,7 +332,8 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 			elems_len++;
 			elems = realloc(elems, sizeof(*elems) * elems_len);
 			if (!elems){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
+				log_fatal(STR_ENOMEM);
+				return -1;
 			}
 			/* +2 for the 2 \0's */
 			total_len += strlen(tmp->file) + strlen(tmp->checksum) + 2;
@@ -318,7 +346,8 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 			(*n_files)--;
 			*out = realloc(*out, *n_files * sizeof(**out));
 			if (!(*out)){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
+				log_fatal(STR_ENOMEM);
+				return -1;
 			}
 			end_of_file = 1;
 			continue;
@@ -380,33 +409,38 @@ int merge_files(char** files, size_t n_files, const char* out_file){
 
 	/* verify that arguments are not null */
 	if (!files || !out_file){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_NULLARG);
+		return -1;
 	}
 
 	/* open out_file for writing */
 	fp_out = fopen(out_file, "wb");
 	if (!fp_out){
-		return err_regularerror(ERR_FILE_OUTPUT);
+		log_error(STR_BADFILE, out_file, strerror(errno));
+		return -1;
 	}
 
 	/* allocate space for our file array */
 	in = malloc(sizeof(*in) * n_files);
 	if (!in){
-		return err_regularerror(ERR_OUT_OF_MEMORY);
+		log_fatal(STR_ENOMEM);
+		return -1;
 	}
 
 	/* open each char* as a file* */
 	for (i = 0; i < n_files; ++i){
 		in[i] = fopen(files[i], "rb");
 		if (!in[i]){
-			return err_regularerror(ERR_FILE_INPUT);
+			log_error(STR_BADFILE, files[i], strerror(errno));
+			return -1;
 		}
 	}
 
 	/* make space for the min heap nodes */
 	mhn = malloc(n_files * sizeof(*mhn));
 	if (!mhn){
-		return err_regularerror(ERR_OUT_OF_MEMORY);
+		log_fatal(STR_ENOMEM);
+		return -1;
 	}
 	/* get the first element from each file */
 	for (i = 0; i < n_files; ++i){
@@ -441,13 +475,6 @@ int merge_files(char** files, size_t n_files, const char* out_file){
 	free_filearray(in, n_files);
 	fclose(fp_out);
 	return 0;
-}
-
-static __off_t get_file_size(const char* file){
-	struct stat st;
-
-	lstat(file, &st);
-	return st.st_size;
 }
 
 int search_file(const char* file, const char* key, char** checksum){
@@ -569,7 +596,8 @@ int search_file(const char* file, const char* key, char** checksum){
 		/* return it */
 		*checksum = malloc(strlen(tmp->checksum) + 1);
 		if (!(*checksum)){
-			return err_regularerror(ERR_OUT_OF_MEMORY);
+			log_fatal(STR_ENOMEM);
+			return -1;
 		}
 		strcpy(*checksum, tmp->checksum);
 		free_element(tmp);

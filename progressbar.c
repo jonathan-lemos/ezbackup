@@ -22,8 +22,8 @@ static int get_width(void){
 static void display_progress(progress* p){
 	/* no idea why -4, but it works */
 	int num_blank = get_width() - 4 - strlen("(000.00%)");
-	double pct = (double)p->count / p->max;
-	int num_pound = (int)(num_blank * pct) + 1;
+	long double pct = (long double)p->count / p->max;
+	int num_pound = (uint64_t)(num_blank * pct) + 1;
 	int num_space = num_blank - num_pound;
 
 	/* \r returns to beginning of line */
@@ -36,12 +36,12 @@ static void display_progress(progress* p){
 		printf("%c", ' ');
 	}
 	printf("]");
-	printf("(%5.2f%%)", pct * 100.0);
+	printf("(%5.2Lf%%)", pct * 100.0);
 	/* needed to actually display chars */
 	fflush(stdout);
 }
 
-progress* start_progress(const char* text, int max){
+progress* start_progress(const char* text, uint64_t max){
 	progress* p = malloc(sizeof(progress));
 	if (!p){
 		return NULL;
@@ -59,7 +59,7 @@ progress* start_progress(const char* text, int max){
 	return p;
 }
 
-void inc_progress(progress* p, int count){
+void inc_progress(progress* p, uint64_t count){
 	if (!p){
 		return;
 	}
@@ -67,7 +67,7 @@ void inc_progress(progress* p, int count){
 	display_progress(p);
 }
 
-void set_progress(progress* p, int count){
+void set_progress(progress* p, uint64_t count){
 	if (!p){
 		return;
 	}

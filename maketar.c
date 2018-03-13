@@ -4,6 +4,7 @@
 #include "readfile.h"
 /* errors */
 #include "error.h"
+#include <errno.h>
 /* progressbar */
 #include "progressbar.h"
 /* working with tar */
@@ -26,6 +27,7 @@ TAR* tar_create(const char* filename, COMPRESSOR comp){
 	TAR* tp = archive_write_new();
 
 	if (!filename){
+		log_error(STR_NULLARG);
 		return NULL;
 	}
 
@@ -69,13 +71,15 @@ int tar_add_file_ex(TAR* tp, const char* filename, const char* path_in_tar, int 
 	progress* p;
 
 	if (!tp){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_NULLARG);
+		return -1;
 	}
 
 	/* must open as "rb" to prevent \r\n -> \n */
 	fp = fopen(filename, "rb");
 	if (!fp){
-		return err_regularerror(ERR_FILE_INPUT);
+		log_error(STR_BADFILE, filename, strerror(errno));
+		return -1;
 	}
 
 	stat(filename, &st);
@@ -137,7 +141,8 @@ int tar_add_file(TAR* tp, const char* filename){
 
 int tar_close(TAR* tp){
 	if (!tp){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_NULLARG);
+		return -1;
 	}
 
 	archive_write_close(tp);
@@ -153,8 +158,8 @@ static int strcmp_nocase(const char* str1, const char* str2){
 	int ret;
 
 	if (!c1 || !c2){
-		fprintf(stderr, "strcmp_nocase fatal error: out of memory at the jack in the box\n");
-		exit(1);
+		log_fatal(STR_ENOMEM);
+		return -1;
 	}
 
 	strcpy(c1, str1);
@@ -179,7 +184,7 @@ static int strcmp_nocase(const char* str1, const char* str2){
 	return ret;
 }
 
-static int copy_data(TAR* in, TAR* out, int verbose){
+static int copy_data(TAR* in, TAR* out){
 	int ret = ARCHIVE_OK;
 	const void* buf;
 	size_t size;
@@ -194,12 +199,14 @@ static int copy_data(TAR* in, TAR* out, int verbose){
 			continue;
 			break;
 		case ARCHIVE_WARN:
-			if (verbose){
-				fprintf(stderr, "maketar warning: %s\n", archive_error_string(in));
-			}
+			log_warning("copy_data() - %s", archive_error_string(in));
 			break;
+		case ARCHIVE_FAILED:
+			log_error("copy_data() - %s", archive_error_string(in));
+			return -1;
 		default:
-			return err_archiveerror(ret, in);
+			log_fatal("copy_data() - %s", archive_error_string(in));
+			return -1;
 		}
 
 		ret = archive_write_data_block(out, buf, size, offset);
@@ -207,18 +214,20 @@ static int copy_data(TAR* in, TAR* out, int verbose){
 		case ARCHIVE_OK:
 			break;
 		case ARCHIVE_WARN:
-			if (verbose){
-				fprintf(stderr, "maketar warning: %s\n", archive_error_string(out));
-			}
+			log_warning("copy_data() - %s", archive_error_string(out));
 			break;
+		case ARCHIVE_FAILED:
+			log_error("copy_data() - %s", archive_error_string(out));
+			return -1;
 		default:
-			return err_archiveerror(ret, out);
+			log_fatal("copy_data() - %s", archive_error_string(out));
+			return -1;
 		}
 	}
-	return ARCHIVE_OK;
+	return 0;
 }
 
-int tar_extract(const char* tarchive, const char* outdir, int verbose){
+int tar_extract(const char* tarchive, const char* outdir){
 	TAR* tp = NULL;
 	TAR* ext = NULL;
 	struct archive_entry* entry = NULL;
@@ -244,16 +253,20 @@ int tar_extract(const char* tarchive, const char* outdir, int verbose){
 	case ARCHIVE_OK:
 		break;
 	case ARCHIVE_EOF:
-		ret = err_regularerror(ERR_FILE_INPUT);
+		log_fatal("Opening %s returned ARCHIVE_EOF - THIS SHOULD NEVER HAPPEN", tarchive);
+		ret = -1;
 		goto cleanup;
 		break;
 	case ARCHIVE_WARN:
-		if (verbose){
-			fprintf(stderr, "maketar warning: %s\n", archive_error_string(tp));
-		}
+		log_warning("Opening tar (%s)", archive_error_string(tp));
 		break;
+	case ARCHIVE_FAILED:
+		log_error("Failed to open tar for extracting (%s)", archive_error_string(tp));
+		ret = -1;
+		goto cleanup;
 	default:
-		err_archiveerror(ret, tp);
+		log_fatal("Failed to open tar for extracting (%s)", archive_error_string(tp));
+		ret = -1;
 		goto cleanup;
 	}
 
@@ -271,18 +284,15 @@ int tar_extract(const char* tarchive, const char* outdir, int verbose){
 			continue;
 			break;
 		case ARCHIVE_WARN:
-			if (verbose){
-				fprintf(stderr, "maketar warning: %s\n", archive_error_string(tp));
-			}
+			log_warning("Reading next tar header (%s)", archive_error_string(tp));
 			break;
 		case ARCHIVE_FAILED:
-			if (verbose){
-				fprintf(stderr, "maketar error: %s\n", archive_error_string(tp));
-			}
+			log_error("Failed to read next tar header (%s)", archive_error_string(tp));
 			continue;
 			break;
 		default:
-			err_archiveerror(ret, tp);
+			log_fatal("Failed to read next tar header (%s)", archive_error_string(tp));
+			ret = -1;
 			archive_entry_free(entry);
 			goto cleanup;
 		}
@@ -291,7 +301,8 @@ int tar_extract(const char* tarchive, const char* outdir, int verbose){
 		tar_file_path = archive_entry_pathname(entry);
 		out_path = malloc(strlen(tar_file_path) + strlen(outdir) + 1);
 		if (!out_path){
-			return err_regularerror(ERR_OUT_OF_MEMORY);
+			log_fatal(STR_ENOMEM);
+			return -1;
 		}
 		strcpy(out_path, outdir);
 		strcat(out_path, tar_file_path);
@@ -303,43 +314,37 @@ int tar_extract(const char* tarchive, const char* outdir, int verbose){
 		case ARCHIVE_OK:
 			break;
 		case ARCHIVE_WARN:
-			if (verbose){
-				fprintf(stderr, "maketar warning: %s\n", archive_error_string(tp));
-			}
+			log_warning("Writing tar header (%s)", archive_error_string(ext));
 			break;
 		case ARCHIVE_FAILED:
-			if (verbose){
-				fprintf(stderr, "maketar error: %s\n", archive_error_string(tp));
-			}
+			log_error("Failed to write tar header (%s)", archive_error_string(ext));
 			free(out_path);
 			continue;
 			break;
 		default:
-			err_archiveerror(ret, tp);
+			log_fatal("Failed to write tar header (%s)", archive_error_string(ext));
+			ret = -1;
 			free(out_path);
 			archive_entry_free(entry);
 			goto cleanup;
 		}
 
 		/* extract the file */
-		ret = copy_data(tp, ext, verbose);
+		ret = copy_data(tp, ext);
 		switch (ret){
 		case ARCHIVE_OK:
 			break;
 		case ARCHIVE_WARN:
-			if (verbose){
-				fprintf(stderr, "maketar warning: %s\n", archive_error_string(tp));
-			}
+			puts_debug("copy_data() warned us");
 			break;
 		case ARCHIVE_FAILED:
-			if (verbose){
-				fprintf(stderr, "maketar error: %s\n", archive_error_string(tp));
-			}
+			puts_debug("copy_data() failed");
 			free(out_path);
 			continue;
 			break;
 		default:
-			err_archiveerror(ret, tp);
+			log_fatal("Failed to copy data into tar");
+			ret = -1;
 			free(out_path);
 			archive_entry_free(entry);
 			goto cleanup;
@@ -407,18 +412,22 @@ int tar_extract_file(const char* tarchive, const char* file_intar, const char* f
 	case ARCHIVE_OK:
 		break;
 	case ARCHIVE_EOF:
-		return ERR_FILE_INPUT;
+		log_fatal("Opening %s returned ARCHIVE_EOF - THIS SHOULD NEVER HAPPEN", tarchive);
+		ret = -1;
+		goto cleanup;
 		break;
 	case ARCHIVE_WARN:
-		if (verbose){
-			fprintf(stderr, "maketar warning: %s\n", archive_error_string(tp));
-		}
+		log_warning("Opening tar (%s)", archive_error_string(tp));
 		break;
+	case ARCHIVE_FAILED:
+		log_error("Failed to open tar for extracting (%s)", archive_error_string(tp));
+		ret = -1;
+		goto cleanup;
 	default:
-		err_archiveerror(ret, tp);
+		log_fatal("Failed to open tar for extracting (%s)", archive_error_string(tp));
+		ret = -1;
 		goto cleanup;
 	}
-
 	/* while there are files in the archive */
 	while (ret != ARCHIVE_EOF){
 		entry = NULL;
@@ -431,18 +440,14 @@ int tar_extract_file(const char* tarchive, const char* file_intar, const char* f
 			return ARCHIVE_EOF;
 			break;
 		case ARCHIVE_WARN:
-			if (verbose){
-				fprintf(stderr, "maketar warning: %s\n", archive_error_string(tp));
-			}
+			log_warning("Reading tar header (%s)", archive_error_string(tp));
 			break;
 		case ARCHIVE_FAILED:
-			if (verbose){
-				fprintf(stderr, "maketar error: %s\n", archive_error_string(tp));
-			}
+			log_error("Failed to read tar header (%s)", archive_error_string(tp));
 			continue;
 			break;
 		default:
-			err_archiveerror(ret, tp);
+			log_fatal("Failed to read tar header (%s)", archive_error_string(tp));
 			goto cleanup;
 		}
 
@@ -457,39 +462,31 @@ int tar_extract_file(const char* tarchive, const char* file_intar, const char* f
 		case ARCHIVE_OK:
 			break;
 		case ARCHIVE_WARN:
-			if (verbose){
-				fprintf(stderr, "maketar warning: %s\n", archive_error_string(tp));
-			}
+			log_warning("Writing tar header (%s)", archive_error_string(ext));
 			break;
 		case ARCHIVE_FAILED:
-			if (verbose){
-				fprintf(stderr, "maketar error: %s\n", archive_error_string(tp));
-			}
+			log_error("Failed to write tar header (%s)", archive_error_string(ext));
 			continue;
 			break;
 		default:
-			err_archiveerror(ret, tp);
+			log_fatal("Failed to write tar header (%s)", archive_error_string(ext));
 			goto cleanup;
 		}
 
 		/* extract the file */
-		ret = copy_data(tp, ext, verbose);
+		ret = copy_data(tp, ext);
 		switch (ret){
 		case ARCHIVE_OK:
 			break;
 		case ARCHIVE_WARN:
-			if (verbose){
-				fprintf(stderr, "maketar warning: %s\n", archive_error_string(tp));
-			}
+			puts_debug("copy_data() warned us");
 			break;
 		case ARCHIVE_FAILED:
-			if (verbose){
-				fprintf(stderr, "maketar error: %s\n", archive_error_string(tp));
-			}
+			puts_debug("copy_data() failed");
 			continue;
 			break;
 		default:
-			err_archiveerror(ret, tp);
+			log_fatal("copy_data() failed");
 			goto cleanup;
 		}
 		break;
@@ -537,17 +534,17 @@ COMPRESSOR get_compressor_byname(const char* compressor){
 
 const char* compressor_to_string(COMPRESSOR comp){
 	switch(comp){
-		case COMPRESSOR_GZIP:
-			return "gzip";
-		case COMPRESSOR_BZIP2:
-			return "bzip2";
-		case COMPRESSOR_XZ:
-			return "xz";
-		case COMPRESSOR_LZ4:
-			return "lz4";
-		case COMPRESSOR_NONE:
-			return "none";
-		default:
-			return "unknown";
+	case COMPRESSOR_GZIP:
+		return "gzip";
+	case COMPRESSOR_BZIP2:
+		return "bzip2";
+	case COMPRESSOR_XZ:
+		return "xz";
+	case COMPRESSOR_LZ4:
+		return "lz4";
+	case COMPRESSOR_NONE:
+		return "none";
+	default:
+		return "unknown";
 	}
 }
