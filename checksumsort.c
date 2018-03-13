@@ -278,10 +278,22 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 		/* make a temp file using the template */
 		/* new string now should be a valid temp file */
 		if (temp_file((*out)[*n_files - 1]) != 0){
+			free((*out)[(*n_files) - 1]);
+			(*n_files)--;
+			*out = realloc(*out, *n_files * sizeof(**out));
+			if (!(*out)){
+				return err_regularerror(ERR_OUT_OF_MEMORY);
+			}
 			return err_regularerror(ERR_FILE_OUTPUT);
 		}
 		fp = fopen((*out)[*n_files - 1], "w");
 		if (!fp){
+			free((*out)[(*n_files) - 1]);
+			(*n_files)--;
+			*out = realloc(*out, *n_files * sizeof(**out));
+			if (!(*out)){
+				return err_regularerror(ERR_OUT_OF_MEMORY);
+			}
 			return err_regularerror(ERR_FILE_OUTPUT);
 		}
 
@@ -551,6 +563,7 @@ int search_file(const char* file, const char* key, char** checksum){
 		free_element(tmp);
 		/* while key is greater than tmp */
 	}while (res > 0);
+	fclose(fp);
 	/* if we found our target */
 	if (res == 0){
 		/* return it */

@@ -15,7 +15,7 @@
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 void version(void){
-	const char* program_name = "cbackup";
+	const char* program_name = "ezbackup";
 	const char* version = "0.1";
 
 	printf("%s %s\n", program_name, version);

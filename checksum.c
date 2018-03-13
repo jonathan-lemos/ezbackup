@@ -83,27 +83,28 @@ static int hex_to_bytes(char* hex, unsigned len, unsigned char** out){
 /* computes a hash
  * returns 0 on success or err on failure */
 int checksum(const char* file, const char* algorithm, unsigned char** out, unsigned* len){
-	EVP_MD_CTX* ctx;
+	EVP_MD_CTX* ctx = NULL;
 	const EVP_MD* md;
 	unsigned char buffer[BUFFER_LEN];
 	int length;
 	FILE* fp;
+	int ret;
 
 	fp = fopen(file, "rb");
 	if (!fp){
-		return ERR_FILE_INPUT;
+		return err_regularerror(ERR_FILE_INPUT);
 	}
 
 	if (!(ctx = EVP_MD_CTX_create())){
-		return err_evperror();
+		ret = err_evperror();
+		goto cleanup;
 	}
 
 	/* get EVP_MD* from char* */
 	if (algorithm){
 		OpenSSL_add_all_algorithms();
 		if (!(md = EVP_get_digestbyname(algorithm))){
-			EVP_MD_CTX_destroy(ctx);
-			return err_evperror();
+			ret = err_evperror();
 		}
 	}
 	/* default to sha1 if NULL algorithm */
@@ -112,41 +113,37 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 	}
 
 	if (EVP_DigestInit_ex(ctx, md, NULL) != 1){
-		EVP_MD_CTX_destroy(ctx);
-		return err_evperror();
+		ret = err_evperror();
+		goto cleanup;
 	}
 
 	/* both of these must point to valid locations */
 	if (!len || !out){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		ret = err_regularerror(ERR_ARGUMENT_NULL);
+		goto cleanup;
 	}
 	*len = EVP_MD_size(md);
 	if (!(*out = malloc(EVP_MD_size(md)))){
-		EVP_MD_CTX_destroy(ctx);
-		return err_regularerror(ERR_OUT_OF_MEMORY);
+		ret = err_regularerror(ERR_OUT_OF_MEMORY);
+		goto cleanup;
 	}
 
 	while ((length = read_file(fp, buffer, sizeof(buffer))) > 0){
 		if (EVP_DigestUpdate(ctx, buffer, length) != 1){
 			/* must get error now or EVP_MD_CTX_destroy() will overwrite it */
-			int err = err_evperror();
-
-			free(out);
-			EVP_MD_CTX_destroy(ctx);
-			return err;
+			ret = err_evperror();
+			goto cleanup;
 		}
 	}
 
 	if (EVP_DigestFinal_ex(ctx, *out, len) != 1){
-		int err = err_evperror();
-
-		free(out);
-		EVP_MD_CTX_destroy(ctx);
-		return err;
+		ret = err_evperror();
+		goto cleanup;
 	}
-
+cleanup:
 	EVP_MD_CTX_destroy(ctx);
-	return 0;
+	fclose(fp);
+	return ret;
 }
 
 static int file_to_element(const char* file, const char* algorithm, element** out){

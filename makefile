@@ -1,4 +1,4 @@
-NAME=cbackup
+NAME=ezbackup
 CC=clang
 CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500
 LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses
@@ -34,4 +34,4 @@ main.dbg.o: main.c
 	$(CC) -c -o $@ $< $(CFLAGS) $(DBGFLAGS)
 
 clean:
-	rm -f *.o $(NAME) $(CLEANOBJECTS) $(DBGOBJECTS) $(OBJECTS) main.c.* test.c.* vgcore.* test
+	rm -f *.o $(NAME) $(NAME)_unstripped $(CLEANOBJECTS) $(DBGOBJECTS) $(OBJECTS) main.c.* test.c.* vgcore.* test
