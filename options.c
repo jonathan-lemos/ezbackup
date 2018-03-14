@@ -17,7 +17,7 @@
 
 void version(void){
 	const char* program_name = "ezbackup";
-	const char* version = "0.1";
+	const char* version = "0.1 beta";
 
 	printf("%s %s\n", program_name, version);
 }
@@ -47,7 +47,7 @@ static int add_string_to_array(char*** array, int* array_len, const char* str){
 	(*array)[*array_len - 1] = malloc(strlen(str) + 1);
 	if (!(*array)[*array_len - 1]){
 		log_fatal(STR_ENOMEM);
-		return err_regularerror(ERR_OUT_OF_MEMORY);
+		return -1;
 	}
 
 	strcpy((*array)[*array_len - 1], str);
@@ -62,7 +62,8 @@ int parse_options_cmdline(int argc, char** argv, options* out){
 	int i;
 
 	if (!out){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_ENULL);
+		return -1;
 	}
 
 	memset(out, 0, sizeof(*out));
@@ -124,7 +125,7 @@ int parse_options_cmdline(int argc, char** argv, options* out){
 			--i;
 		}
 		else{
-			return err_regularerror(i);
+			return i;
 		}
 	}
 
@@ -137,6 +138,8 @@ int parse_options_cmdline(int argc, char** argv, options* out){
 	return 0;
 }
 
+/* this function causes memory leaks by design.
+ * this is ncurses' fault, not mine */
 static int display_menu(const char** options, int num_options, const char* title){
 	ITEM** my_items;
 	int c;
@@ -148,7 +151,8 @@ static int display_menu(const char** options, int num_options, const char* title
 	int ret;
 
 	if (!options || !title || num_options <= 0){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_ENULL);
+		return -1;
 	}
 
 	my_items = malloc((num_options + 1) * sizeof(ITEM*));
@@ -196,7 +200,8 @@ static int read_string_array(char*** array, int* array_len){
 	do{
 		str = malloc(1);
 		if (!str){
-			return err_regularerror(ERR_OUT_OF_MEMORY);
+			log_fatal(STR_ENOMEM);
+			return -1;
 		}
 		str[0] = '\0';
 		printf(":");
@@ -206,7 +211,8 @@ static int read_string_array(char*** array, int* array_len){
 			str_len += strlen(input_buffer) + 1;
 			str = realloc(str, str_len);
 			if (!str){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
+				log_fatal(STR_ENOMEM);
+				return -1;
 			}
 			strcat(str, input_buffer);
 			fgets(input_buffer, sizeof(input_buffer), stdin);
@@ -215,19 +221,22 @@ static int read_string_array(char*** array, int* array_len){
 			str_len += strlen(input_buffer) + 1;
 			str = realloc(str, str_len);
 			if (!str){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
+				log_fatal(STR_ENOMEM);
+				return -1;
 			}
 			strcat(str, input_buffer);
 
 			(*array_len)++;
 			(*array) = realloc(*array, *array_len * sizeof(*(*array)));
 			if (!(*array)){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
+				log_fatal(STR_ENOMEM);
+				return -1;
 			}
 
 			(*array)[*array_len - 1] = malloc(strlen(str) + 1);
 			if (!(*array)[*array_len - 1]){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
+				log_fatal(STR_ENOMEM);
+				return -1;
 			}
 			strcpy((*array)[*array_len - 1], str);
 		}
@@ -278,7 +287,8 @@ int parse_options_menu(options* opt){
 	};
 
 	if (!opt){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_ENULL);
+		return -1;
 	}
 
 	opt->prev_backup = NULL;
@@ -293,6 +303,7 @@ int parse_options_menu(options* opt){
 	/* if no directories were entered, use root directory */
 	if (opt->directories_len == 0){
 		if ((ret = add_string_to_array(&(opt->directories), &(opt->directories_len), "/")) != 0){
+			puts_debug("add_string_to_array() failed");
 			return ret;
 		}
 	}
@@ -302,6 +313,7 @@ int parse_options_menu(options* opt){
 	opt->exclude_len = 0;
 	printf("Enter directories to exclude (enter to end)\n");
 	if ((ret = read_string_array(&(opt->exclude), &(opt->exclude_len)) != 0)){
+		puts_debug("read_string_array() failed");
 		return ret;
 	}
 
@@ -362,7 +374,8 @@ int parse_options_menu(options* opt){
 
 	opt->enc_algorithm = malloc(sizeof("camellia-000-xxx"));
 	if (!opt->enc_algorithm){
-		return ERR_OUT_OF_MEMORY;
+		log_fatal(STR_ENOMEM);
+		return -1;
 	}
 	switch (encryption){
 	case 0:
@@ -438,12 +451,14 @@ static char* read_file_string(FILE* in){
 
 	while ((c = fgetc(in)) != '\0'){
 		if (c == EOF){
+			puts_debug("Reached EOF");
 			free(ret);
 			return NULL;
 		}
 		ret_len++;
 		ret = realloc(ret, ret_len);
 		if (!ret){
+			log_fatal(STR_ENOMEM);
 			return NULL;
 		}
 		ret[ret_len - 1] = c;
@@ -459,9 +474,10 @@ int parse_options_fromfile(const char* file, options* opt){
 	FILE* fp;
 	char* tmp;
 
-	fp = fopen(file, "r");
+	fp = fopen(file, "rb");
 	if (!fp){
-		return err_regularerror(ERR_FILE_INPUT);
+		log_error(STR_EFOPEN, file, strerror(errno));
+		return -1;
 	}
 
 	memset(opt, 0, sizeof(*opt));
@@ -512,7 +528,9 @@ int parse_options_fromfile(const char* file, options* opt){
 	fscanf(fp, "\nCOMPRESSION=%d", (int*)&(opt->comp_algorithm));
 	fscanf(fp, "\nFLAGS=%u", &(opt->flags));
 
-	fclose(fp);
+	if (fclose(fp) != 0){
+		log_error(STR_EFCLOSE, file);
+	}
 	return 0;
 }
 
@@ -533,12 +551,14 @@ int write_options_tofile(const char* file, options* opt){
 	int i;
 
 	if (!file || !opt){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_ENULL);
+		return -1;
 	}
 
-	fp = fopen(file, "w");
+	fp = fopen(file, "wb");
 	if (!fp){
-		return err_regularerror(ERR_FILE_INPUT);
+		log_error(STR_EFOPEN, file, strerror(errno));
+		return -1;
 	}
 	fprintf(fp, "[Options]");
 	fprintf(fp, "\nPREV=%s%c", opt->prev_backup ? opt->prev_backup : "none", '\0');
@@ -557,7 +577,9 @@ int write_options_tofile(const char* file, options* opt){
 	fprintf(fp, "\nCOMPRESSION=%d", opt->comp_algorithm);
 	fprintf(fp, "\nFLAGS=%u", opt->flags);
 
-	fclose(fp);
+	if (fclose(fp) != 0){
+		log_error(STR_EFCLOSE, file);
+	}
 	return 0;
 }
 

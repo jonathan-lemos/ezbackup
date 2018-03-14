@@ -36,7 +36,7 @@ int bytes_to_hex(unsigned char* bytes, unsigned len, char** out){
 		'C', 'D', 'E', 'F'};
 
 	if (!out || !bytes){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 	}
 
 	/* 2 hex chars = 1 byte */
@@ -95,7 +95,7 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 
 	fp = fopen(file, "rb");
 	if (!fp){
-		log_error("Failed to open file (%s)", strerror(errno));
+		log_error(STR_EFOPEN, file, strerror(errno));
 		return -1;
 	}
 
@@ -110,7 +110,7 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 	if (algorithm){
 		OpenSSL_add_all_algorithms();
 		if (!(md = EVP_get_digestbyname(algorithm))){
-			log_error("Failed to load digest algorithm");
+			log_error("Failed to load digest algorithm from name");
 			ERR_print_errors_fp(stderr);
 			ret = -1;
 			goto cleanup;
@@ -122,7 +122,7 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 	}
 
 	if (EVP_DigestInit_ex(ctx, md, NULL) != 1){
-		log_error("Failed to initialize checksum calculation");
+		log_error("Failed to initialize digest algorithm");
 		ERR_print_errors_fp(stderr);
 		ret = -1;
 		goto cleanup;
@@ -130,7 +130,7 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 
 	/* both of these must point to valid locations */
 	if (!len || !out){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		ret = -1;
 		goto cleanup;
 	}
@@ -142,6 +142,10 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 	}
 
 	while ((length = read_file(fp, buffer, sizeof(buffer))) > 0){
+		if (ferror(fp)){
+			log_error(STR_EFREAD, file);
+			goto cleanup;
+		}
 		if (EVP_DigestUpdate(ctx, buffer, length) != 1){
 			log_error("Failed to calculate checksum");
 			ERR_print_errors_fp(stderr);
@@ -156,7 +160,9 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 
 cleanup:
 	EVP_MD_CTX_destroy(ctx);
-	fclose(fp);
+	if (fclose(fp) != 0){
+		log_error("Failed to close %s", file);
+	}
 	return ret;
 }
 
@@ -166,7 +172,7 @@ static int file_to_element(const char* file, const char* algorithm, element** ou
 	int ret = 0;
 
 	if (!file || !out){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 
@@ -186,7 +192,7 @@ static int file_to_element(const char* file, const char* algorithm, element** ou
 
 	/* compute checksum */
 	if (checksum(file, algorithm, &buffer, &len) != 0){
-		log_error(LEVEL_DEBUG, "checksum() in file_to_element() did not return 0");
+		puts_debug("checksum() in file_to_element() did not return 0");
 		ret = -1;
 		goto cleanup;
 	}
@@ -229,7 +235,7 @@ int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, con
 	int ret;
 
 	if (!file || !out){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 
@@ -301,13 +307,13 @@ int create_removed_list(const char* checksum_file, const char* out_file){
 
 	fp_in = fopen(checksum_file, "rb");
 	if (!fp_in){
-		log_error(STR_BADFILE, checksum_file, strerror(errno));
-		return -1;
+		log_error(STR_EFOPEN, checksum_file, strerror(errno));
+		return 1;
 	}
 
 	fp_out = fopen(out_file, "wb");
 	if (!fp_out){
-		log_error(STR_BADFILE, out_file, strerror(errno));
+		log_error(STR_EFOPEN, out_file, strerror(errno));
 		return -1;
 	}
 
@@ -326,6 +332,13 @@ int create_removed_list(const char* checksum_file, const char* out_file){
 		free_element(tmp);
 	}
 
+	if (fclose(fp_in) != 0){
+		log_error(STR_EFCLOSE, checksum_file);
+	}
+	if (fclose(fp_out) != 0){
+		log_error(STR_EFCLOSE, out_file);
+	}
+
 	return 0;
 }
 
@@ -337,7 +350,7 @@ char* get_next_removed(FILE* fp){
 	char* ret = NULL;
 
 	if (!fp){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return NULL;
 	}
 

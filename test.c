@@ -43,7 +43,6 @@ void test_checksum_h(void){
 	FILE* fp;
 	element** elems = (element**)-1;
 	char** out = (char**)-1;
-	char* checksum = (char*)-1;
 	size_t n_files = -1;
 	int i;
 

@@ -42,10 +42,6 @@ typedef struct func_params{
 	options opt;
 }func_params;
 
-static void print_error(const char* msg, int err){
-	fprintf(stderr, "%s\nReason: %s\n", msg, err_strerror(err));
-}
-
 static int disable_core_dumps(void){
 	struct rlimit rl;
 	rl.rlim_cur = 0;
@@ -75,60 +71,78 @@ static int rename_ex(const char* file_old, const char* file_new){
 
 		fp_old = fopen(file_old, "rb");
 		if (!fp_old){
-			return err_regularerror(ERR_FILE_INPUT);
+			log_error(STR_EFOPEN, file_old, strerror(errno));
+			return -1;
 		}
 		fp_new = fopen(file_new, "rb");
 		if (!fp_new){
-			return err_regularerror(ERR_FILE_OUTPUT);
+			log_error(STR_EFOPEN, file_new, strerror(errno));
+			return -1;
 		}
 
 		while ((len = read_file(fp_old, buffer, sizeof(buffer))) > 0){
 			if (fwrite(buffer, 1, len, fp_new) != (size_t)len){
-				return err_regularerror(ERR_FILE_OUTPUT);
+				log_error(STR_EFWRITE, file_new);
+				return -1;
 			}
 		}
 		if (!fclose(fp_old)){
-			return err_regularerror(ERR_FILE_INPUT);
+			log_error(STR_EFCLOSE, file_old);
 		}
 		if (!fclose(fp_new)){
-			return err_regularerror(ERR_FILE_OUTPUT);
+			log_error(STR_EFCLOSE, file_new);
 		}
 	}
 	return 0;
 }
 
-static int get_config_name(char** out){
+static int get_backup_directory(char** out){
 	struct passwd* pw;
 	char* homedir;
-	char* backupdir;
 	struct stat st;
 
 	/* get home directory */
 	if (!(homedir = getenv("HOME"))){
 		pw = getpwuid(getuid());
 		if (!pw){
-			return err_errno(errno);
+			log_error("Failed to get home directory");
+			return -1;
 		}
 		homedir = pw->pw_dir;
 	}
 
 	/* /home/<user>/Backups */
-	backupdir = malloc(strlen(homedir) + sizeof("/Backups"));
-	if (!backupdir){
-		return err_regularerror(ERR_OUT_OF_MEMORY);
+	*out = malloc(strlen(homedir) + sizeof("/Backups"));
+	if (!(*out)){
+		log_fatal(STR_ENOMEM);
+		return -1;
 	}
-	strcpy(backupdir, homedir);
-	strcat(backupdir, "/Backups");
+	strcpy(*out, homedir);
+	strcat(*out, "/Backups");
 
-	if (stat(backupdir, &st) == -1){
-		if (mkdir(backupdir, 0755) == -1){
-			return err_errno(errno);
+	if (stat(*out, &st) == -1){
+		if (mkdir(*out, 0755) == -1){
+			log_error("Failed to create backup directory at %s", *out);
+			free(*out);
+			return -1;
 		}
+	}
+
+	return 0;
+}
+
+static int get_config_name(char** out){
+	char* backupdir;
+
+	if (get_backup_directory(&backupdir) != 0){
+		puts_debug("get_backup_directory() failed");
+		return -1;
 	}
 
 	*out = malloc(strlen(backupdir) + sizeof("/backup.conf"));
 	if (!(*out)){
-		return err_regularerror(ERR_OUT_OF_MEMORY);
+		log_fatal(STR_ENOMEM);
+		return -1;
 	}
 
 	strcpy(*out, backupdir);
@@ -139,39 +153,20 @@ static int get_config_name(char** out){
 }
 
 static int get_default_backup_name(options* opt){
-	struct passwd* pw;
-	char* homedir;
 	char* backupdir;
 	char file[sizeof("/backup-") + 50];
-	struct stat st;
 
-	/* get home directory */
-	if (!(homedir = getenv("HOME"))){
-		pw = getpwuid(getuid());
-		if (!pw){
-			return err_errno(errno);
-		}
-		homedir = pw->pw_dir;
-	}
-
-	/* /home/<user>/Backups */
-	backupdir = malloc(strlen(homedir) + sizeof("/Backups"));
-	if (!backupdir){
-		return err_regularerror(ERR_OUT_OF_MEMORY);
-	}
-	strcpy(backupdir, homedir);
-	strcat(backupdir, "/Backups");
-
-	if (stat(backupdir, &st) == -1){
-		if (mkdir(backupdir, 0755) == -1){
-			return err_errno(errno);
-		}
+	if (get_backup_directory(&backupdir) != 0){
+		puts_debug("get_backup_directory() failed");
+		return -1;
 	}
 
 	/* /home/<user>/Backups/backup-<unixtime>.tar(.bz2)(.crypt) */
 	opt->file_out = malloc(strlen(backupdir) + sizeof(file));
 	if (!opt->file_out){
-		return err_regularerror(ERR_OUT_OF_MEMORY);
+		free(backupdir);
+		log_error(STR_ENOMEM);
+		return -1;
 	}
 
 	/* get unix time and concatenate it to the filename */
@@ -226,10 +221,11 @@ int fun(const char* file, const char* dir, struct stat* st, void* params){
 
 	err = add_checksum_to_file(file, fparams->opt.hash_algorithm, fparams->fp_hashes, fparams->hashes_prev);
 	if (err == 1){
+		log_debug(__FILE__, __LINE__, "File %s already in checksum list", file);
 		return 1;
 	}
 	else if (err != 0){
-		fprintf(stderr, "%s: %s\n", file, err_strerror(err));
+		puts_debug("add_checksum_to_file() failed");
 	}
 
 	if (fparams->opt.flags & FLAG_VERBOSE){
@@ -264,72 +260,66 @@ int main(int argc, char** argv){
 	TAR* tar_final;
 	int parse_res;
 	int i;
-	int err;
 	char* backup_conf;
 
 	/* set fparams values to all NULL or 0 */
 	fparams.tp = NULL;
 	fparams.fp_hashes = NULL;
 
+	log_setlevel(LEVEL_DEBUG);
+
 	/* parse command line args */
 	if (argc >= 2){
 		parse_res = parse_options_cmdline(argc, argv, &(fparams.opt));
 		if (parse_res < 0 || parse_res > argc){
-			fprintf(stderr, "Failed to parse command line arguments\n");
+			log_error("Failed to parse command line arguments");
 			return 1;
 		}
 		else{
-			fprintf(stderr, "Invalid parameter %s\n", argv[parse_res]);
+			log_error("Invalid parameter %s\n", argv[parse_res]);
 			return 1;
 		}
 	}
 	else{
-		if ((err = get_config_name(&backup_conf)) != 0){
-			print_error("Could not open backup configuration file.", err);
+		if (get_config_name(&backup_conf) != 0){
+			puts_debug("get_config_name() failed");
 			return 1;
 		}
 
-		err = parse_options_fromfile(backup_conf, &(fparams.opt));
-		free(backup_conf);
-		switch (err){
-		case 0:
-			break;
-		case ERR_FILE_INPUT:
-			err = parse_options_menu(&(fparams.opt));
-			if (err != 0){
-				print_error("Failed to get options from menu.", err);
+		if (parse_options_fromfile(backup_conf, &(fparams.opt)) != 0){
+			puts_debug("Failed to parse options from file (does it exist?)");
+			if (parse_options_menu(&(fparams.opt)) != 0){
+				log_error("Failed to parse options from menu");
 				return 1;
 			}
-			break;
-		default:
-			print_error("Could not parse options from file.", err);
-			return 1;
 		}
+
+		free(backup_conf);
+
 	}
 
 	/* put in /home/<user>/Backups/backup-<unixtime>.tar(.bz2)(.crypt) */
 	if (!fparams.opt.file_out &&
-			(err = get_default_backup_name(&(fparams.opt))) != 0){
-		print_error("Could not determine backup name.", err);
+			get_default_backup_name(&(fparams.opt)) != 0){
+		log_error("Failed to create backup name");
+		return 1;
 	}
 
 	/* create temporary files */
-	if ((err = temp_file(file_hashes)) != 0 ||
-			(err = temp_file(file_tar)) != 0 ||
-			(err = temp_file(file_final)) != 0 ||
-			(err = temp_file(file_hashes_prev)) != 0 ||
-			(err = temp_file(file_removed)) != 0 ||
-			(err = temp_file(file_hashes_sorted)) != 0
-			){
-		print_error("Could not create temporary file.", err);
+	if (temp_file(file_hashes) != 0 ||
+			temp_file(file_tar) != 0 ||
+			temp_file(file_final) != 0 ||
+			temp_file(file_hashes_prev) != 0 ||
+			temp_file(file_removed) != 0 ||
+			temp_file(file_hashes_sorted) != 0
+	   ){
+		puts_debug("One or more temp_file()'s failed");
 		return 1;
 	}
 
 	fparams.fp_hashes = fopen(file_hashes, "wb");
 	if (!fparams.fp_hashes){
-		int e = errno;
-		err_errno(e);
-		print_error("Could not open temporary file.", e);
+		log_error(STR_EFOPEN, file_hashes);
 		return 1;
 	}
 
@@ -339,35 +329,35 @@ int main(int argc, char** argv){
 		crypt_keys fk;
 		char file_decrypt[] = "/var/tmp/decrypt_XXXXXX";
 
-		if ((err = temp_file(file_decrypt)) != 0){
-			print_error("Failed to create temporary file for decryption.", err);
+		if (temp_file(file_decrypt) != 0){
+			puts_debug("temp_file() for file_decrypt failed");
 		}
-		if ((err = crypt_set_encryption(fparams.opt.enc_algorithm, &fk)) != 0){
-			print_error("Failed to set encryption type.", err);
+		if (crypt_set_encryption(fparams.opt.enc_algorithm, &fk) != 0){
+			puts_debug("crypt_set_encryption() failed");
 			return 1;
 		}
-		if ((err = crypt_extract_salt(fparams.opt.prev_backup, &fk)) != 0){
-			print_error("Failed to extract salt from previous backup.", err);
+		if ((crypt_extract_salt(fparams.opt.prev_backup, &fk)) != 0){
+			puts_debug("crypt_extract_salt() failed");
 			return 1;
 		}
-		if ((err = crypt_getpassword("Enter decryption password", NULL, pwbuffer, sizeof(pwbuffer))) != 0){
-			print_error("Failed to read password from terminal.", err);
+		if ((crypt_getpassword("Enter decryption password", NULL, pwbuffer, sizeof(pwbuffer))) != 0){
+			puts_debug("crypt_getpassword() failed");
 			return 1;
 		}
-		if ((err = crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, &fk)) != 0){
+		if ((crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, &fk)) != 0){
 			crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-			print_error("Failed to generate decryption keys.", err);
+			puts_debug("crypt_gen_keys() failed)");
 			return 1;
 		}
 		crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-		if ((err = crypt_decrypt(fparams.opt.prev_backup, &fk, file_decrypt)) != 0){
+		if ((crypt_decrypt_ex(fparams.opt.prev_backup, &fk, file_decrypt, fparams.opt.flags & FLAG_VERBOSE, "Decrypting file...")) != 0){
 			crypt_free(&fk);
-			print_error("Failed to decrypt previous backup.", err);
+			puts_debug("crypt_decrypt() failed");
 			return 1;
 		}
 		crypt_free(&fk);
-		if ((err = tar_extract_file(file_decrypt, "/checksums", file_hashes_prev, fparams.opt.flags & FLAG_VERBOSE)) != 0){
-			print_error("Failed to extract checksums from decrypted tar.", err);
+		if ((tar_extract_file(file_decrypt, "/checksums", file_hashes_prev)) != 0){
+			puts_debug("tar_extract_file() failed");
 			return 1;
 		}
 		fparams.hashes_prev = file_hashes_prev;
@@ -384,7 +374,7 @@ int main(int argc, char** argv){
 	/* enumerate over each directory with fun() */
 	for (i = 0; i < fparams.opt.directories_len; ++i){
 		if (!is_directory(fparams.opt.directories[i])){
-			fprintf(stderr, "%s is not a directory. Skipping.\n", fparams.opt.directories[i]);
+			log_warning("%s is not a directory. Skipping.\n", fparams.opt.directories[i]);
 			continue;
 		}
 		enum_files(fparams.opt.directories[i], fun, &fparams, error, NULL);
@@ -407,10 +397,11 @@ int main(int argc, char** argv){
 	/* encrypt output */
 	if (fparams.opt.enc_algorithm){
 		char pwbuffer[1024];
+		int err;
 
 		/* disable core dumps if possible */
 		if (disable_core_dumps() != 0){
-			fprintf(stderr, "WARNING: Core dumps could not be disabled\n");
+			log_warning("Core dumps could not be disabled\n");
 		}
 
 		crypt_set_encryption(fparams.opt.enc_algorithm, &fk);
@@ -424,14 +415,14 @@ int main(int argc, char** argv){
 			printf("\nPasswords do not match\n");
 		}
 		if (err < 0){
-			print_error("Failed to read password.", err);
+			puts_debug("crypt_getpassword() failed");
 			crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
 			return 1;
 		}
 
-		if ((err = crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, &fk)) != 0){
+		if ((crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, &fk)) != 0){
 			crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-			print_error("Failed to generate encryption keys.", err);
+			puts_debug("crypt_gen_keys() failed");
 			return 1;
 		}
 		/* don't need to scrub entire buffer, just where the password was
@@ -439,17 +430,17 @@ int main(int argc, char** argv){
 		crypt_scrub((unsigned char*)pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
 		/* PASSWORD OUT OF MEMORY */
 
-		if ((err = crypt_encrypt(file_final, &fk, fparams.opt.file_out)) != 0){
+		if ((crypt_encrypt_ex(file_final, &fk, fparams.opt.file_out, fparams.opt.flags & FLAG_VERBOSE, "Encrypting file...")) != 0){
 			crypt_free(&fk);
-			print_error("Failed to encrypt file.", err);
+			puts_debug("crypt_encrypt() failed");
 			return 1;
 		}
 		/* shreds keys as well */
 		crypt_free(&fk);
 	}
 	else{
-		if ((err = rename_ex(file_final, fparams.opt.file_out)) != 0){
-			print_error("Failed to move temporary file to destination.", err);
+		if ((rename_ex(file_final, fparams.opt.file_out)) != 0){
+			puts_debug("rename_ex() failed");
 			return 1;
 		}
 	}
@@ -457,12 +448,12 @@ int main(int argc, char** argv){
 	free(fparams.opt.prev_backup);
 	fparams.opt.prev_backup = fparams.opt.file_out;
 
-	if ((err = get_config_name(&backup_conf)) != 0){
-		print_error("Warning: cannot write settings for incremental backup.", err);
+	if ((get_config_name(&backup_conf)) != 0){
+		log_warning("Cannot write settings for incremental backup.");
 	}
 	else{
-		if ((err = write_options_tofile(backup_conf, &(fparams.opt))) != 0){
-			print_error("Warning: failed to write settings for incremental backup.", err);
+		if ((write_options_tofile(backup_conf, &(fparams.opt))) != 0){
+			log_warning("Failed to write settings for incremental backup.");
 		}
 	}
 	free(backup_conf);

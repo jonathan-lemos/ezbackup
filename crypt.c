@@ -35,11 +35,10 @@
  * returns 0 on success, err on error. */
 int crypt_scrub(void* data, int len){
 	int res;
-	unsigned long err;
 
 	/* checking if data is not NULL */
 	if (!data){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 
@@ -58,7 +57,7 @@ int crypt_scrub(void* data, int len){
 
 		fp = fopen("/dev/urandom", "rb");
 		if (!fp){
-			log_fatal("Could not generate cryptographically secure numbers, and could not open /dev/urandom for reading");
+			log_fatal("Could not generate cryptographically secure numbers, and could not open /dev/urandom for reading (%s)", strerror(errno));
 			return -1;
 		}
 
@@ -112,7 +111,7 @@ static int crypt_hashpassword(unsigned char* data, int data_len, unsigned char**
 	int ret;
 
 	if (!salt_len || !salt || !data || !hash || !hash_len){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 	/* generate salt if it is NULL */
@@ -188,12 +187,14 @@ int crypt_getpassword(const char* prompt, const char* verify_prompt, char* out, 
 	/* if no verify prompt is specified, we can just return now */
 	if (!verify_prompt){
 		puts_debug("Returning now since no verify_prompt specified");
+		ret = 0;
 		goto cleanup;
 	}
 	/* it's bad to store the password itself in memory,
 	 * so we store a hash instead. */
 	if ((ret = crypt_hashpassword((unsigned char*)out, strlen(out), &salt, &salt_len, &hash1, &hash_len)) != 0){
 		log_error("Failed to hash password input");
+		ret = -1;
 		goto cleanup;
 	}
 	/* scrub the old password out of memory, so it can't be
@@ -210,6 +211,7 @@ int crypt_getpassword(const char* prompt, const char* verify_prompt, char* out, 
 	/* same old deal */
 	if ((ret = crypt_hashpassword((unsigned char*)out, strlen(out), &salt, &salt_len, &hash2, &hash_len)) != 0){
 		log_error("Failed to hash verify password input");
+		ret = -1;
 		goto cleanup;
 	}
 	/* verify that the hashes match */
@@ -236,7 +238,7 @@ cleanup:
  * returns 0 if salt is csrand, err if not */
 int crypt_gen_salt(crypt_keys* fk){
 	if (!fk){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 	return gen_csrand(fk->salt, sizeof(fk->salt));
@@ -248,7 +250,7 @@ int crypt_set_salt(unsigned char salt[8], crypt_keys* fk){
 	unsigned i;
 
 	if (!fk){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 
@@ -272,7 +274,7 @@ int crypt_set_salt(unsigned char salt[8], crypt_keys* fk){
  * returns 0 on success or 1 if cipher is not recognized */
 int crypt_set_encryption(const char* encryption, crypt_keys* fk){
 	if (!fk){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 
@@ -308,7 +310,7 @@ int crypt_gen_keys(
 		){
 
 	if (!fk || !data){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 
@@ -381,7 +383,7 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 
 	/* checking null arguments */
 	if (!in || !fk || !out){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 
@@ -394,14 +396,14 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	/* open input file for reading */
 	fp_in = fopen(in, "rb");
 	if (!fp_in){
-		log_error(STR_BADFILE, in, strerror(errno));
+		log_error(STR_EFOPEN, in, strerror(errno));
 		return -1;
 	}
 	/* open output file for writing */
 	fp_out = fopen(out, "wb");
 	if (!fp_out){
 		fclose(fp_in);
-		log_error(STR_BADFILE, out, strerror(errno));
+		log_error(STR_EFOPEN, out, strerror(errno));
 		return -1;
 	}
 
@@ -498,14 +500,14 @@ int crypt_extract_salt(const char* in, crypt_keys* fk){
 
 	/* checking null arguments */
 	if (!in || !fk){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 
 	/* open in for reading */
 	fp = fopen(in, "rb");
 	if (!fp){
-		log_error(STR_BADFILE, in, strerror(errno));
+		log_error(STR_EFOPEN, in, strerror(errno));
 		return -1;
 	}
 
@@ -552,7 +554,7 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 
 	/* checking null arguments */
 	if (!in || !fk || !out){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 
@@ -571,13 +573,13 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	/* open input file for reading */
 	fp_in = fopen(in, "rb");
 	if (!fp_in){
-		log_error(STR_BADFILE, in, strerror(errno));
+		log_error(STR_EFOPEN, in, strerror(errno));
 		return -1;
 	}
 	/* open output file for writing */
 	fp_out = fopen(out, "wb");
 	if (!fp_out){
-		log_error(STR_BADFILE, out, strerror(errno));
+		log_error(STR_EFOPEN, out, strerror(errno));
 		fclose(fp_in);
 		return -1;
 	}

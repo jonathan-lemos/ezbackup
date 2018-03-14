@@ -27,7 +27,7 @@ TAR* tar_create(const char* filename, COMPRESSOR comp){
 	TAR* tp = archive_write_new();
 
 	if (!filename){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return NULL;
 	}
 
@@ -71,14 +71,14 @@ int tar_add_file_ex(TAR* tp, const char* filename, const char* path_in_tar, int 
 	progress* p;
 
 	if (!tp){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 
 	/* must open as "rb" to prevent \r\n -> \n */
 	fp = fopen(filename, "rb");
 	if (!fp){
-		log_error(STR_BADFILE, filename, strerror(errno));
+		log_error(STR_EFOPEN, filename, strerror(errno));
 		return -1;
 	}
 
@@ -141,7 +141,7 @@ int tar_add_file(TAR* tp, const char* filename){
 
 int tar_close(TAR* tp){
 	if (!tp){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 
@@ -386,7 +386,7 @@ cleanup:
 	return ret;
 }
 
-int tar_extract_file(const char* tarchive, const char* file_intar, const char* file_out, int verbose){
+int tar_extract_file(const char* tarchive, const char* file_intar, const char* file_out){
 	TAR* tp = NULL;
 	TAR* ext = NULL;
 	struct archive_entry* entry = NULL;

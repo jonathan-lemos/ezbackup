@@ -18,6 +18,12 @@
 
 #define MAX_RUN_SIZE (1 << 24)
 
+void free_element(element* e){
+	free(e->file);
+	free(e->checksum);
+	free(e);
+}
+
 static int compare_elements(element* e1, element* e2){
 	/* send NULL's to bottom of heap */
 	if  (!e1){
@@ -32,13 +38,16 @@ static int compare_elements(element* e1, element* e2){
 
 /* format: <file>\0<checksum>\n */
 int write_element_to_file(FILE* fp, element* e){
-	int c;
-
 	if (!fp || !e || !e->file || !e->checksum){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
+		return -1;
 	}
 
-	c = fprintf(fp, "%s%c%s\n", e->file, '\0', e->checksum);
+	fprintf(fp, "%s%c%s\n", e->file, '\0', e->checksum);
+	if (ferror(fp)){
+		log_error(STR_EFWRITE, "checksum file");
+		return -1;
+	}
 	return 0;
 }
 
@@ -52,7 +61,7 @@ element* get_next_checksum_element(FILE* fp){
 	element* e;
 
 	if (!fp){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return NULL;
 	}
 
@@ -65,6 +74,11 @@ element* get_next_checksum_element(FILE* fp){
 	pos_origin = ftell(fp);
 	/* read two \0's */
 	while ((c = fgetc(fp)) != '\0'){
+		if (ferror(fp)){
+			log_error(STR_EFREAD, "file");
+			free(e);
+			return NULL;
+		}
 		/* end of file, no more checksums to read */
 		if (c == EOF){
 			puts_debug("get_next_checksum_element(): reached EOF");
@@ -74,6 +88,11 @@ element* get_next_checksum_element(FILE* fp){
 	}
 	pos_file = ftell(fp);
 	while ((c = fgetc(fp)) != '\n'){
+		if (ferror(fp)){
+			log_error(STR_EFREAD, "file");
+			free(e);
+			return NULL;
+		}
 		if (c == EOF){
 			puts_debug("get_next_checksum_element(): reached EOF");
 			free(e);
@@ -109,16 +128,22 @@ element* get_next_checksum_element(FILE* fp){
 	fread(e->checksum, 1, len_checksum, fp);
 	e->checksum[len_checksum - 1] = '\0';
 
+	if (ferror(fp)){
+		log_error(STR_EFREAD, "file");
+		free_element(e);
+		e = NULL;
+	}
+
 	return e;
 }
 
-void swap(element** e1, element** e2){
+static void swap(element** e1, element** e2){
 	element* buf = *e1;
 	*e1 = *e2;
 	*e2 = buf;
 }
 
-void swap_mhn(minheapnode* mhn1, minheapnode* mhn2){
+static void swap_mhn(minheapnode* mhn1, minheapnode* mhn2){
 	minheapnode tmp = *mhn1;
 	*mhn1 = *mhn2;
 	*mhn2 = tmp;
@@ -197,12 +222,6 @@ void quicksort_elements(element** elements, int low, int high){
 	}
 }
 
-void free_element(element* e){
-	free(e->file);
-	free(e->checksum);
-	free(e);
-}
-
 void free_element_array(element** elements, size_t size){
 	size_t i;
 	for (i = 0; i < size; ++i){
@@ -232,7 +251,9 @@ void free_strarray(char** elements, size_t size){
 void free_filearray(FILE** elements, size_t size){
 	size_t i;
 	for (i = 0; i < size; ++i){
-		fclose(elements[i]);
+		if (fclose(elements[i]) != 0){
+			log_error(STR_EFCLOSE, "merge file");
+		}
 	}
 	free(elements);
 }
@@ -266,19 +287,22 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 	int elems_len = 0;
 	int total_len = 0;
 	int end_of_file = 0;
+	int lim;
 
 	if (!in_file || !out || !n_files){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 
 	fp_in = fopen(in_file, "r");
 	if (!fp_in){
-		log_error("Failed to open %s (%s)", in_file, strerror(errno));
+		log_error(STR_EFOPEN, in_file, strerror(errno));
 		return -1;
 	}
 
-	if (set_file_limit(get_file_size(in_file) / MAX_RUN_SIZE * 3 / 2) != 0){
+	lim = get_file_size(in_file) / MAX_RUN_SIZE + 1024;
+
+	if (set_file_limit(lim) != 0){
 		log_warning("Could not set max file limit (%s)", strerror(errno));
 	}
 
@@ -409,14 +433,14 @@ int merge_files(char** files, size_t n_files, const char* out_file){
 
 	/* verify that arguments are not null */
 	if (!files || !out_file){
-		log_error(STR_NULLARG);
+		log_error(STR_ENULL);
 		return -1;
 	}
 
 	/* open out_file for writing */
 	fp_out = fopen(out_file, "wb");
 	if (!fp_out){
-		log_error(STR_BADFILE, out_file, strerror(errno));
+		log_error(STR_EFOPEN, out_file, strerror(errno));
 		return -1;
 	}
 
@@ -431,7 +455,7 @@ int merge_files(char** files, size_t n_files, const char* out_file){
 	for (i = 0; i < n_files; ++i){
 		in[i] = fopen(files[i], "rb");
 		if (!in[i]){
-			log_error(STR_BADFILE, files[i], strerror(errno));
+			log_error(STR_EFOPEN, files[i], strerror(errno));
 			return -1;
 		}
 	}
@@ -473,7 +497,9 @@ int merge_files(char** files, size_t n_files, const char* out_file){
 	/* cleanup */
 	free_minheapnodes(mhn, n_files);
 	free_filearray(in, n_files);
-	fclose(fp_out);
+	if (fclose(fp_out) != 0){
+		log_error(STR_EFCLOSE, out_file);
+	}
 	return 0;
 }
 
@@ -484,22 +510,24 @@ int search_file(const char* file, const char* key, char** checksum){
 	int c;
 	int size;
 	int res;
-	const int end_bsearch_threshold = 16;
+	const int end_bsearch_threshold = 512;
 
 	/* check null arguments */
 	if (!file || !key || !checksum){
-		return err_regularerror(ERR_ARGUMENT_NULL);
+		log_error(STR_ENULL);
+		return -1;
 	}
 
 	/* open file for reading */
 	fp = fopen(file, "rb");
 	if (!fp){
-		return err_regularerror(ERR_FILE_INPUT);
+		log_error(STR_EFOPEN, file);
+		return -1;
 	}
 
 	/* start at half of file */
 	size = get_file_size(file);
-	pivot = get_file_size(file) / 2;
+	pivot = size / 2;
 
 	/* 512 bytes or below switch to linear search
 	 *
@@ -525,27 +553,38 @@ int search_file(const char* file, const char* key, char** checksum){
 			}
 		}while (c != '\n');
 
+		if (ferror(fp) != 0){
+			log_error(STR_EFREAD);
+			fclose(fp);
+			return -1;
+		}
+
 		/* get the element */
 		tmp = get_next_checksum_element(fp);
 		if (!tmp){
-			return err_regularerror(ERR_FILE_INPUT);
+			puts_debug("get_next_checksum_element() returned NULL");
+			fclose(fp);
+			return -1;
 		}
 		/* check if it matches our key */
 		res = strcmp(key, tmp->file);
 		if (res == 0){
 			*checksum = malloc(strlen(tmp->checksum) + 1);
 			if (!(*checksum)){
-				return err_regularerror(ERR_OUT_OF_MEMORY);
+				log_fatal(STR_ENOMEM);
+				fclose(fp);
+				return -1;
 			}
 			strcpy(*checksum, tmp->checksum);
 			free_element(tmp);
+			fclose(fp);
 			return 0;
 		}
 		/* if key is before tmp */
 		else if (res < 0){
 			/* go to half of left */
 			size /= 2;
-			pivot = size / 2;
+			pivot -= size / 2;
 		}
 		else{
 			/* otherwise go to half of right */
@@ -590,7 +629,19 @@ int search_file(const char* file, const char* key, char** checksum){
 		free_element(tmp);
 		/* while key is greater than tmp */
 	}while (res > 0);
-	fclose(fp);
+
+	if (ferror(fp)){
+		free_element(tmp);
+		log_error(STR_EFREAD, file);
+		fclose(fp);
+		return -1;
+	}
+	if (fclose(fp) != 0){
+		free_element(tmp);
+		log_error(STR_EFCLOSE, file);
+		return -1;
+	}
+
 	/* if we found our target */
 	if (res == 0){
 		/* return it */

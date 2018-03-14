@@ -1,11 +1,14 @@
-#ifndef __EVPERROR_H
-#define __EVPERROR_H
+#ifndef __ERROR_H
+#define __ERROR_H
 
 #include <stdarg.h>
 
-const char* STR_ENOMEM  = "Failed to allocate memory.";
-const char* STR_NULLARG = "A required argument was NULL.";
-const char* STR_BADFILE = "Could not open %s (%s)";
+extern const char* const STR_ENOMEM;
+extern const char* const STR_ENULL;
+extern const char* const STR_EFOPEN;
+extern const char* const STR_EFWRITE;
+extern const char* const STR_EFREAD;
+extern const char* const STR_EFCLOSE;
 
 typedef enum LOG_LEVEL{
 	LEVEL_NONE    = 0,
