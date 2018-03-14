@@ -1,5 +1,7 @@
 /* prototypes */
 #include "progressbar.h"
+/* error handling */
+#include "error.h"
 /* terminal width */
 #include <sys/ioctl.h>
 /* STDOUT_FILENO */
@@ -10,7 +12,6 @@
 #include <stdlib.h>
 /* strlen */
 #include <string.h>
-
 
 static int get_width(void){
 	struct winsize w;
@@ -25,9 +26,18 @@ static void display_progress(progress* p){
 	long double pct = (long double)p->count / p->max;
 	int num_pound = (uint64_t)(num_blank * pct) + 1;
 	int num_space = num_blank - num_pound;
+	time_t time_tmp = time(NULL);
+
+	/* only want to print once per second,
+	 * because printf is kind of slow */
+	if (time_tmp <= p->time_prev){
+		return;
+	}
+	else{
+		p->time_prev = time_tmp;
+	}
 
 	/* \r returns to beginning of line */
-
 	printf("\r[");
 	for (; num_pound >= 0; --num_pound){
 		printf("%c", '#');
@@ -44,13 +54,18 @@ static void display_progress(progress* p){
 progress* start_progress(const char* text, uint64_t max){
 	progress* p = malloc(sizeof(progress));
 	if (!p){
+		log_fatal(STR_ENOMEM);
 		return NULL;
 	}
 	p->text = text;
 	p->max = max;
 	p->count = 0;
+	/* -1 to display progress immediately instead of after
+	 * 1 second */
+	p->time_prev = time(NULL) - 1;
 
 	if (text){
+		/* remove terminal cursor blinking */
 		printf("%s\033[?25l\n", p->text);
 	}
 	else{
@@ -79,8 +94,13 @@ void finish_progress(progress* p){
 	if (!p){
 		return;
 	}
+	/* 100% progress */
 	p->count = p->max;
+	/* make sure it displays */
+	p->time_prev--;
+	/* display final progress */
 	display_progress(p);
+	/* restore terminal cursor blinking */
 	printf("\033[?25h\n");
 	free(p);
 }

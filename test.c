@@ -45,6 +45,7 @@ void test_checksum_h(void){
 	char** out = (char**)-1;
 	size_t n_files = -1;
 	int i;
+	char* str_checksum;
 
 	/* make files test{1..100}.txt */
 	for (i = 0; i < 100; ++i){
@@ -72,7 +73,7 @@ void test_checksum_h(void){
 
 	/* add files to checksum file */
 	for (i = 0; i < 100; ++i){
-		assert(add_checksum_to_file(files[i], "sha1", fp) == 0);
+		assert(add_checksum_to_file(files[i], "sha1", fp, NULL) == 0);
 	}
 	fclose(fp);
 
@@ -97,9 +98,9 @@ void test_checksum_h(void){
 		assert(strcmp(str, elems[i]->file) == 0);
 	}
 
-	assert(search_for_checksum(sorted_file, "test99.txt", &checksum) == 0);
-	assert(strcmp(checksum, "82ACFEE866E781644ABB3E638A4E033EAB89C813") == 0);
-	assert(search_for_checksum(sorted_file, "nexist.txt", &checksum) == 1);
+	assert(search_for_checksum(sorted_file, "test99.txt", &str_checksum) == 0);
+	assert(strcmp(str_checksum, "82ACFEE866E781644ABB3E638A4E033EAB89C813") == 0);
+	assert(search_for_checksum(sorted_file, "nexist.txt", &str_checksum) == 1);
 
 	/* closing file */
 	for (i = 0; i < 100; ++i) free_element(elems[i]);
@@ -217,7 +218,7 @@ void test_maketar_h(const char* file){
 	tar_add_file_ex(tp, file, "/file", 1, "Testing tar_add_file_ex()");
 	tar_close(tp);
 
-	tar_extract_file(tartemp, "/file", "test.txt", 1);
+	tar_extract_file(tartemp, "/file", "test.txt");
 
 	assert(checksum(file, "sha256", &hash1, &len1) == 0);
 	assert(checksum("test.txt", "sha256", &hash2, &len2) == 0);
@@ -279,11 +280,11 @@ void test_progressbar_h(void){
 	progress* p;
 	int i;
 
-	p = start_progress("Testing progressbar.h", 10);
+	p = start_progress("Testing progressbar.h", 100);
 	assert (p);
-	for (i = 0; i < 10; ++i){
+	for (i = 0; i < 100; ++i){
 		inc_progress(p, 1);
-		sleep(1);
+		usleep(66666);
 	}
 	finish_progress(p);
 }
@@ -296,6 +297,9 @@ int main(void){
 	assert(fp);
 	fprintf(fp, "secret");
 	fclose(fp);
+
+	test_progressbar_h();
+	return 0;
 
 	test_checksum_h();
 	printf_green("Checksum.h test succeeded\n");
