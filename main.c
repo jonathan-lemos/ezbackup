@@ -221,7 +221,7 @@ int fun(const char* file, const char* dir, struct stat* st, void* params){
 
 	err = add_checksum_to_file(file, fparams->opt.hash_algorithm, fparams->fp_hashes, fparams->hashes_prev);
 	if (err == 1){
-		log_debug(__FILE__, __LINE__, "File %s already in checksum list", file);
+		printf("Skipping unchanged (%s)\n", file);
 		return 1;
 	}
 	else if (err != 0){
@@ -266,7 +266,7 @@ int main(int argc, char** argv){
 	fparams.tp = NULL;
 	fparams.fp_hashes = NULL;
 
-	log_setlevel(LEVEL_DEBUG);
+	log_setlevel(LEVEL_WARNING);
 
 	/* parse command line args */
 	if (argc >= 2){
