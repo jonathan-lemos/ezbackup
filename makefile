@@ -16,16 +16,16 @@ DBGOBJECTS=$(foreach header,$(HEADERS),$(header).dbg.o)
 CXXDBGOBJECTS=$(foreach cxxheader,$(CXXHEADERS),$(cxxheader).cxx.dbg.o)
 CLEANOBJECTS=$(foreach header,$(HEADERS),$(header).c.*)+$(foreach cxxheader,$(CXXHEADERS),$(header).cpp.*);
 
-release: main.o $(OBJECTS)
+release: main.o $(OBJECTS) $(CXXOBJECTS)
 	$(CC) -o $(NAME)_unstripped main.o $(OBJECTS) $(CXXOBJECTS) $(CFLAGS) $(LINKFLAGS)
 	cp $(NAME)_unstripped $(NAME)
 	strip $(NAME)
 
-debug: main.dbg.o $(DBGOBJECTS)
+debug: main.dbg.o $(DBGOBJECTS) $(CXXDBGOBJECTS)
 	$(CC) -o $(NAME) main.dbg.o $(DBGOBJECTS) $(CXXDBGOBJECTS) $(CFLAGS) $(DBGFLAGS) $(LINKFLAGS)
 
-test: test.c $(DBGOBJECTS)
-	$(CC) -o test test.c $(DBGOBJECTS) $(CFLAGS) $(DBGFLAGS) $(LINKFLAGS)
+test: test.c $(DBGOBJECTS) $(CXXDBGOBJECTS)
+	$(CC) -o test test.c $(DBGOBJECTS) $(CFLAGS) $(CXXDBGOBJECTS) $(DBGFLAGS) $(LINKFLAGS)
 
 main.o: main.c
 	$(CC) -c -o main.o main.c $(CFLAGS)
