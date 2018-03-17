@@ -8,6 +8,6 @@
 #endif
 
 int read_file(FILE* fp, unsigned char* dest, size_t length);
-int temp_file(char* template);
+int temp_file(char* __template);
 
 #endif

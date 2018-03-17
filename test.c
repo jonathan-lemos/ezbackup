@@ -7,6 +7,7 @@
 #include "options.h"
 #include "progressbar.h"
 #include "readfile.h"
+#include "cloud/mega.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -289,16 +290,28 @@ void test_progressbar_h(void){
 	finish_progress(p);
 }
 
+void test_mega_cpp(void){
+	MEGAhandle mh;
+
+	assert(MEGAlogin("***REMOVED***", "***REMOVED***", &mh) == 0);
+	puts_debug("Login successful");
+	assert(MEGAupload("test.c", "/", mh) == 0);
+	puts_debug("Upload successful");
+	MEGAlogout(mh);
+}
+
 int main(void){
 	const char* file = "secret.txt";
 	FILE* fp;
+
+	log_setlevel(LEVEL_DEBUG);
 
 	fp = fopen(file, "w");
 	assert(fp);
 	fprintf(fp, "secret");
 	fclose(fp);
 
-	test_progressbar_h();
+	test_mega_cpp();
 	return 0;
 
 	test_checksum_h();

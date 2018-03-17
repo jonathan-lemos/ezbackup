@@ -26,12 +26,12 @@ int read_file(FILE* fp, unsigned char* dest, size_t length){
 	return ret;
 }
 
-int temp_file(char* template){
+int temp_file(char* __template){
 	int fd;
 
-	fd = mkstemp(template);
+	fd = mkstemp(__template);
 	if (fd < 0){
-		log_error("Couldn't create temporary file %s (%s)", template, strerror(errno));
+		log_error("Couldn't create temporary file %s (%s)", __template, strerror(errno));
 		return -1;
 	}
 	close(fd);

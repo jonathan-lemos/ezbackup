@@ -1,9 +1,9 @@
 NAME=ezbackup
 CC=clang
 CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500
-CXX=clang
+CXX=clang++
 CXXFLAGS=-Wall -Wextra -pedantic -std=c++11
-LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega
+LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega -lstdc++
 DBGFLAGS=-g
 CXXDBGFLAGS=-g
 HEADERS=fileiterator maketar crypt readfile error checksum progressbar options checksumsort
@@ -14,7 +14,8 @@ OBJECTS=$(foreach header,$(HEADERS),$(header).o)
 CXXOBJECTS=$(foreach cxxheader,$(CXXHEADERS),$(cxxheader).cxx.o)
 DBGOBJECTS=$(foreach header,$(HEADERS),$(header).dbg.o)
 CXXDBGOBJECTS=$(foreach cxxheader,$(CXXHEADERS),$(cxxheader).cxx.dbg.o)
-CLEANOBJECTS=$(foreach header,$(HEADERS),$(header).c.*)+$(foreach cxxheader,$(CXXHEADERS),$(header).cpp.*);
+CLEANOBJECTS=$(foreach header,$(HEADERS),$(header).c.*)
+CLEANCXXOBJECTS=$(foreach cxxheader,$(CXXHEADERS),$(header).cpp.*)
 
 release: main.o $(OBJECTS) $(CXXOBJECTS)
 	$(CC) -o $(NAME)_unstripped main.o $(OBJECTS) $(CXXOBJECTS) $(CFLAGS) $(LINKFLAGS)
@@ -46,4 +47,4 @@ main.dbg.o: main.c
 	$(CXX) -c -o $@ $< $(CXXFLAGS) $(CXXDBGFLAGS)
 
 clean:
-	rm -f *.o $(NAME) $(NAME)_unstripped $(CLEANOBJECTS) $(DBGOBJECTS) $(OBJECTS) main.c.* test.c.* vgcore.* test
+	rm -f *.o $(NAME) $(NAME)_unstripped $(CLEANOBJECTS) $(CLEANCXXOBJECTS) $(OBJECTS) $(CXXOBJECTS) $(DBGOBJECTS) $(CXXDBGOBJECTS) main.c.* test.c.* vgcore.* test
