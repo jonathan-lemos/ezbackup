@@ -6,6 +6,8 @@ CXXFLAGS=-Wall -Wextra -pedantic -std=c++11
 LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega -lstdc++
 DBGFLAGS=-g
 CXXDBGFLAGS=-g
+RELEASEFLAGS=-O3
+CXXRELEASEFLAGS=-O3
 HEADERS=fileiterator maketar crypt readfile error checksum progressbar options checksumsort
 CXXHEADERS=cloud/mega
 
@@ -18,9 +20,7 @@ CLEANOBJECTS=$(foreach header,$(HEADERS),$(header).c.*)
 CLEANCXXOBJECTS=$(foreach cxxheader,$(CXXHEADERS),$(header).cpp.*)
 
 release: main.o $(OBJECTS) $(CXXOBJECTS)
-	$(CC) -o $(NAME)_unstripped main.o $(OBJECTS) $(CXXOBJECTS) $(CFLAGS) $(LINKFLAGS)
-	cp $(NAME)_unstripped $(NAME)
-	strip $(NAME)
+	$(CC) -o $(NAME) main.o $(OBJECTS) $(CXXOBJECTS) $(CFLAGS) $(LINKFLAGS) $(RELEASEFLAGS)
 
 debug: main.dbg.o $(DBGOBJECTS) $(CXXDBGOBJECTS)
 	$(CC) -o $(NAME) main.dbg.o $(DBGOBJECTS) $(CXXDBGOBJECTS) $(CFLAGS) $(DBGFLAGS) $(LINKFLAGS)
@@ -29,19 +29,19 @@ test: test.c $(DBGOBJECTS) $(CXXDBGOBJECTS)
 	$(CC) -o test test.c $(DBGOBJECTS) $(CFLAGS) $(CXXDBGOBJECTS) $(DBGFLAGS) $(LINKFLAGS)
 
 main.o: main.c
-	$(CC) -c -o main.o main.c $(CFLAGS)
+	$(CC) -c -o main.o main.c $(CFLAGS) $(RELEASEFLAGS)
 
 main.dbg.o: main.c
 	$(CC) -c -o main.dbg.o main.c $(CFLAGS) $(DBGFLAGS)
 
 %.o: %.c
-	$(CC) -c -o $@ $< $(CFLAGS)
+	$(CC) -c -o $@ $< $(CFLAGS) $(RELEASEFLAGS)
 
 %.dbg.o: %.c
 	$(CC) -c -o $@ $< $(CFLAGS) $(DBGFLAGS)
 
 %.cxx.o: %.cpp
-	$(CXX) -c -o $@ $< $(CXXFLAGS)
+	$(CXX) -c -o $@ $< $(CXXFLAGS) $(RELEASEFLAGS)
 
 %.cxx.dbg.o: %.cpp
 	$(CXX) -c -o $@ $< $(CXXFLAGS) $(CXXDBGFLAGS)
