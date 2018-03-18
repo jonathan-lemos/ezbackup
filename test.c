@@ -281,11 +281,11 @@ void test_progressbar_h(void){
 	progress* p;
 	int i;
 
-	p = start_progress("Testing progressbar.h", 100);
+	p = start_progress("Testing progressbar.h", 10000);
 	assert (p);
-	for (i = 0; i < 100; ++i){
+	for (i = 0; i < 10000; ++i){
 		inc_progress(p, 1);
-		usleep(66666);
+		usleep(666);
 	}
 	finish_progress(p);
 }
@@ -295,7 +295,8 @@ void test_mega_cpp(void){
 
 	assert(MEGAlogin("***REMOVED***", "***REMOVED***", &mh) == 0);
 	puts_debug("Login successful");
-	assert(MEGAupload("test.c", "/", mh) == 0);
+	assert(MEGAupload("data.img", "/", "Uploading file", mh) == 0);
+	assert(MEGAdownload("data.img", "download", "Downloading file", mh) == 0);
 	puts_debug("Upload successful");
 	MEGAlogout(mh);
 }
@@ -311,7 +312,8 @@ int main(void){
 	fprintf(fp, "secret");
 	fclose(fp);
 
-	test_mega_cpp();
+	test_progressbar_h();
+/*	test_mega_cpp(); */
 	return 0;
 
 	test_checksum_h();

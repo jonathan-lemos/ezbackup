@@ -1,7 +1,8 @@
 #include "mega.h"
 extern "C"{
-	#include "../error.h"
-	#include "../crypt.h"
+#include "../error.h"
+#include "../crypt.h"
+#include "../progressbar.h"
 }
 #include "mega_sdk/include/megaapi.h"
 #include <iostream>
@@ -9,6 +10,112 @@ extern "C"{
 #include <cstring>
 #include <fstream>
 #include <cerrno>
+#include <condition_variable>
+#include <mutex>
+#include <sys/stat.h>
+
+class ProgressBarTransferListener : public mega::MegaTransferListener{
+	public:
+		ProgressBarTransferListener(){
+			notified = false;
+			error = NULL;
+			transfer = NULL;
+			p = NULL;
+		}
+
+		~ProgressBarTransferListener(){
+			delete error;
+			delete transfer;
+		}
+
+		void setMsg(const char* msg){
+			this->msg = msg;
+		}
+
+		const char* getMsg(){
+			return msg;
+		}
+
+		void onTransferStart(mega::MegaApi* mega_api, mega::MegaTransfer* transfer){
+			uint64_t max;
+			struct stat st;
+
+			(void)mega_api;
+
+			switch(transfer->getType()){
+			case mega::MegaTransfer::TYPE_UPLOAD:
+				if (stat(transfer->getFileName(), &st) != 0){
+					log_warning("MEGA: Could not determine size of %s (%s)", transfer->getFileName(), strerror(errno));
+					break;
+				}
+				max = st.st_size;
+				p = start_progress(msg, max);
+				break;
+			case mega::MegaTransfer::TYPE_DOWNLOAD:
+				max = transfer->getTotalBytes();
+				p = start_progress(msg, max);
+				break;
+			default:
+				log_warning("MEGA: Could not start progress due to unknown transfer type.");
+			}
+		}
+
+		void onTransferUpdate(mega::MegaApi* mega_api, mega::MegaTransfer* transfer){
+			(void)mega_api;
+
+			set_progress(p, transfer->getTransferredBytes());
+		}
+
+		void onTransferFinish(mega::MegaApi* mega_api, mega::MegaTransfer* transfer, mega::MegaError* error){
+			(void)mega_api;
+
+			this->error = error->copy();
+			this->transfer = transfer->copy();
+
+			{
+				std::unique_lock<std::mutex> lock(m);
+				notified = true;
+			}
+
+			cv.notify_all();
+			finish_progress(p);
+			p = NULL;
+		}
+
+		void wait(){
+			std::unique_lock<std::mutex> lock(m);
+			cv.wait(lock, [this]{return notified;});
+		}
+
+		void reset(){
+			delete transfer;
+			delete error;
+			if (p){
+				finish_progress(p);
+			}
+			transfer = NULL;
+			error = NULL;
+			notified = false;
+			p = NULL;
+		}
+
+		mega::MegaTransfer* getTransfer(){
+			return transfer;
+		}
+
+		mega::MegaError* getError(){
+			return error;
+		}
+
+	private:
+		bool notified;
+		mega::MegaError* error;
+		mega::MegaTransfer* transfer;
+		std::condition_variable cv;
+		std::mutex m;
+		progress* p;
+		const char* msg;
+};
 
 int MEGAlogin(const char* email, const char* password, MEGAhandle* out){
 	const char* API_KEY = "***REMOVED***";
@@ -140,11 +247,11 @@ int MEGAreaddir(const char* dir, char*** out, size_t* out_len, MEGAhandle mh){
 	return 0;
 }
 
-int MEGAdownload(const char* download_path, const char* out_file, MEGAhandle mh){
+int MEGAdownload(const char* download_path, const char* out_file, const char* msg, MEGAhandle mh){
 	std::string path;
 	mega::MegaNode* node;
 	mega::MegaApi* mega_api;
-	mega::SynchronousTransferListener listener;
+	ProgressBarTransferListener listener;
 
 	mega_api = (mega::MegaApi*)mh;
 
@@ -157,6 +264,7 @@ int MEGAdownload(const char* download_path, const char* out_file, MEGAhandle mh)
 		return -1;
 	}
 
+	listener.setMsg(msg);
 	mega_api->startDownload(node, out_file, &listener);
 	puts_debug("Downloading file...");
 	listener.wait();
@@ -167,11 +275,11 @@ int MEGAdownload(const char* download_path, const char* out_file, MEGAhandle mh)
 	return 0;
 }
 
-int MEGAupload(const char* in_file, const char* upload_dir, MEGAhandle mh){
+int MEGAupload(const char* in_file, const char* upload_dir, const char* msg, MEGAhandle mh){
 	std::string path;
 	mega::MegaNode* node;
 	mega::MegaApi* mega_api;
-	mega::SynchronousTransferListener listener;
+	ProgressBarTransferListener listener;
 
 	mega_api = (mega::MegaApi*)mh;
 
@@ -183,6 +291,7 @@ int MEGAupload(const char* in_file, const char* upload_dir, MEGAhandle mh){
 		return -1;
 	}
 
+	listener.setMsg(msg);
 	mega_api->startUpload(in_file, node, &listener);
 	puts_debug("Upload file...");
 	listener.wait();
