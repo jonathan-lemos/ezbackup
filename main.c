@@ -199,6 +199,129 @@ static int get_default_backup_name(options* opt){
 	return 0;
 }
 
+int decrypt_file(char* file_hashes_prev, func_params fparams){
+	char pwbuffer[1024];
+	crypt_keys fk;
+	char file_decrypt[] = "/var/tmp/decrypt_XXXXXX";
+
+	if (temp_file(file_decrypt) != 0){
+		puts_debug("temp_file() for file_decrypt failed");
+	}
+	if (crypt_set_encryption(fparams.opt.enc_algorithm, &fk) != 0){
+		puts_debug("crypt_set_encryption() failed");
+		return 1;
+	}
+	if ((crypt_extract_salt(fparams.opt.prev_backup, &fk)) != 0){
+		puts_debug("crypt_extract_salt() failed");
+		return 1;
+	}
+	if ((crypt_getpassword("Enter decryption password", NULL, pwbuffer, sizeof(pwbuffer))) != 0){
+		puts_debug("crypt_getpassword() failed");
+		return 1;
+	}
+	if ((crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, &fk)) != 0){
+		crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
+		puts_debug("crypt_gen_keys() failed)");
+		return 1;
+	}
+	crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
+	if ((crypt_decrypt_ex(fparams.opt.prev_backup, &fk, file_decrypt, fparams.opt.flags & FLAG_VERBOSE, "Decrypting file...")) != 0){
+		crypt_free(&fk);
+		puts_debug("crypt_decrypt() failed");
+		return 1;
+	}
+	crypt_free(&fk);
+	if ((tar_extract_file(file_decrypt, "/checksums", file_hashes_prev)) != 0){
+		puts_debug("tar_extract_file() failed");
+		return 1;
+	}
+	fparams.hashes_prev = file_hashes_prev;
+	remove(file_decrypt);
+	return 0;
+}
+
+int encrypt_file(const char* file, func_params fparams){
+	char pwbuffer[1024];
+	crypt_keys fk;
+	int err;
+
+	/* disable core dumps if possible */
+	if (disable_core_dumps() != 0){
+		log_warning("Core dumps could not be disabled\n");
+	}
+
+	crypt_set_encryption(fparams.opt.enc_algorithm, &fk);
+	crypt_gen_salt(&fk);
+
+	/* PASSWORD IN MEMORY */
+	while ((err = crypt_getpassword("Enter encryption password",
+					"Verify encryption password",
+					pwbuffer,
+					sizeof(pwbuffer))) > 0){
+		printf("\nPasswords do not match\n");
+	}
+	if (err < 0){
+		puts_debug("crypt_getpassword() failed");
+		crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
+		return 1;
+	}
+
+	if ((crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, &fk)) != 0){
+		crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
+		puts_debug("crypt_gen_keys() failed");
+		return 1;
+	}
+	/* don't need to scrub entire buffer, just where the password was
+	 * and a little more so attackers don't know how long the password was */
+	crypt_scrub((unsigned char*)pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
+	/* PASSWORD OUT OF MEMORY */
+
+	if ((crypt_encrypt_ex(file, &fk, fparams.opt.file_out, fparams.opt.flags & FLAG_VERBOSE, "Encrypting file...")) != 0){
+		crypt_free(&fk);
+		puts_debug("crypt_encrypt() failed");
+		return 1;
+	}
+	/* shreds keys as well */
+	crypt_free(&fk);
+	return 0;
+}
+
+int read_config_file(func_params fparams){
+	char* backup_conf;
+
+	if (get_config_name(&backup_conf) != 0){
+		puts_debug("get_config_name() failed");
+		return -1;
+	}
+
+	if (parse_options_fromfile(backup_conf, &(fparams.opt)) != 0){
+		puts_debug("Failed to parse options from file (does it exist?)");
+		free(backup_conf);
+		return 1;
+	}
+
+	free(backup_conf);
+	return 0;
+}
+
+int write_config_file(func_params fparams){
+	char* backup_conf;
+
+	if ((get_config_name(&backup_conf)) != 0){
+		log_warning("Failed to get backup name for incremental backup settings.");
+		return 1;
+	}
+	else{
+		if ((write_options_tofile(backup_conf, &(fparams.opt))) != 0){
+			log_warning("Failed to write settings for incremental backup.");
+			free(backup_conf);
+			return 1;
+		}
+	}
+	free(backup_conf);
+	return 0;
+}
+
 /* runs for each file enum_files() finds */
 int fun(const char* file, const char* dir, struct stat* st, void* params){
 	func_params* fparams = (func_params*)params;
@@ -256,11 +379,9 @@ int main(int argc, char** argv){
 	char file_final[] = "/var/tmp/final_XXXXXX";
 	char file_removed[] = "/var/tmp/removed_XXXXXX";
 	char compression_string[64];
-	crypt_keys fk;
+
 	TAR* tar_final;
-	int parse_res;
 	int i;
-	char* backup_conf;
 
 	/* set fparams values to all NULL or 0 */
 	fparams.tp = NULL;
@@ -270,6 +391,8 @@ int main(int argc, char** argv){
 
 	/* parse command line args */
 	if (argc >= 2){
+		int parse_res;
+
 		parse_res = parse_options_cmdline(argc, argv, &(fparams.opt));
 		if (parse_res < 0 || parse_res > argc){
 			log_error("Failed to parse command line arguments");
@@ -280,22 +403,20 @@ int main(int argc, char** argv){
 			return 1;
 		}
 	}
+	/* get options from menu */
 	else{
-		if (get_config_name(&backup_conf) != 0){
-			puts_debug("get_config_name() failed");
+		int res;
+
+		res = read_config_file(fparams);
+		if (res < 0){
 			return 1;
 		}
-
-		if (parse_options_fromfile(backup_conf, &(fparams.opt)) != 0){
-			puts_debug("Failed to parse options from file (does it exist?)");
+		else if (res > 0){
 			if (parse_options_menu(&(fparams.opt)) != 0){
 				log_error("Failed to parse options from menu");
 				return 1;
 			}
 		}
-
-		free(backup_conf);
-
 	}
 
 	/* put in /home/<user>/Backups/backup-<unixtime>.tar(.bz2)(.crypt) */
@@ -306,10 +427,8 @@ int main(int argc, char** argv){
 	}
 
 	/* create temporary files */
-	if (temp_file(file_hashes) != 0 ||
-			temp_file(file_tar) != 0 ||
+	if (	temp_file(file_tar) != 0 ||
 			temp_file(file_final) != 0 ||
-			temp_file(file_hashes_prev) != 0 ||
 			temp_file(file_removed) != 0 ||
 			temp_file(file_hashes_sorted) != 0
 	   ){
@@ -317,54 +436,27 @@ int main(int argc, char** argv){
 		return 1;
 	}
 
+	/* load hashed from previous backup if it exists */
+	if (fparams.opt.prev_backup){
+		if (temp_file(file_hashes_prev) != 0){
+			puts_debug("Failed to create file_hashes_prev");
+			return 1;
+		}
+		decrypt_file(file_hashes_prev, fparams);
+	}
+	else{
+		fparams.hashes_prev = NULL;
+	}
+
+	/* create initial hash list */
+	if (temp_file(file_hashes) != 0){
+		puts_debug("Failed to create temp file for hashes");
+		return 1;
+	}
 	fparams.fp_hashes = fopen(file_hashes, "wb");
 	if (!fparams.fp_hashes){
 		log_error(STR_EFOPEN, file_hashes);
 		return 1;
-	}
-
-	/* load previous backup if it exists */
-	if (fparams.opt.prev_backup){
-		char pwbuffer[1024];
-		crypt_keys fk;
-		char file_decrypt[] = "/var/tmp/decrypt_XXXXXX";
-
-		if (temp_file(file_decrypt) != 0){
-			puts_debug("temp_file() for file_decrypt failed");
-		}
-		if (crypt_set_encryption(fparams.opt.enc_algorithm, &fk) != 0){
-			puts_debug("crypt_set_encryption() failed");
-			return 1;
-		}
-		if ((crypt_extract_salt(fparams.opt.prev_backup, &fk)) != 0){
-			puts_debug("crypt_extract_salt() failed");
-			return 1;
-		}
-		if ((crypt_getpassword("Enter decryption password", NULL, pwbuffer, sizeof(pwbuffer))) != 0){
-			puts_debug("crypt_getpassword() failed");
-			return 1;
-		}
-		if ((crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, &fk)) != 0){
-			crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-			puts_debug("crypt_gen_keys() failed)");
-			return 1;
-		}
-		crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-		if ((crypt_decrypt_ex(fparams.opt.prev_backup, &fk, file_decrypt, fparams.opt.flags & FLAG_VERBOSE, "Decrypting file...")) != 0){
-			crypt_free(&fk);
-			puts_debug("crypt_decrypt() failed");
-			return 1;
-		}
-		crypt_free(&fk);
-		if ((tar_extract_file(file_decrypt, "/checksums", file_hashes_prev)) != 0){
-			puts_debug("tar_extract_file() failed");
-			return 1;
-		}
-		fparams.hashes_prev = file_hashes_prev;
-		remove(file_decrypt);
-	}
-	else{
-		fparams.hashes_prev = NULL;
 	}
 
 	printf("Adding files to %s...\n", fparams.opt.file_out);
@@ -382,61 +474,33 @@ int main(int argc, char** argv){
 	fclose(fparams.fp_hashes);
 	tar_close(fparams.tp);
 
-	/* create a list of removed files */
-	create_removed_list(file_hashes_prev, file_removed);
-
 	/* creating the files + hashes tarball */
 	tar_final = tar_create(file_final, fparams.opt.comp_algorithm);
 	sprintf(compression_string, "Compressing files with compressor %s...", compressor_to_string(fparams.opt.comp_algorithm));
 	tar_add_file_ex(tar_final, file_tar, "/files", 1, compression_string);
+	/* sort hashes and add them to tar */
 	sort_checksum_file(file_hashes, file_hashes_sorted);
+	remove(file_hashes);
 	tar_add_file_ex(tar_final, file_hashes_sorted, "/checksums", 1, "Adding checksum list...");
+	remove(file_hashes_sorted);
+
+	/* create a list of removed files */
+	if (temp_file(file_removed) != 0){
+		puts_debug("Failed to make temp file for removed list");
+		return 1;
+	}
+	create_removed_list(file_hashes_prev, file_removed);
+	remove(file_hashes_prev);
 	tar_add_file_ex(tar_final, file_removed, "/removed", 1, "Adding removed file list...");
+	remove(file_removed);
+
 	tar_close(tar_final);
 
 	/* encrypt output */
 	if (fparams.opt.enc_algorithm){
-		char pwbuffer[1024];
-		int err;
-
-		/* disable core dumps if possible */
-		if (disable_core_dumps() != 0){
-			log_warning("Core dumps could not be disabled\n");
-		}
-
-		crypt_set_encryption(fparams.opt.enc_algorithm, &fk);
-		crypt_gen_salt(&fk);
-
-		/* PASSWORD IN MEMORY */
-		while ((err = crypt_getpassword("Enter encryption password",
-						"Verify encryption password",
-						pwbuffer,
-						sizeof(pwbuffer))) > 0){
-			printf("\nPasswords do not match\n");
-		}
-		if (err < 0){
-			puts_debug("crypt_getpassword() failed");
-			crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
+		if (encrypt_file(file_final, fparams) != 0){
 			return 1;
 		}
-
-		if ((crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, &fk)) != 0){
-			crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-			puts_debug("crypt_gen_keys() failed");
-			return 1;
-		}
-		/* don't need to scrub entire buffer, just where the password was
-		 * and a little more so attackers don't know how long the password was */
-		crypt_scrub((unsigned char*)pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-		/* PASSWORD OUT OF MEMORY */
-
-		if ((crypt_encrypt_ex(file_final, &fk, fparams.opt.file_out, fparams.opt.flags & FLAG_VERBOSE, "Encrypting file...")) != 0){
-			crypt_free(&fk);
-			puts_debug("crypt_encrypt() failed");
-			return 1;
-		}
-		/* shreds keys as well */
-		crypt_free(&fk);
 	}
 	else{
 		if ((rename_ex(file_final, fparams.opt.file_out)) != 0){
@@ -448,21 +512,12 @@ int main(int argc, char** argv){
 	free(fparams.opt.prev_backup);
 	fparams.opt.prev_backup = fparams.opt.file_out;
 
-	if ((get_config_name(&backup_conf)) != 0){
-		log_warning("Cannot write settings for incremental backup.");
-	}
-	else{
-		if ((write_options_tofile(backup_conf, &(fparams.opt))) != 0){
-			log_warning("Failed to write settings for incremental backup.");
-		}
-	}
-	free(backup_conf);
+	write_config_file(fparams);
 
 	free_options(&(fparams.opt));
 	remove(file_tar);
 	remove(file_final);
 	remove(file_hashes);
-	remove(file_hashes_prev);
 	remove(file_hashes_sorted);
 	remove(file_removed);
 	return 0;
