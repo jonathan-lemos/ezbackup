@@ -86,11 +86,11 @@ return 0;
 /* computes a hash
  * returns 0 on success or err on failure */
 int checksum(const char* file, const char* algorithm, unsigned char** out, unsigned* len){
+	FILE* fp = NULL;
 	EVP_MD_CTX* ctx = NULL;
 	const EVP_MD* md;
 	unsigned char buffer[BUFFER_LEN];
 	int length;
-	FILE* fp;
 	int ret = 0;
 
 	fp = fopen(file, "rb");
@@ -143,7 +143,7 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 
 	while ((length = read_file(fp, buffer, sizeof(buffer))) > 0){
 		if (ferror(fp)){
-			log_error(STR_EFREAD, file);
+			log_error(STR_EFREAD, fp);
 			goto cleanup;
 		}
 		if (EVP_DigestUpdate(ctx, buffer, length) != 1){
@@ -159,9 +159,11 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 	}
 
 cleanup:
-	EVP_MD_CTX_destroy(ctx);
-	if (fclose(fp) != 0){
-		log_error("Failed to close %s", file);
+	if (ctx){
+		EVP_MD_CTX_destroy(ctx);
+	}
+	if (fp){
+		fclose(fp);
 	}
 	return ret;
 }
@@ -229,7 +231,7 @@ cleanup:
  * way to seperate the hash from its filename is to use a '\0'
  *
  * returns 0 on success or err on error */
-int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, const char* prev_checksums){
+int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, FILE* prev_checksums){
 	element* e;
 	char* checksum = NULL;
 	int ret;
@@ -264,23 +266,25 @@ int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, con
 	return ret;
 }
 
-int sort_checksum_file(const char* in_file, const char* out_file){
-	char** tmp_files;
+int sort_checksum_file(FILE* fp_in, FILE* fp_out){
+	FILE** tmp_files;
 	size_t n_files;
-	size_t i;
 
-	create_initial_runs(in_file, &tmp_files, &n_files);
-	merge_files(tmp_files, n_files, out_file);
-	for (i = 0; i < n_files; ++i){
-		remove(tmp_files[i]);
-		free(tmp_files[i]);
+	if (create_initial_runs(fp_in, &tmp_files, &n_files) != 0){
+		puts_debug("Error creating initial runs");
+		return -1;
 	}
-	free(tmp_files);
+	if (merge_files(tmp_files, n_files, fp_out) != 0){
+		puts_debug("Error merging files");
+		return -1;
+	}
+
+	free_filearray(tmp_files, n_files);
 	return 0;
 }
 
-int search_for_checksum(const char* file, const char* key, char** checksum){
-	return search_file(file, key, checksum);
+int search_for_checksum(FILE* fp_checksums, const char* key, char** checksum){
+	return search_file(fp_checksums, key, checksum);
 }
 
 static int check_file_exists(const char* file){
@@ -299,44 +303,25 @@ static int check_file_exists(const char* file){
 	}
 }
 
-int create_removed_list(const char* checksum_file, const char* out_file){
+int create_removed_list(FILE* checksum_file, FILE* out_file){
 	element* tmp;
-	FILE* fp_in;
-	FILE* fp_out;
 	int err;
 
-	fp_in = fopen(checksum_file, "rb");
-	if (!fp_in){
-		log_error(STR_EFOPEN, checksum_file, strerror(errno));
-		return 1;
-	}
+	rewind(out_file);
 
-	fp_out = fopen(out_file, "wb");
-	if (!fp_out){
-		log_error(STR_EFOPEN, out_file, strerror(errno));
-		return -1;
-	}
-
-	while ((tmp = get_next_checksum_element(fp_in)) != NULL){
+	while ((tmp = get_next_checksum_element(checksum_file)) != NULL){
 		err = check_file_exists(tmp->file);
 		switch (err){
 		case 1:
 			break;
 		case 0:
-			fprintf(fp_out, "%s%c\n", tmp->file, '\0');
+			fprintf(out_file, "%s%c\n", tmp->file, '\0');
 			break;
 		default:
 			free_element(tmp);
 			return err;
 		}
 		free_element(tmp);
-	}
-
-	if (fclose(fp_in) != 0){
-		log_error(STR_EFCLOSE, checksum_file);
-	}
-	if (fclose(fp_out) != 0){
-		log_error(STR_EFCLOSE, out_file);
 	}
 
 	return 0;

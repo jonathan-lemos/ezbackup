@@ -230,7 +230,7 @@ void free_element_array(element** elements, size_t size){
 	free(elements);
 }
 
-void free_minheapnodes(minheapnode* mhn, size_t size){
+static void free_minheapnodes(minheapnode* mhn, size_t size){
 	size_t i;
 	for (i = 0; i < size; ++i){
 		if (mhn[i].e){
@@ -252,16 +252,19 @@ void free_filearray(FILE** elements, size_t size){
 	size_t i;
 	for (i = 0; i < size; ++i){
 		if (fclose(elements[i]) != 0){
-			log_error(STR_EFCLOSE, "merge file");
+			log_error(STR_EFCLOSE, "file");
 		}
 	}
 	free(elements);
 }
 
-static __off_t get_file_size(const char* file){
+static __off_t get_file_size(FILE* fp){
+	int fd;
 	struct stat st;
 
-	lstat(file, &st);
+	fd = fileno(fp);
+
+	fstat(fd, &st);
 	return st.st_size;
 }
 
@@ -280,8 +283,7 @@ static int set_file_limit(int num){
  * them in reading mode and also remove() them when we're
  * done */
 /* TODO: refactor */
-int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
-	FILE* fp_in;
+int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
 	element** elems = NULL;
 	element* tmp = NULL;
 	int elems_len = 0;
@@ -289,18 +291,16 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 	int end_of_file = 0;
 	int lim;
 
-	if (!in_file || !out || !n_files){
+	/* check null arguments */
+	if (!fp_in || !out || !n_files){
 		log_error(STR_ENULL);
 		return -1;
 	}
 
-	fp_in = fopen(in_file, "r");
-	if (!fp_in){
-		log_error(STR_EFOPEN, in_file, strerror(errno));
-		return -1;
-	}
+	/* start at beginning of fp_in */
+	rewind(fp_in);
 
-	lim = get_file_size(in_file) / MAX_RUN_SIZE + 1024;
+	lim = get_file_size(fp_in) / MAX_RUN_SIZE + 1024;
 
 	if (set_file_limit(lim) != 0){
 		log_warning("Could not set max file limit (%s)", strerror(errno));
@@ -311,7 +311,6 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 
 	while (!end_of_file){
 		/* /var/tmp is mounted to disk, not RAM */
-		const char* template = "/var/tmp/merge_XXXXXX";
 		FILE* fp;
 		int i;
 
@@ -323,30 +322,13 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 			log_fatal(STR_ENOMEM);
 			return -1;
 		}
-		(*out)[*n_files - 1] = malloc(sizeof("/var/tmp/merge_XXXXXX"));
-		if (!(*out)[*n_files - 1]){
-			log_fatal(STR_ENOMEM);
-			return -1;
-		}
-		/* copy template to new string */
-		strcpy((*out)[*n_files - 1], template);
-		/* make a temp file using the template */
-		/* new string now should be a valid temp file */
-		if (temp_file((*out)[*n_files - 1]) != 0){
+		if ((fp = temp_file("/var/tmp/merge_XXXXXX")) == NULL){
 			log_error("Failed to create temporary merge file");
-			free((*out)[(*n_files) - 1]);
 			(*n_files)--;
 			*out = realloc(*out, *n_files * sizeof(**out));
 			return -1;
 		}
-		fp = fopen((*out)[*n_files - 1], "wb");
-		if (!fp){
-			log_error("Failed to open %s (%s)", (*out)[*n_files - 1], strerror(errno));
-			free((*out)[(*n_files) - 1]);
-			(*n_files)--;
-			*out = realloc(*out, *n_files * sizeof(**out));
-			return -1;
-		}
+		(*out)[*n_files - 1] = fp;
 
 		/* read enough elements to fill MAX_RUN_SIZE */
 		/* TODO: this reads one element above MAX_RUN_SIZE
@@ -363,10 +345,10 @@ int create_initial_runs(const char* in_file, char*** out, size_t* n_files){
 			total_len += strlen(tmp->file) + strlen(tmp->checksum) + 2;
 			elems[elems_len - 1] = tmp;
 		}
+		/* if we didn't read any elements */
 		if (!elems_len){
+			/* we're at the end of the file */
 			fclose(fp);
-			remove((*out)[(*n_files) - 1]);
-			free((*out)[(*n_files) - 1]);
 			(*n_files)--;
 			*out = realloc(*out, *n_files * sizeof(**out));
 			if (!(*out)){
@@ -423,41 +405,21 @@ void minheapify(minheapnode* elements, int elements_len, int index){
 }
 
 /* merges the initial runs into one big file */
-int merge_files(char** files, size_t n_files, const char* out_file){
+int merge_files(FILE** in, size_t n_files, FILE* fp_out){
 	minheapnode* mhn = NULL;
 	size_t count = 0;
 	size_t i;
 	int j;
-	FILE** in;
-	FILE* fp_out;
 
 	/* verify that arguments are not null */
-	if (!files || !out_file){
+	if (!in || !fp_out){
 		log_error(STR_ENULL);
 		return -1;
 	}
 
-	/* open out_file for writing */
-	fp_out = fopen(out_file, "wb");
-	if (!fp_out){
-		log_error(STR_EFOPEN, out_file, strerror(errno));
-		return -1;
-	}
-
-	/* allocate space for our file array */
-	in = malloc(sizeof(*in) * n_files);
-	if (!in){
-		log_fatal(STR_ENOMEM);
-		return -1;
-	}
-
-	/* open each char* as a file* */
+	/* rewind input files so they can be used for reading */
 	for (i = 0; i < n_files; ++i){
-		in[i] = fopen(files[i], "rb");
-		if (!in[i]){
-			log_error(STR_EFOPEN, files[i], strerror(errno));
-			return -1;
-		}
+		rewind(in[i]);
 	}
 
 	/* make space for the min heap nodes */
@@ -496,16 +458,11 @@ int merge_files(char** files, size_t n_files, const char* out_file){
 
 	/* cleanup */
 	free_minheapnodes(mhn, n_files);
-	free_filearray(in, n_files);
-	if (fclose(fp_out) != 0){
-		log_error(STR_EFCLOSE, out_file);
-	}
 	return 0;
 }
 
-int search_file(const char* file, const char* key, char** checksum){
+int search_file(FILE* fp, const char* key, char** checksum){
 	element* tmp;
-	FILE* fp;
 	__off_t pivot;
 	int c;
 	int size;
@@ -513,20 +470,13 @@ int search_file(const char* file, const char* key, char** checksum){
 	const int end_bsearch_threshold = 512;
 
 	/* check null arguments */
-	if (!file || !key || !checksum){
+	if (!fp || !key || !checksum){
 		log_error(STR_ENULL);
 		return -1;
 	}
 
-	/* open file for reading */
-	fp = fopen(file, "rb");
-	if (!fp){
-		log_error(STR_EFOPEN, file);
-		return -1;
-	}
-
 	/* start at half of file */
-	size = get_file_size(file);
+	size = get_file_size(fp);
 	pivot = size / 2;
 
 	/* 512 bytes or below switch to linear search
@@ -555,7 +505,6 @@ int search_file(const char* file, const char* key, char** checksum){
 
 		if (ferror(fp) != 0){
 			log_error(STR_EFREAD);
-			fclose(fp);
 			return -1;
 		}
 
@@ -563,7 +512,6 @@ int search_file(const char* file, const char* key, char** checksum){
 		tmp = get_next_checksum_element(fp);
 		if (!tmp){
 			puts_debug("get_next_checksum_element() returned NULL");
-			fclose(fp);
 			return -1;
 		}
 		/* check if it matches our key */
@@ -572,12 +520,10 @@ int search_file(const char* file, const char* key, char** checksum){
 			*checksum = malloc(strlen(tmp->checksum) + 1);
 			if (!(*checksum)){
 				log_fatal(STR_ENOMEM);
-				fclose(fp);
 				return -1;
 			}
 			strcpy(*checksum, tmp->checksum);
 			free_element(tmp);
-			fclose(fp);
 			return 0;
 		}
 		/* if key is before tmp */
@@ -632,13 +578,7 @@ int search_file(const char* file, const char* key, char** checksum){
 
 	if (ferror(fp)){
 		free_element(tmp);
-		log_error(STR_EFREAD, file);
-		fclose(fp);
-		return -1;
-	}
-	if (fclose(fp) != 0){
-		free_element(tmp);
-		log_error(STR_EFCLOSE, file);
+		log_error(STR_EFREAD, fp);
 		return -1;
 	}
 

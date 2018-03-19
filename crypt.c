@@ -368,7 +368,7 @@ int crypt_free(crypt_keys* fk){
 
 /* encrypts the file
  * returns 0 on success or err on error */
-int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbose, const char* progress_msg){
+int crypt_encrypt_ex(FILE* fp_in, crypt_keys* fk, FILE* fp_out, int verbose, const char* progress_msg){
 	/* do not want null terminator */
 	const char salt_prefix[8] = { 'S', 'a', 'l', 't', 'e', 'd', '_', '_'};
 	EVP_CIPHER_CTX* ctx = NULL;
@@ -378,14 +378,14 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	int outlen;
 	int ret = 0;
 	progress* p = NULL;
-	FILE* fp_in;
-	FILE* fp_out;
 
 	/* checking null arguments */
-	if (!in || !fk || !out){
+	if (!fp_in || !fk || !fp_out){
 		log_error(STR_ENULL);
 		return -1;
 	}
+
+	rewind(fp_in);
 
 	/* checking if keys were actually generated */
 	if (!(fk->flags & FLAG_KEYS_SET)){
@@ -393,24 +393,10 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 		return -1;
 	}
 
-	/* open input file for reading */
-	fp_in = fopen(in, "rb");
-	if (!fp_in){
-		log_error(STR_EFOPEN, in, strerror(errno));
-		return -1;
-	}
-	/* open output file for writing */
-	fp_out = fopen(out, "wb");
-	if (!fp_out){
-		fclose(fp_in);
-		log_error(STR_EFOPEN, out, strerror(errno));
-		return -1;
-	}
-
 	/* write the salt prefix + salt to the file */
 	fwrite(salt_prefix, 1, sizeof(salt_prefix), fp_out);
 	if (ferror(fp_out)){
-		log_error("There was an error writing to %s", out);
+		log_error("There was an error writing to the output file");
 		ret = -1;
 		goto cleanup;
 	}
@@ -476,8 +462,6 @@ int crypt_encrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	fwrite(outbuffer, 1, outlen, fp_out);
 
 cleanup:
-	fclose(fp_in);
-	fclose(fp_out);
 	if (ctx){
 		EVP_CIPHER_CTX_free(ctx);
 	}
@@ -486,44 +470,34 @@ cleanup:
 }
 
 /* simpler wrapper for crypt_encrypt_ex if progressbar is not needed */
-int crypt_encrypt(const char* in, crypt_keys* fk, const char* out){
-	return crypt_encrypt_ex(in, fk, out, 0, NULL);
+int crypt_encrypt(FILE* fp_in, crypt_keys* fk, FILE* fp_out){
+	return crypt_encrypt_ex(fp_in, fk, fp_out, 0, NULL);
 }
 
 /* extracts salt from encrypted file */
-int crypt_extract_salt(const char* in, crypt_keys* fk){
+int crypt_extract_salt(FILE* fp_in, crypt_keys* fk){
 	const char salt_prefix[8] = { 'S', 'a', 'l', 't', 'e', 'd', '_', '_' };
 	char salt_buffer[8];
 	char buffer[8];
 	unsigned i;
-	FILE* fp;
 
 	/* checking null arguments */
-	if (!in || !fk){
+	if (!fp_in || !fk){
 		log_error(STR_ENULL);
-		return -1;
-	}
-
-	/* open in for reading */
-	fp = fopen(in, "rb");
-	if (!fp){
-		log_error(STR_EFOPEN, in, strerror(errno));
 		return -1;
 	}
 
 	/* check that fread works properly. also advances the file
 	 * pointer to the beginning of the salt */
-	if (fread(salt_buffer, 1, sizeof(salt_prefix), fp) != sizeof(salt_prefix)){
+	if (fread(salt_buffer, 1, sizeof(salt_prefix), fp_in) != sizeof(salt_prefix)){
 		log_error("Failed to read salt prefix from file");
-		fclose(fp);
 		return -1;
 	}
 
 	/* read the salt into the buffer, check if the correct
 	 * amount of bytes were read */
-	if (fread(buffer, 1, sizeof(buffer), fp) != sizeof(buffer)){
+	if (fread(buffer, 1, sizeof(buffer), fp_in) != sizeof(buffer)){
 		log_error("Failed to read salt from file");
-		fclose(fp);
 		return -1;
 	}
 
@@ -534,7 +508,6 @@ int crypt_extract_salt(const char* in, crypt_keys* fk){
 	}
 
 	fk->flags |= FLAG_SALT_EXTRACTED;
-	fclose(fp);
 	return 0;
 }
 

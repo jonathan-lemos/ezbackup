@@ -2,6 +2,8 @@
 #include "maketar.h"
 /* read_file() */
 #include "readfile.h"
+/* progressbar stuff */
+#include "progressbar.h"
 /* errors */
 #include "error.h"
 #include <errno.h>
@@ -54,7 +56,7 @@ TAR* tar_create(const char* filename, COMPRESSOR comp){
 	return tp;
 }
 
-int tar_add_file_ex(TAR* tp, const char* filename, const char* path_in_tar, int verbose, const char* progress_msg){
+int tar_add_fp_ex(TAR* tp, FILE* fp, const char* path_in_tar, int verbose, const char* progress_msg){
 	/* file stats */
 	struct stat st;
 	/* tar header */
@@ -64,25 +66,19 @@ int tar_add_file_ex(TAR* tp, const char* filename, const char* path_in_tar, int 
 	/* uid -> uname */
 	struct passwd* pwd;
 	/* reading the file */
-	FILE* fp = NULL;
+	int fd = -1;
 	int len = 0;
 	unsigned char buffer[BUFFER_LEN];
 	/* verbose */
 	progress* p;
 
-	if (!tp){
+	if (!tp || !fp || !path_in_tar){
 		log_error(STR_ENULL);
 		return -1;
 	}
 
-	/* must open as "rb" to prevent \r\n -> \n */
-	fp = fopen(filename, "rb");
-	if (!fp){
-		log_error(STR_EFOPEN, filename, strerror(errno));
-		return -1;
-	}
-
-	stat(filename, &st);
+	fd = fileno(fp);
+	fstat(fd, &st);
 
 	entry = archive_entry_new();
 
@@ -132,6 +128,27 @@ int tar_add_file_ex(TAR* tp, const char* filename, const char* path_in_tar, int 
 	}
 
 	archive_entry_free(entry);
+	return 0;
+}
+
+int tar_add_file_ex(TAR* tp, const char* filename, const char* path_in_tar, int verbose, const char* progress_msg){
+	FILE* fp;
+	int err;
+
+	fp = fopen(filename, "rb");
+	if (!fp){
+		log_error(STR_EFOPEN, filename, strerror(errno));
+		return -1;
+	}
+
+	if ((err = tar_add_fp_ex(tp, fp, path_in_tar, verbose, progress_msg)) != 0){
+		return err;
+	}
+
+	if (fclose(fp) != 0){
+		log_error(STR_EFCLOSE, filename, strerror(errno));
+		return -1;
+	}
 	return 0;
 }
 
