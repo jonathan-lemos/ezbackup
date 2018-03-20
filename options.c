@@ -140,10 +140,11 @@ int parse_options_cmdline(int argc, char** argv, options* out){
 
 /* this function causes memory leaks by design.
  * this is ncurses' fault, not mine */
-static int display_menu(const char** options, int num_options, const char* title){
+int display_menu(const char** options, int num_options, const char* title){
 	ITEM** my_items;
 	int c;
 	MENU* my_menu;
+	WINDOW* my_menu_window;
 	ITEM* cur_item;
 	int i;
 	int row;
@@ -155,21 +156,57 @@ static int display_menu(const char** options, int num_options, const char* title
 		return -1;
 	}
 
-	my_items = malloc((num_options + 1) * sizeof(ITEM*));
+	/* initialize curses */
+	initscr();
+	/* disable line buffering for stdin, so our output
+	 * shows up immediately */
+	cbreak();
+	/* disable echoing of our characters */
+	noecho();
+	/* enable arrow keys */
+	keypad(stdscr, TRUE);
 
+	/* disable cursor blinking */
+	curs_set(0);
+	/* get coordinates of current terminal */
+	getmaxyx(stdscr, col, row);
+
+	/* create item list */
+	my_items = malloc((num_options + 1) * sizeof(ITEM*));
 	for (i = 0; i < num_options; ++i){
 		my_items[i] = new_item(options[i], NULL);
 	}
 	my_items[num_options] = NULL;
 
+	/* initialize menu and windows */
 	my_menu = new_menu(my_items);
-	getmaxyx(stdscr, row, col);
-	clear();
-	mvprintw(row - 1, (col - strlen(title)) / 2, title);
-	post_menu(my_menu);
+	my_menu_window = newwin(col - 4, row - 4, 2, 2);
+	keypad(my_menu_window, TRUE);
+
+	/* attach menu to our subwindow */
+	set_menu_win(my_menu, my_menu_window);
+	set_menu_sub(my_menu, derwin(my_menu_window, col - 12, row - 12, 3, 3));
+
+	/* change selected menu item mark */
+	set_menu_mark(my_menu, "> ");
+
+	/* put a box around window */
+	box(my_menu_window, 0, 0);
+	/* display our title */
+	mvwprintw(my_menu_window, 1, (row - 6 - strlen(title)) / 2, title);
+	/* put another around the title */
+	mvwaddch(my_menu_window, 2, 0, ACS_LTEE);
+	mvwhline(my_menu_window, 2, 1, ACS_HLINE, row - 6);
+	mvwaddch(my_menu_window, 2, row - 5, ACS_RTEE);
 	refresh();
 
-	while ((c = getch()) != '\n'){
+	/* post the menu */
+	post_menu(my_menu);
+	wrefresh(my_menu_window);
+
+	/* while the user does not press enter */
+	while ((c = wgetch(my_menu_window)) != '\n'){
+		/* handle menu input */
 		switch(c){
 		case KEY_DOWN:
 			menu_driver(my_menu, REQ_DOWN_ITEM);
@@ -180,14 +217,19 @@ static int display_menu(const char** options, int num_options, const char* title
 		}
 	}
 
+	/* get chosen item index */
 	cur_item = current_item(my_menu);
 	ret = item_index(cur_item);
 
+	/* cleanup */
+	curs_set(1);
+	unpost_menu(my_menu);
+	free_menu(my_menu);
 	for (i = 0; i < num_options; ++i){
 		free_item(my_items[i]);
 	}
-	free_menu(my_menu);
 	free(my_items);
+	endwin();
 
 	return ret;
 }
@@ -317,11 +359,6 @@ int parse_options_menu(options* opt){
 		return ret;
 	}
 
-	initscr();
-	cbreak();
-	noecho();
-	keypad(stdscr, TRUE);
-
 	res = display_menu(options_compressor, ARRAY_SIZE(options_compressor), "Select a compression algorithm");
 	switch (res){
 	case 0:
@@ -438,7 +475,6 @@ int parse_options_menu(options* opt){
 			opt->enc_algorithm = NULL;
 		}
 	}
-	endwin();
 
 	opt->flags |= FLAG_VERBOSE;
 	return 0;
