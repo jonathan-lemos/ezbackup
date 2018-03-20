@@ -25,7 +25,7 @@ int read_file(FILE* fp, unsigned char* dest, size_t length){
 
 	ret = fread(dest, 1, length, fp);
 	if (ferror(fp)){
-		log_error("Error reading file (%s)", strerror(errno));
+		log_error(__FL__, "Error reading file (%s)", strerror(errno));
 	}
 	return ret;
 }
@@ -38,7 +38,7 @@ FILE* temp_file(const char* __template){
 	/* template must be writable */
 	tmp = malloc(strlen(__template) + 1);
 	if (!tmp){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		return NULL;
 	}
 	strcpy(tmp, __template);
@@ -52,14 +52,14 @@ FILE* temp_file(const char* __template){
 	unlink(tmp);
 
 	if (fd < 0){
-		log_error("Couldn't create temporary file %s (%s)", __template, strerror(errno));
+		log_error(__FL__, "Couldn't create temporary file %s (%s)", __template, strerror(errno));
 		free(tmp);
 		return NULL;
 	}
 
 	fp = fdopen(fd, "w+b");
 	if (!fp){
-		log_error("Failed to open temporary file %s (%s)", tmp, strerror(errno));
+		log_error(__FL__, "Failed to open temporary file %s (%s)", tmp, strerror(errno));
 		free(tmp);
 		return NULL;
 	}
@@ -75,13 +75,13 @@ FILE* temp_file_ex(char* __template){
 	fd = mkstemp(__template);
 
 	if (fd < 0){
-		log_error("Couldn't create temporary file %s (%s)", __template, strerror(errno));
+		log_error(__FL__, "Couldn't create temporary file %s (%s)", __template, strerror(errno));
 		return NULL;
 	}
 
 	fp = fdopen(fd, "w+b");
 	if (!fp){
-		log_error("Failed to open temporary file %s (%s)", __template, strerror(errno));
+		log_error(__FL__, "Failed to open temporary file %s (%s)", __template, strerror(errno));
 		return NULL;
 	}
 
@@ -110,13 +110,13 @@ int shred_file(const char* file){
 	for (j = 0; j < 3; ++j){
 		fp = fopen(file, "wb");
 		if (!fp){
-			log_warning("Could not open %s for shredding (%s)", file, strerror(errno));
+			log_warning(__FL__, "Could not open %s for shredding (%s)", file, strerror(errno));
 			fclose(fp);
 			return -1;
 		}
 
 		if (stat(file, &st) != 0){
-			log_warning("Could not stat %s for shredding (%s)", file, strerror(errno));
+			log_warning(__FL__, "Could not stat %s for shredding (%s)", file, strerror(errno));
 			fclose(fp);
 			return -1;
 		}

@@ -66,7 +66,7 @@ static int copy_fp(FILE* in, FILE* out){
 
 	while ((len = read_file(in, buffer, sizeof(buffer))) > 0){
 		if ((int)fwrite(buffer, 1, len, out) != len){
-			log_error(STR_EFWRITE, "file");
+			log_error(__FL__, STR_EFWRITE, "file");
 			return 1;
 		}
 	}
@@ -83,7 +83,7 @@ static int get_backup_directory(char** out){
 	if (!(homedir = getenv("HOME"))){
 		pw = getpwuid(getuid());
 		if (!pw){
-			log_error("Failed to get home directory");
+			log_error(__FL__, "Failed to get home directory");
 			return -1;
 		}
 		homedir = pw->pw_dir;
@@ -92,7 +92,7 @@ static int get_backup_directory(char** out){
 	/* /home/<user>/Backups */
 	*out = malloc(strlen(homedir) + sizeof("/Backups"));
 	if (!(*out)){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		return -1;
 	}
 	strcpy(*out, homedir);
@@ -100,7 +100,7 @@ static int get_backup_directory(char** out){
 
 	if (stat(*out, &st) == -1){
 		if (mkdir(*out, 0755) == -1){
-			log_error("Failed to create backup directory at %s", *out);
+			log_error(__FL__, "Failed to create backup directory at %s", *out);
 			free(*out);
 			return -1;
 		}
@@ -113,13 +113,13 @@ static int get_config_name(char** out){
 	char* backupdir;
 
 	if (get_backup_directory(&backupdir) != 0){
-		puts_debug("get_backup_directory() failed");
+		log_debug(__FL__, "get_backup_directory() failed");
 		return -1;
 	}
 
 	*out = malloc(strlen(backupdir) + sizeof("/backup.conf"));
 	if (!(*out)){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		return -1;
 	}
 
@@ -135,7 +135,7 @@ static int get_default_backup_name(options* opt){
 	char file[sizeof("/backup-") + 50];
 
 	if (get_backup_directory(&backupdir) != 0){
-		puts_debug("get_backup_directory() failed");
+		log_debug(__FL__, "get_backup_directory() failed");
 		return -1;
 	}
 
@@ -143,7 +143,7 @@ static int get_default_backup_name(options* opt){
 	opt->file_out = malloc(strlen(backupdir) + sizeof(file));
 	if (!opt->file_out){
 		free(backupdir);
-		log_error(STR_ENOMEM);
+		log_error(__FL__, STR_ENOMEM);
 		return -1;
 	}
 
@@ -184,46 +184,50 @@ static int extract_prev_checksums(FILE* fp_in, char* out, const char* enc_algori
 	FILE* fp_decrypt;
 
 	if (!fp_in || !out || !enc_algorithm){
-		log_error(STR_ENULL);
+		log_error(__FL__, STR_ENULL);
 		return 1;
 	}
 
+	if (disable_core_dumps() != 0){
+		log_warning(__FL__, "Core dumps could not be disabled");
+	}
+
 	if (crypt_set_encryption(enc_algorithm, &fk) != 0){
-		puts_debug("crypt_set_encryption() failed");
+		log_debug(__FL__, "crypt_set_encryption() failed");
 		return 1;
 	}
 
 	if ((crypt_extract_salt(fp_in, &fk)) != 0){
-		puts_debug("crypt_extract_salt() failed");
+		log_debug(__FL__, "crypt_extract_salt() failed");
 		return 1;
 	}
 
 	if ((crypt_getpassword("Enter decryption password", NULL, pwbuffer, sizeof(pwbuffer))) != 0){
-		puts_debug("crypt_getpassword() failed");
+		log_debug(__FL__, "crypt_getpassword() failed");
 		return 1;
 	}
 
 	if ((crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, &fk)) != 0){
 		crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-		puts_debug("crypt_gen_keys() failed)");
+		log_debug(__FL__, "crypt_gen_keys() failed)");
 		return 1;
 	}
 	crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
 
 	if ((fp_decrypt = temp_file_ex(decrypt_template)) == NULL){
-		puts_debug("temp_file() for file_decrypt failed");
+		log_debug(__FL__, "temp_file() for file_decrypt failed");
 		return 1;
 	}
 	if ((crypt_decrypt_ex(fp_in, &fk, fp_decrypt, verbose, "Decrypting file...")) != 0){
 		crypt_free(&fk);
-		puts_debug("crypt_decrypt() failed");
+		log_debug(__FL__, "crypt_decrypt() failed");
 		return 1;
 	}
 	crypt_free(&fk);
 	fclose(fp_decrypt);
 
 	if ((tar_extract_file(decrypt_template, "/checksums", out)) != 0){
-		puts_debug("tar_extract_file() failed");
+		log_debug(__FL__, "tar_extract_file() failed");
 		return 1;
 	}
 
@@ -238,16 +242,16 @@ static int encrypt_file(FILE* fp_in, FILE* fp_out, const char* enc_algorithm, in
 
 	/* disable core dumps if possible */
 	if (disable_core_dumps() != 0){
-		log_warning("Core dumps could not be disabled\n");
+		log_warning(__FL__, "Core dumps could not be disabled\n");
 	}
 
 	if (crypt_set_encryption(enc_algorithm, &fk) != 0){
-		puts_debug("Could not set encryption type");
+		log_debug(__FL__, "Could not set encryption type");
 		return 1;
 	}
 
 	if (crypt_gen_salt(&fk) != 0){
-		puts_debug("Could not generate salt");
+		log_debug(__FL__, "Could not generate salt");
 		return 1;
 	}
 
@@ -259,14 +263,14 @@ static int encrypt_file(FILE* fp_in, FILE* fp_out, const char* enc_algorithm, in
 		printf("\nPasswords do not match\n");
 	}
 	if (err < 0){
-		puts_debug("crypt_getpassword() failed");
+		log_debug(__FL__, "crypt_getpassword() failed");
 		crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
 		return 1;
 	}
 
 	if ((crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, &fk)) != 0){
 		crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-		puts_debug("crypt_gen_keys() failed");
+		log_debug(__FL__, "crypt_gen_keys() failed");
 		return 1;
 	}
 	/* don't need to scrub entire buffer, just where the password was
@@ -276,7 +280,7 @@ static int encrypt_file(FILE* fp_in, FILE* fp_out, const char* enc_algorithm, in
 
 	if ((crypt_encrypt_ex(fp_in, &fk, fp_out, verbose, "Encrypting file...")) != 0){
 		crypt_free(&fk);
-		puts_debug("crypt_encrypt() failed");
+		log_debug(__FL__, "crypt_encrypt() failed");
 		return 1;
 	}
 	/* shreds keys as well */
@@ -284,16 +288,28 @@ static int encrypt_file(FILE* fp_in, FILE* fp_out, const char* enc_algorithm, in
 	return 0;
 }
 
+static int does_file_exist(const char* file){
+	struct stat st;
+
+	return stat(file, &st) == 0;
+}
+
 static int read_config_file(func_params* fparams){
 	char* backup_conf;
 
 	if (get_config_name(&backup_conf) != 0){
-		puts_debug("get_config_name() failed");
+		log_debug(__FL__, "get_config_name() failed");
 		return -1;
 	}
 
+	if (!does_file_exist(backup_conf)){
+		log_info(__FL__, "Backup file does not exist");
+		free(backup_conf);
+		return 1;
+	}
+
 	if (parse_options_fromfile(backup_conf, &(fparams->opt)) != 0){
-		puts_debug("Failed to parse options from file (does it exist?)");
+		log_debug(__FL__, "Failed to parse options from file");
 		free(backup_conf);
 		return 1;
 	}
@@ -306,12 +322,12 @@ int write_config_file(func_params fparams){
 	char* backup_conf;
 
 	if ((get_config_name(&backup_conf)) != 0){
-		log_warning("Failed to get backup name for incremental backup settings.");
+		log_warning(__FL__, "Failed to get backup name for incremental backup settings.");
 		return 1;
 	}
 	else{
 		if ((write_options_tofile(backup_conf, &(fparams.opt))) != 0){
-			log_warning("Failed to write settings for incremental backup.");
+			log_warning(__FL__, "Failed to write settings for incremental backup.");
 			free(backup_conf);
 			return 1;
 		}
@@ -344,26 +360,26 @@ int fun(const char* file, const char* dir, struct stat* st, void* params){
 	err = add_checksum_to_file(file, fparams->opt.hash_algorithm, fparams->fp_hashes, fparams->fp_hashes_prev);
 	if (err == 1){
 		/*
-		if (fparams->opt.flags & FLAG_VERBOSE){
-			printf("Skipping unchanged (%s)\n", file);
-		}
-		*/
+		   if (fparams->opt.flags & FLAG_VERBOSE){
+		   printf("Skipping unchanged (%s)\n", file);
+		   }
+		   */
 		return 1;
 	}
 	else if (err != 0){
-		puts_debug("add_checksum_to_file() failed");
+		log_debug(__FL__, "add_checksum_to_file() failed");
 	}
 
 	path_in_tar = malloc(strlen(file) + sizeof("/files"));
 	if (!path_in_tar){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		return 0;
 	}
 	strcpy(path_in_tar, "/files");
 	strcat(path_in_tar, file);
 
 	if (tar_add_file_ex(fparams->tp, file, path_in_tar, fparams->opt.flags & FLAG_VERBOSE, file) != 0){
-		puts_debug("Failed to add file to tar");
+		log_debug(__FL__, "Failed to add file to tar");
 	}
 	free(path_in_tar);
 
@@ -403,11 +419,11 @@ int main(int argc, char** argv){
 
 		parse_res = parse_options_cmdline(argc, argv, &(fparams.opt));
 		if (parse_res < 0 || parse_res > argc){
-			log_error("Failed to parse command line arguments");
+			log_error(__FL__, "Failed to parse command line arguments");
 			return 1;
 		}
 		else{
-			log_error("Invalid parameter %s\n", argv[parse_res]);
+			log_error(__FL__, "Invalid parameter %s\n", argv[parse_res]);
 			return 1;
 		}
 	}
@@ -421,7 +437,7 @@ int main(int argc, char** argv){
 		}
 		else if (res > 0){
 			if (parse_options_menu(&(fparams.opt)) != 0){
-				log_error("Failed to parse options from menu");
+				log_error(__FL__, "Failed to parse options from menu");
 				return 1;
 			}
 		}
@@ -431,7 +447,7 @@ int main(int argc, char** argv){
 	/* put in /home/<user>/Backups/backup-<unixtime>.tar(.bz2)(.crypt) */
 	if (!fparams.opt.file_out &&
 			get_default_backup_name(&(fparams.opt)) != 0){
-		log_error("Failed to create backup name");
+		log_error(__FL__, "Failed to create backup name");
 		return 1;
 	}
 
@@ -442,28 +458,28 @@ int main(int argc, char** argv){
 
 		fp_backup_prev = fopen(fparams.opt.prev_backup, "rb");
 		if (!fp_backup_prev){
-			log_error(STR_EFOPEN, fparams.opt.prev_backup, strerror(errno));
+			log_error(__FL__, STR_EFOPEN, fparams.opt.prev_backup, strerror(errno));
 			return 1;
 		}
 
 		if ((fp_hashes_prev = temp_file_ex(template_prev)) == NULL){
-			puts_debug("Failed to create file_hashes_prev");
+			log_debug(__FL__, "Failed to create file_hashes_prev");
 			return 1;
 		}
 
 		fclose(fp_hashes_prev);
 		if (extract_prev_checksums(fp_backup_prev, template_prev, fparams.opt.enc_algorithm, fparams.opt.flags & FLAG_VERBOSE) != 0){
-			puts_debug("Failed to extract previous checksums");
+			log_debug(__FL__, "Failed to extract previous checksums");
 			return 1;
 		}
 		fp_hashes_prev = fopen(template_prev, "r+b");
 		if (!fp_hashes_prev){
-			puts_debug("Failed to reopen file_hashes_prev");
+			log_debug(__FL__, "Failed to reopen file_hashes_prev");
 			return 1;
 		}
 
 		if (fclose(fp_backup_prev) != 0){
-			log_warning(STR_EFCLOSE, fparams.opt.prev_backup);
+			log_warning(__FL__, STR_EFCLOSE, fparams.opt.prev_backup);
 		}
 
 		rewind(fp_hashes_prev);
@@ -474,7 +490,7 @@ int main(int argc, char** argv){
 	}
 
 	if ((fp_tar = temp_file_ex(template_tar)) == NULL){
-		puts_debug("Failed to make temp file for tar");
+		log_debug(__FL__, "Failed to make temp file for tar");
 	}
 
 	/* creating the tarball */
@@ -483,14 +499,14 @@ int main(int argc, char** argv){
 
 	/* create initial hash list */
 	if ((fparams.fp_hashes = temp_file("/var/tmp/hashes_XXXXXX")) == NULL){
-		puts_debug("Failed to create temp file for hashes");
+		log_debug(__FL__, "Failed to create temp file for hashes");
 		return 1;
 	}
 
 	/* enumerate over each directory with fun() */
 	for (i = 0; i < fparams.opt.directories_len; ++i){
 		if (!is_directory(fparams.opt.directories[i])){
-			log_warning("%s is not a directory. Skipping.\n", fparams.opt.directories[i]);
+			log_warning(__FL__, "%s is not a directory. Skipping.\n", fparams.opt.directories[i]);
 			continue;
 		}
 		enum_files(fparams.opt.directories[i], fun, &fparams, error, NULL);
@@ -499,14 +515,14 @@ int main(int argc, char** argv){
 
 	/* sort checksum file and add it to our tar */
 	if ((fp_sorted = temp_file_ex(template_sorted)) == NULL){
-		log_warning("Failed to create temp file for sorted checksum list");
+		log_warning(__FL__, "Failed to create temp file for sorted checksum list");
 	}
 	else{
 		if (sort_checksum_file(fparams.fp_hashes, fp_sorted) != 0){
-			log_warning("Failed to sort checksum list");
+			log_warning(__FL__, "Failed to sort checksum list");
 		}
 		if (tar_add_fp_ex(fparams.tp, fp_sorted, "/checksums", fparams.opt.flags & FLAG_VERBOSE, "Adding checksum list...") != 0){
-			log_warning("Failed to write checksums to backup");
+			log_warning(__FL__, "Failed to write checksums to backup");
 		}
 		fclose(fp_sorted);
 		remove(template_sorted);
@@ -514,11 +530,11 @@ int main(int argc, char** argv){
 
 	fp_removed = temp_file("/var/tmp/removed_XXXXXX");
 	if (!fp_removed){
-		puts_debug("Failed to create removed temp file");
+		log_debug(__FL__, "Failed to create removed temp file");
 	}
 	else{
 		if (create_removed_list(fparams.fp_hashes, fp_removed) != 0){
-			puts_debug("Failed to create removed list");
+			log_debug(__FL__, "Failed to create removed list");
 		}
 	}
 
@@ -526,14 +542,14 @@ int main(int argc, char** argv){
 	fclose(fparams.fp_hashes);
 
 	if (tar_add_fp_ex(fparams.tp, fp_removed, "/removed", fparams.opt.flags & FLAG_VERBOSE, "Adding removed list...") != 0){
-		log_warning("Failed to add removed list to backup");
+		log_warning(__FL__, "Failed to add removed list to backup");
 	}
 
 	/* ditto above */
 	fclose(fp_removed);
 
 	if (tar_close(fparams.tp) != 0){
-		log_warning("Failed to close tar. Data corruption possible");
+		log_warning(__FL__, "Failed to close tar. Data corruption possible");
 	}
 
 	/* encrypt output */
@@ -542,16 +558,16 @@ int main(int argc, char** argv){
 
 		fp_out = fopen(fparams.opt.file_out, "wb");
 		if (!fp_out){
-			log_error(STR_EFOPEN, fparams.opt.file_out, strerror(errno));
+			log_error(__FL__, STR_EFOPEN, fparams.opt.file_out, strerror(errno));
 			return 1;
 		}
 
 		if (encrypt_file(fp_tar, fp_out, fparams.opt.enc_algorithm, fparams.opt.flags & FLAG_VERBOSE) != 0){
-			log_warning("Failed to encrypt file");
+			log_warning(__FL__, "Failed to encrypt file");
 		}
 
 		if (fclose(fp_out) != 0){
-			log_warning("Failed to close %s (%s). Data corruption possible", fparams.opt.file_out, strerror(errno));
+			log_warning(__FL__, "Failed to close %s (%s). Data corruption possible", fparams.opt.file_out, strerror(errno));
 		}
 	}
 
@@ -560,12 +576,12 @@ int main(int argc, char** argv){
 
 		fp_out = fopen(fparams.opt.file_out, "wb");
 		if (!fp_out){
-			log_error(STR_EFOPEN, fparams.opt.file_out, strerror(errno));
+			log_error(__FL__, STR_EFOPEN, fparams.opt.file_out, strerror(errno));
 			return 1;
 		}
 
 		if (copy_fp(fp_tar, fp_out) != 0){
-			log_warning("Failed to copy output to destination.");
+			log_warning(__FL__, "Failed to copy output to destination.");
 		}
 
 		fclose(fp_out);

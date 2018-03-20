@@ -39,13 +39,13 @@ static int compare_elements(element* e1, element* e2){
 /* format: <file>\0<checksum>\n */
 int write_element_to_file(FILE* fp, element* e){
 	if (!fp || !e || !e->file || !e->checksum){
-		log_error(STR_ENULL);
+		log_error(__FL__, STR_ENULL);
 		return -1;
 	}
 
 	fprintf(fp, "%s%c%s\n", e->file, '\0', e->checksum);
 	if (ferror(fp)){
-		log_error(STR_EFWRITE, "checksum file");
+		log_error(__FL__, STR_EFWRITE, "checksum file");
 		return -1;
 	}
 	return 0;
@@ -61,13 +61,13 @@ element* get_next_checksum_element(FILE* fp){
 	element* e;
 
 	if (!fp){
-		log_error(STR_ENULL);
+		log_error(__FL__, STR_ENULL);
 		return NULL;
 	}
 
 	e = malloc(sizeof(*e));
 	if (!e){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		return NULL;
 	}
 
@@ -75,13 +75,13 @@ element* get_next_checksum_element(FILE* fp){
 	/* read an \0 */
 	while ((c = fgetc(fp)) != '\0'){
 		if (ferror(fp)){
-			log_error(STR_EFREAD, "file");
+			log_error(__FL__, STR_EFREAD, "file");
 			free(e);
 			return NULL;
 		}
 		/* end of file, no more checksums to read */
 		if (c == EOF){
-			puts_debug("get_next_checksum_element(): reached EOF");
+			log_debug(__FL__, "get_next_checksum_element(): reached EOF");
 			free(e);
 			return NULL;
 		}
@@ -89,12 +89,12 @@ element* get_next_checksum_element(FILE* fp){
 	pos_file = ftell(fp);
 	while ((c = fgetc(fp)) != '\n'){
 		if (ferror(fp)){
-			log_error(STR_EFREAD, "file");
+			log_error(__FL__, STR_EFREAD, "file");
 			free(e);
 			return NULL;
 		}
 		if (c == EOF){
-			puts_debug("get_next_checksum_element(): reached EOF");
+			log_debug(__FL__, "get_next_checksum_element(): reached EOF");
 			free(e);
 			return NULL;
 		}
@@ -107,13 +107,13 @@ element* get_next_checksum_element(FILE* fp){
 	/* make space for file + checksum */
 	e->file = malloc(len_file);
 	if (!e->file){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		free(e);
 		return NULL;
 	}
 	e->checksum = malloc(len_checksum);
 	if (!e){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		free(e->file);
 		free(e);
 		return NULL;
@@ -129,7 +129,7 @@ element* get_next_checksum_element(FILE* fp){
 	e->checksum[len_checksum - 1] = '\0';
 
 	if (ferror(fp)){
-		log_error(STR_EFREAD, "file");
+		log_error(__FL__, STR_EFREAD, "file");
 		free_element(e);
 		e = NULL;
 	}
@@ -252,7 +252,7 @@ void free_filearray(FILE** elements, size_t size){
 	size_t i;
 	for (i = 0; i < size; ++i){
 		if (fclose(elements[i]) != 0){
-			log_error(STR_EFCLOSE, "file");
+			log_error(__FL__, STR_EFCLOSE, "file");
 		}
 	}
 	free(elements);
@@ -289,7 +289,7 @@ int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
 
 	/* check null arguments */
 	if (!fp_in || !out || !n_files){
-		log_error(STR_ENULL);
+		log_error(__FL__, STR_ENULL);
 		return -1;
 	}
 
@@ -299,7 +299,7 @@ int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
 	lim = get_file_size(fp_in) / MAX_RUN_SIZE + 1024;
 
 	if (set_file_limit(lim) != 0){
-		log_warning("Could not set max file limit (%s)", strerror(errno));
+		log_warning(__FL__, "Could not set max file limit (%s)", strerror(errno));
 	}
 
 	*out = NULL;
@@ -315,11 +315,11 @@ int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
 		/* make space for new string */
 		*out = realloc(*out, sizeof(**out) * *n_files);
 		if (!*out){
-			log_fatal(STR_ENOMEM);
+			log_fatal(__FL__, STR_ENOMEM);
 			return -1;
 		}
 		if ((fp = temp_file("/var/tmp/merge_XXXXXX")) == NULL){
-			log_error("Failed to create temporary merge file");
+			log_error(__FL__, "Failed to create temporary merge file");
 			(*n_files)--;
 			*out = realloc(*out, *n_files * sizeof(**out));
 			return -1;
@@ -334,7 +334,7 @@ int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
 			elems_len++;
 			elems = realloc(elems, sizeof(*elems) * elems_len);
 			if (!elems){
-				log_fatal(STR_ENOMEM);
+				log_fatal(__FL__, STR_ENOMEM);
 				return -1;
 			}
 			/* +2 for the 2 \0's */
@@ -348,7 +348,7 @@ int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
 			(*n_files)--;
 			*out = realloc(*out, *n_files * sizeof(**out));
 			if (!(*out)){
-				log_fatal(STR_ENOMEM);
+				log_fatal(__FL__, STR_ENOMEM);
 				return -1;
 			}
 			end_of_file = 1;
@@ -359,11 +359,11 @@ int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
 		/* write them to the file */
 		for (i = 0; i < elems_len; ++i){
 			if (write_element_to_file(fp, elems[i]) != 0){
-				puts_debug("Failed to write element to file");
+				log_debug(__FL__, "Failed to write element to file");
 			}
 		}
 		if (fflush(fp) != 0){
-			log_warning("Failed to flush merge file");
+			log_warning(__FL__, "Failed to flush merge file");
 		}
 		/* cleanup */
 		free_element_array(elems, elems_len);
@@ -413,7 +413,7 @@ int merge_files(FILE** in, size_t n_files, FILE* fp_out){
 
 	/* verify that arguments are not null */
 	if (!in || !fp_out){
-		log_error(STR_ENULL);
+		log_error(__FL__, STR_ENULL);
 		return -1;
 	}
 
@@ -425,7 +425,7 @@ int merge_files(FILE** in, size_t n_files, FILE* fp_out){
 	/* make space for the min heap nodes */
 	mhn = malloc(n_files * sizeof(*mhn));
 	if (!mhn){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		return -1;
 	}
 	/* get the first element from each file */
@@ -459,7 +459,7 @@ int merge_files(FILE** in, size_t n_files, FILE* fp_out){
 	/* cleanup */
 	free_minheapnodes(mhn, n_files);
 	if (fflush(fp_out) != 0){
-		log_warning("Failed to flush sorted checksum file");
+		log_warning(__FL__, "Failed to flush checksum file buffer. Data corruption possible.");
 	}
 	return 0;
 }
@@ -474,7 +474,7 @@ int search_file(FILE* fp, const char* key, char** checksum){
 
 	/* check null arguments */
 	if (!fp || !key || !checksum){
-		log_error(STR_ENULL);
+		log_error(__FL__, STR_ENULL);
 		return -1;
 	}
 
@@ -507,14 +507,14 @@ int search_file(FILE* fp, const char* key, char** checksum){
 		}while (c != '\n');
 
 		if (ferror(fp) != 0){
-			log_error(STR_EFREAD);
+			log_error(__FL__, STR_EFREAD);
 			return -1;
 		}
 
 		/* get the element */
 		tmp = get_next_checksum_element(fp);
 		if (!tmp){
-			puts_debug("get_next_checksum_element() returned NULL");
+			log_debug(__FL__, "get_next_checksum_element() returned NULL");
 			return -1;
 		}
 		/* check if it matches our key */
@@ -522,7 +522,7 @@ int search_file(FILE* fp, const char* key, char** checksum){
 		if (res == 0){
 			*checksum = malloc(strlen(tmp->checksum) + 1);
 			if (!(*checksum)){
-				log_fatal(STR_ENOMEM);
+				log_fatal(__FL__, STR_ENOMEM);
 				return -1;
 			}
 			strcpy(*checksum, tmp->checksum);
@@ -581,7 +581,7 @@ int search_file(FILE* fp, const char* key, char** checksum){
 
 	if (ferror(fp)){
 		free_element(tmp);
-		log_error(STR_EFREAD, fp);
+		log_error(__FL__, STR_EFREAD, fp);
 		return -1;
 	}
 
@@ -590,7 +590,7 @@ int search_file(FILE* fp, const char* key, char** checksum){
 		/* return it */
 		*checksum = malloc(strlen(tmp->checksum) + 1);
 		if (!(*checksum)){
-			log_fatal(STR_ENOMEM);
+			log_fatal(__FL__, STR_ENOMEM);
 			return -1;
 		}
 		strcpy(*checksum, tmp->checksum);

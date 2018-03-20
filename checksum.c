@@ -36,7 +36,7 @@ int bytes_to_hex(unsigned char* bytes, unsigned len, char** out){
 		'C', 'D', 'E', 'F'};
 
 	if (!out || !bytes){
-		log_error(STR_ENULL);
+		log_error(__FL__, STR_ENULL);
 	}
 
 	/* 2 hex chars = 1 byte */
@@ -44,7 +44,7 @@ int bytes_to_hex(unsigned char* bytes, unsigned len, char** out){
 	outlen = len * 2 + 1;
 	*out = malloc(outlen);
 	if (!out){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		return -1;
 	}
 
@@ -95,12 +95,12 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 
 	fp = fopen(file, "rb");
 	if (!fp){
-		log_error(STR_EFOPEN, file, strerror(errno));
+		log_error(__FL__, STR_EFOPEN, file, strerror(errno));
 		return -1;
 	}
 
 	if (!(ctx = EVP_MD_CTX_create())){
-		log_error("Failed to initialize EVP_MD_CTX");
+		log_error(__FL__, "Failed to initialize EVP_MD_CTX");
 		ERR_print_errors_fp(stderr);
 		ret = -1;
 		goto cleanup;
@@ -110,7 +110,7 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 	if (algorithm){
 		OpenSSL_add_all_algorithms();
 		if (!(md = EVP_get_digestbyname(algorithm))){
-			log_error("Failed to load digest algorithm from name");
+			log_error(__FL__, "Failed to load digest algorithm from name");
 			ERR_print_errors_fp(stderr);
 			ret = -1;
 			goto cleanup;
@@ -122,7 +122,7 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 	}
 
 	if (EVP_DigestInit_ex(ctx, md, NULL) != 1){
-		log_error("Failed to initialize digest algorithm");
+		log_error(__FL__, "Failed to initialize digest algorithm");
 		ERR_print_errors_fp(stderr);
 		ret = -1;
 		goto cleanup;
@@ -130,31 +130,31 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 
 	/* both of these must point to valid locations */
 	if (!len || !out){
-		log_error(STR_ENULL);
+		log_error(__FL__, STR_ENULL);
 		ret = -1;
 		goto cleanup;
 	}
 	*len = EVP_MD_size(md);
 	if (!(*out = malloc(EVP_MD_size(md)))){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		ret = -1;
 		goto cleanup;
 	}
 
 	while ((length = read_file(fp, buffer, sizeof(buffer))) > 0){
 		if (ferror(fp)){
-			log_error(STR_EFREAD, fp);
+			log_error(__FL__, STR_EFREAD, fp);
 			goto cleanup;
 		}
 		if (EVP_DigestUpdate(ctx, buffer, length) != 1){
-			log_error("Failed to calculate checksum");
+			log_error(__FL__, "Failed to calculate checksum");
 			ERR_print_errors_fp(stderr);
 			goto cleanup;
 		}
 	}
 
 	if (EVP_DigestFinal_ex(ctx, *out, len) != 1){
-		log_error("Failed to finalize checksum calculation");
+		log_error(__FL__, "Failed to finalize checksum calculation");
 		goto cleanup;
 	}
 
@@ -174,19 +174,19 @@ static int file_to_element(const char* file, const char* algorithm, element** ou
 	int ret = 0;
 
 	if (!file || !out){
-		log_error(STR_ENULL);
+		log_error(__FL__, STR_ENULL);
 		return -1;
 	}
 
 	*out = malloc(sizeof(**out));
 	if (!out){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		return -1;
 	}
 	(*out)->file = malloc(strlen(file) + 1);
 	(*out)->checksum = NULL;
 	if (!(*out)->file){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		ret = -1;
 		goto cleanup;
 	}
@@ -194,14 +194,14 @@ static int file_to_element(const char* file, const char* algorithm, element** ou
 
 	/* compute checksum */
 	if (checksum(file, algorithm, &buffer, &len) != 0){
-		puts_debug("checksum() in file_to_element() did not return 0");
+		log_debug(__FL__, "checksum() in file_to_element() did not return 0");
 		ret = -1;
 		goto cleanup;
 	}
 
 	/* convert it to hex */
 	if (bytes_to_hex(buffer, len, &(*out)->checksum) != 0){
-		log_warning("Failed to convert raw checksum to hexadecimal");
+		log_warning(__FL__, "Failed to convert raw checksum to hexadecimal");
 		ret = -1;
 		goto cleanup;
 	}
@@ -236,13 +236,13 @@ int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, FIL
 	char* checksum = NULL;
 	int ret;
 
-	if (!file || !out){
-		log_error(STR_ENULL);
+	if (!file ||  !out){
+		log_error(__FL__, STR_ENULL);
 		return -1;
 	}
 
 	if (file_to_element(file, algorithm, &e) != 0){
-		puts_debug("Could not create element from file");
+		log_debug(__FL__, "Could not create element from file");
 		return -1;
 	}
 
@@ -258,7 +258,7 @@ int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, FIL
 
 	if (write_element_to_file(out, e) != 0){
 		free_element(e);
-		puts_debug("Could not write element to file");
+		log_debug(__FL__, "Could not write element to file");
 		return -1;
 	}
 
@@ -271,11 +271,11 @@ int sort_checksum_file(FILE* fp_in, FILE* fp_out){
 	size_t n_files;
 
 	if (create_initial_runs(fp_in, &tmp_files, &n_files) != 0){
-		puts_debug("Error creating initial runs");
+		log_debug(__FL__, "Error creating initial runs");
 		return -1;
 	}
 	if (merge_files(tmp_files, n_files, fp_out) != 0){
-		puts_debug("Error merging files");
+		log_debug(__FL__, "Error merging files");
 		return -1;
 	}
 
@@ -298,7 +298,7 @@ static int check_file_exists(const char* file){
 	case ENOTDIR:
 		return 0;
 	default:
-		log_error("Could not check for existence of %s (%s)", file, strerror(errno));
+		log_error(__FL__, "Could not check for existence of %s (%s)", file, strerror(errno));
 		return -1;
 	}
 }
@@ -335,7 +335,7 @@ char* get_next_removed(FILE* fp){
 	char* ret = NULL;
 
 	if (!fp){
-		log_error(STR_ENULL);
+		log_error(__FL__, STR_ENULL);
 		return NULL;
 	}
 
@@ -343,7 +343,7 @@ char* get_next_removed(FILE* fp){
 
 	while ((c = fgetc(fp)) != '\0'){
 		if (c == EOF){
-			puts_debug("get_next_removed(): reached EOF");
+			log_debug(__FL__, "get_next_removed(): reached EOF");
 			return NULL;
 		}
 	}
@@ -352,7 +352,7 @@ char* get_next_removed(FILE* fp){
 
 	ret = malloc(len_file);
 	if (!ret){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		return NULL;
 	}
 

@@ -39,14 +39,14 @@ static int add_string_to_array(char*** array, int* array_len, const char* str){
 
 	*array = realloc(*array, *array_len * sizeof(*(*array)));
 	if (!(*array)){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		(*array_len)--;
 		return -1;
 	}
 
 	(*array)[*array_len - 1] = malloc(strlen(str) + 1);
 	if (!(*array)[*array_len - 1]){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		return -1;
 	}
 
@@ -62,7 +62,7 @@ int parse_options_cmdline(int argc, char** argv, options* out){
 	int i;
 
 	if (!out){
-		log_error(STR_ENULL);
+		log_error(__FL__, STR_ENULL);
 		return -1;
 	}
 
@@ -151,7 +151,7 @@ static int display_menu(const char** options, int num_options, const char* title
 	int ret;
 
 	if (!options || !title || num_options <= 0){
-		log_error(STR_ENULL);
+		log_error(__FL__, STR_ENULL);
 		return -1;
 	}
 
@@ -200,7 +200,7 @@ static int read_string_array(char*** array, int* array_len){
 	do{
 		str = malloc(1);
 		if (!str){
-			log_fatal(STR_ENOMEM);
+			log_fatal(__FL__, STR_ENOMEM);
 			return -1;
 		}
 		str[0] = '\0';
@@ -211,7 +211,7 @@ static int read_string_array(char*** array, int* array_len){
 			str_len += strlen(input_buffer) + 1;
 			str = realloc(str, str_len);
 			if (!str){
-				log_fatal(STR_ENOMEM);
+				log_fatal(__FL__, STR_ENOMEM);
 				return -1;
 			}
 			strcat(str, input_buffer);
@@ -221,7 +221,7 @@ static int read_string_array(char*** array, int* array_len){
 			str_len += strlen(input_buffer) + 1;
 			str = realloc(str, str_len);
 			if (!str){
-				log_fatal(STR_ENOMEM);
+				log_fatal(__FL__, STR_ENOMEM);
 				return -1;
 			}
 			strcat(str, input_buffer);
@@ -229,13 +229,13 @@ static int read_string_array(char*** array, int* array_len){
 			(*array_len)++;
 			(*array) = realloc(*array, *array_len * sizeof(*(*array)));
 			if (!(*array)){
-				log_fatal(STR_ENOMEM);
+				log_fatal(__FL__, STR_ENOMEM);
 				return -1;
 			}
 
 			(*array)[*array_len - 1] = malloc(strlen(str) + 1);
 			if (!(*array)[*array_len - 1]){
-				log_fatal(STR_ENOMEM);
+				log_fatal(__FL__, STR_ENOMEM);
 				return -1;
 			}
 			strcpy((*array)[*array_len - 1], str);
@@ -287,7 +287,7 @@ int parse_options_menu(options* opt){
 	};
 
 	if (!opt){
-		log_error(STR_ENULL);
+		log_error(__FL__, STR_ENULL);
 		return -1;
 	}
 
@@ -303,7 +303,7 @@ int parse_options_menu(options* opt){
 	/* if no directories were entered, use root directory */
 	if (opt->directories_len == 0){
 		if ((ret = add_string_to_array(&(opt->directories), &(opt->directories_len), "/")) != 0){
-			puts_debug("add_string_to_array() failed");
+			log_debug(__FL__, "add_string_to_array() failed");
 			return ret;
 		}
 	}
@@ -313,7 +313,7 @@ int parse_options_menu(options* opt){
 	opt->exclude_len = 0;
 	printf("Enter directories to exclude (enter to end)\n");
 	if ((ret = read_string_array(&(opt->exclude), &(opt->exclude_len)) != 0)){
-		puts_debug("read_string_array() failed");
+		log_debug(__FL__, "read_string_array() failed");
 		return ret;
 	}
 
@@ -374,7 +374,7 @@ int parse_options_menu(options* opt){
 
 	opt->enc_algorithm = malloc(sizeof("camellia-000-xxx"));
 	if (!opt->enc_algorithm){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		return -1;
 	}
 	switch (encryption){
@@ -451,14 +451,14 @@ static char* read_file_string(FILE* in){
 
 	while ((c = fgetc(in)) != '\0'){
 		if (c == EOF){
-			puts_debug("Reached EOF");
+			log_debug(__FL__, "Reached EOF");
 			free(ret);
 			return NULL;
 		}
 		ret_len++;
 		ret = realloc(ret, ret_len);
 		if (!ret){
-			log_fatal(STR_ENOMEM);
+			log_fatal(__FL__, STR_ENOMEM);
 			return NULL;
 		}
 		ret[ret_len - 1] = c;
@@ -476,7 +476,7 @@ int parse_options_fromfile(const char* file, options* opt){
 
 	fp = fopen(file, "rb");
 	if (!fp){
-		log_error(STR_EFOPEN, file, strerror(errno));
+		log_error(__FL__, STR_EFOPEN, file, strerror(errno));
 		return -1;
 	}
 
@@ -529,7 +529,7 @@ int parse_options_fromfile(const char* file, options* opt){
 	fscanf(fp, "\nFLAGS=%u", &(opt->flags));
 
 	if (fclose(fp) != 0){
-		log_error(STR_EFCLOSE, file);
+		log_error(__FL__, STR_EFCLOSE, file);
 	}
 	return 0;
 }
@@ -551,13 +551,13 @@ int write_options_tofile(const char* file, options* opt){
 	int i;
 
 	if (!file || !opt){
-		log_error(STR_ENULL);
+		log_error(__FL__, STR_ENULL);
 		return -1;
 	}
 
 	fp = fopen(file, "wb");
 	if (!fp){
-		log_error(STR_EFOPEN, file, strerror(errno));
+		log_error(__FL__, STR_EFOPEN, file, strerror(errno));
 		return -1;
 	}
 	fprintf(fp, "[Options]");
@@ -578,7 +578,7 @@ int write_options_tofile(const char* file, options* opt){
 	fprintf(fp, "\nFLAGS=%u", opt->flags);
 
 	if (fclose(fp) != 0){
-		log_error(STR_EFCLOSE, file);
+		log_error(__FL__, STR_EFCLOSE, file);
 	}
 	return 0;
 }

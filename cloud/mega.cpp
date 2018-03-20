@@ -45,7 +45,7 @@ class ProgressBarTransferListener : public mega::MegaTransferListener{
 			switch(transfer->getType()){
 			case mega::MegaTransfer::TYPE_UPLOAD:
 				if (stat(transfer->getFileName(), &st) != 0){
-					log_warning("MEGA: Could not determine size of %s (%s)", transfer->getFileName(), strerror(errno));
+					log_warning(__FL__, "MEGA: Could not determine size of %s (%s)", transfer->getFileName(), strerror(errno));
 					break;
 				}
 				max = st.st_size;
@@ -56,7 +56,7 @@ class ProgressBarTransferListener : public mega::MegaTransferListener{
 				p = start_progress(msg, max);
 				break;
 			default:
-				log_warning("MEGA: Could not start progress due to unknown transfer type.");
+				log_warning(__FL__, "MEGA: Could not start progress due to unknown transfer type.");
 			}
 		}
 
@@ -132,7 +132,7 @@ int MEGAlogin(const char* email, const char* password, MEGAhandle* out){
 		prompt += ":";
 
 		if (crypt_getpassword(prompt.c_str(), NULL, pwbuffer, sizeof(pwbuffer)) != 0){
-			log_error("MEGA: Failed to read password from terminal.");
+			log_error(__FL__, "MEGA: Failed to read password from terminal.");
 			crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
 			return -1;
 		}
@@ -151,7 +151,7 @@ int MEGAlogin(const char* email, const char* password, MEGAhandle* out){
 	mega_api->fetchNodes(&listener);
 	listener.wait();
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
-		log_error("MEGA: Failed to fetch nodes");
+		log_error(__FL__, "MEGA: Failed to fetch nodes");
 		return -1;
 	}
 
@@ -172,7 +172,7 @@ int MEGAmkdir(const char* dir, MEGAhandle mh){
 
 	node = mega_api->getNodeByPath(path.c_str());
 	if (node){
-		puts_debug("MEGA: Path already exists");
+		log_debug(__FL__, "MEGA: Path already exists");
 		return 1;
 	}
 
@@ -180,14 +180,14 @@ int MEGAmkdir(const char* dir, MEGAhandle mh){
 	index = spath.find_last_of('/');
 	/* if we didn't find any matches */
 	if (index == std::string::npos){
-		log_error("MEGA: Invalid path");
+		log_error(__FL__, "MEGA: Invalid path");
 		return -1;
 	}
 	spath.resize(index + 1);
 
 	node = mega_api->getNodeByPath(spath.c_str());
 	if (!node || node->isFile()){
-		log_error("MEGA: Parent folder not found");
+		log_error(__FL__, "MEGA: Parent folder not found");
 		delete node;
 
 		return -1;
@@ -198,7 +198,7 @@ int MEGAmkdir(const char* dir, MEGAhandle mh){
 	delete node;
 
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
-		log_error("MEGA: Error creating folder (%s)");
+		log_error(__FL__, "MEGA: Error creating folder (%s)");
 		return -1;
 	}
 
@@ -217,7 +217,7 @@ int MEGAreaddir(const char* dir, char*** out, size_t* out_len, MEGAhandle mh){
 	path = dir;
 	node = mega_api->getNodeByPath(path.c_str());
 	if (!node){
-		log_error("MEGA: Directory does not exist");
+		log_error(__FL__, "MEGA: Directory does not exist");
 		return -1;
 	}
 
@@ -227,15 +227,15 @@ int MEGAreaddir(const char* dir, char*** out, size_t* out_len, MEGAhandle mh){
 		(*out_len)++;
 		*out = (char**)realloc(*out, sizeof(**out) * *out_len);
 		if (!(*out)){
-			log_fatal(STR_ENOMEM);
+			log_fatal(__FL__, STR_ENOMEM);
 			return -1;
 		}
 
 		mega::MegaNode* n = children->get(i);
-		log_debug(__FILE__, __LINE__, "Reading child %s", n->getName());
+		log_debug(__FL__, "Reading child %s", n->getName());
 		*out[*out_len - 1] = (char*)malloc(strlen(n->getName()) + 1);
 		if (!(*out)[*out_len - 1]){
-			log_fatal(STR_ENOMEM);
+			log_fatal(__FL__, STR_ENOMEM);
 			return -1;
 		}
 
@@ -260,16 +260,16 @@ int MEGAdownload(const char* download_path, const char* out_file, const char* ms
 
 	node = mega_api->getNodeByPath(path.c_str());
 	if (!node){
-		log_error("MEGA: File not found");
+		log_error(__FL__, "MEGA: File not found");
 		return -1;
 	}
 
 	listener.setMsg(msg);
 	mega_api->startDownload(node, out_file, &listener);
-	puts_debug("Downloading file...");
+	log_info(__FL__, "Downloading file...");
 	listener.wait();
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
-		log_error("MEGA: Failed to download file");
+		log_error(__FL__, "MEGA: Failed to download file");
 	}
 
 	return 0;
@@ -287,16 +287,16 @@ int MEGAupload(const char* in_file, const char* upload_dir, const char* msg, MEG
 
 	node = mega_api->getNodeByPath(path.c_str());
 	if (!node){
-		log_error("MEGA: Folder not found");
+		log_error(__FL__, "MEGA: Folder not found");
 		return -1;
 	}
 
 	listener.setMsg(msg);
 	mega_api->startUpload(in_file, node, &listener);
-	puts_debug("Upload file...");
+	log_info(__FL__, "Upload file...");
 	listener.wait();
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
-		log_error("MEGA: Failed to upload file");
+		log_error(__FL__, "MEGA: Failed to upload file");
 	}
 
 	return 0;
@@ -311,7 +311,7 @@ int MEGAlogout(MEGAhandle mh){
 	mega_api->logout(&listener);
 	listener.wait();
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
-		log_warning("MEGA: failed to log out (%s)", listener.getError()->toString());
+		log_warning(__FL__, "MEGA: failed to log out (%s)", listener.getError()->toString());
 		delete mega_api;
 		return -1;
 	}
