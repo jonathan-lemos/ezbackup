@@ -15,106 +15,106 @@ extern "C"{
 #include <sys/stat.h>
 
 class ProgressBarTransferListener : public mega::MegaTransferListener{
-	public:
-		ProgressBarTransferListener(){
-			notified = false;
-			error = NULL;
-			transfer = NULL;
-			p = NULL;
-		}
+public:
+	ProgressBarTransferListener(){
+		notified = false;
+		error = NULL;
+		transfer = NULL;
+		p = NULL;
+	}
 
-		~ProgressBarTransferListener(){
-			delete error;
-			delete transfer;
-		}
+	~ProgressBarTransferListener(){
+		delete error;
+		delete transfer;
+	}
 
-		void setMsg(const char* msg){
-			this->msg = msg;
-		}
+	void setMsg(const char* msg){
+		this->msg = msg;
+	}
 
-		const char* getMsg(){
-			return msg;
-		}
+	const char* getMsg(){
+		return msg;
+	}
 
-		void onTransferStart(mega::MegaApi* mega_api, mega::MegaTransfer* transfer){
-			uint64_t max;
-			struct stat st;
+	void onTransferStart(mega::MegaApi* mega_api, mega::MegaTransfer* transfer){
+		uint64_t max;
+		struct stat st;
 
-			(void)mega_api;
+		(void)mega_api;
 
-			switch(transfer->getType()){
-			case mega::MegaTransfer::TYPE_UPLOAD:
-				if (stat(transfer->getFileName(), &st) != 0){
-					log_warning("MEGA: Could not determine size of %s (%s)", transfer->getFileName(), strerror(errno));
-					break;
-				}
-				max = st.st_size;
-				p = start_progress(msg, max);
+		switch(transfer->getType()){
+		case mega::MegaTransfer::TYPE_UPLOAD:
+			if (stat(transfer->getFileName(), &st) != 0){
+				log_warning("MEGA: Could not determine size of %s (%s)", transfer->getFileName(), strerror(errno));
 				break;
-			case mega::MegaTransfer::TYPE_DOWNLOAD:
-				max = transfer->getTotalBytes();
-				p = start_progress(msg, max);
-				break;
-			default:
-				log_warning("MEGA: Could not start progress due to unknown transfer type.");
 			}
+			max = st.st_size;
+			p = start_progress(msg, max);
+			break;
+		case mega::MegaTransfer::TYPE_DOWNLOAD:
+			max = transfer->getTotalBytes();
+			p = start_progress(msg, max);
+			break;
+		default:
+			log_warning("MEGA: Could not start progress due to unknown transfer type.");
 		}
+	}
 
-		void onTransferUpdate(mega::MegaApi* mega_api, mega::MegaTransfer* transfer){
-			(void)mega_api;
+	void onTransferUpdate(mega::MegaApi* mega_api, mega::MegaTransfer* transfer){
+		(void)mega_api;
 
-			set_progress(p, transfer->getTransferredBytes());
-		}
+		set_progress(p, transfer->getTransferredBytes());
+	}
 
-		void onTransferFinish(mega::MegaApi* mega_api, mega::MegaTransfer* transfer, mega::MegaError* error){
-			(void)mega_api;
+	void onTransferFinish(mega::MegaApi* mega_api, mega::MegaTransfer* transfer, mega::MegaError* error){
+		(void)mega_api;
 
-			this->error = error->copy();
-			this->transfer = transfer->copy();
+		this->error = error->copy();
+		this->transfer = transfer->copy();
 
-			{
-				std::unique_lock<std::mutex> lock(m);
-				notified = true;
-			}
-
-			cv.notify_all();
-			finish_progress(p);
-			p = NULL;
-		}
-
-		void wait(){
+		{
 			std::unique_lock<std::mutex> lock(m);
-			cv.wait(lock, [this]{return notified;});
+			notified = true;
 		}
 
-		void reset(){
-			delete transfer;
-			delete error;
-			if (p){
-				finish_progress(p);
-			}
-			transfer = NULL;
-			error = NULL;
-			notified = false;
-			p = NULL;
-		}
+		cv.notify_all();
+		finish_progress(p);
+		p = NULL;
+	}
 
-		mega::MegaTransfer* getTransfer(){
-			return transfer;
-		}
+	void wait(){
+		std::unique_lock<std::mutex> lock(m);
+		cv.wait(lock, [this]{return notified;});
+	}
 
-		mega::MegaError* getError(){
-			return error;
+	void reset(){
+		delete transfer;
+		delete error;
+		if (p){
+			finish_progress(p);
 		}
+		transfer = NULL;
+		error = NULL;
+		notified = false;
+		p = NULL;
+	}
 
-	private:
-		bool notified;
-		mega::MegaError* error;
-		mega::MegaTransfer* transfer;
-		std::condition_variable cv;
-		std::mutex m;
-		progress* p;
-		const char* msg;
+	mega::MegaTransfer* getTransfer(){
+		return transfer;
+	}
+
+	mega::MegaError* getError(){
+		return error;
+	}
+
+private:
+	bool notified;
+	mega::MegaError* error;
+	mega::MegaTransfer* transfer;
+	std::condition_variable cv;
+	std::mutex m;
+	progress* p;
+	const char* msg;
 };
 
 int MEGAlogin(const char* email, const char* password, MEGAhandle* out){

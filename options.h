@@ -20,6 +20,7 @@ typedef struct options {
 }options;
 
 void usage(const char* progname);
+int display_menu(const char** options, int num_options, const char* title);
 int parse_options_cmdline(int argc, char** argv, options* out);
 int parse_options_menu(options* opt);
 int parse_options_fromfile(const char* file, options* opt);

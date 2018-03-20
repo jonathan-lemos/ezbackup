@@ -145,6 +145,7 @@ int display_menu(const char** options, int num_options, const char* title){
 	int c;
 	MENU* my_menu;
 	WINDOW* my_menu_window;
+	WINDOW* my_menu_subwindow;
 	ITEM* cur_item;
 	int i;
 	int row;
@@ -181,11 +182,12 @@ int display_menu(const char** options, int num_options, const char* title){
 	/* initialize menu and windows */
 	my_menu = new_menu(my_items);
 	my_menu_window = newwin(col - 4, row - 4, 2, 2);
+	my_menu_subwindow = derwin(my_menu_window, col - 12, row - 12, 3, 3);
 	keypad(my_menu_window, TRUE);
 
 	/* attach menu to our subwindow */
 	set_menu_win(my_menu, my_menu_window);
-	set_menu_sub(my_menu, derwin(my_menu_window, col - 12, row - 12, 3, 3));
+	set_menu_sub(my_menu, my_menu_subwindow);
 
 	/* change selected menu item mark */
 	set_menu_mark(my_menu, "> ");
@@ -229,6 +231,8 @@ int display_menu(const char** options, int num_options, const char* title){
 		free_item(my_items[i]);
 	}
 	free(my_items);
+	delwin(my_menu_subwindow);
+	delwin(my_menu_window);
 	endwin();
 
 	return ret;
@@ -512,7 +516,7 @@ int parse_options_fromfile(const char* file, options* opt){
 
 	fp = fopen(file, "rb");
 	if (!fp){
-		log_error(STR_EFOPEN, file, strerror(errno));
+		log_debug(__FILE__, __LINE__, STR_EFOPEN, file, strerror(errno));
 		return -1;
 	}
 
