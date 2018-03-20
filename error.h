@@ -15,14 +15,17 @@ typedef enum LOG_LEVEL{
 	LEVEL_FATAL   = 1,
 	LEVEL_ERROR   = 2,
 	LEVEL_WARNING = 3,
-	LEVEL_DEBUG   = 4
+	LEVEL_DEBUG   = 4,
+	LEVEL_INFO    = 5
 }LOG_LEVEL;
 
+#define __FL__ __FILE__, __LINE__
+
 void log_setlevel(LOG_LEVEL level);
-void log_fatal(const char* format, ...);
-void log_error(const char* format, ...);
-void log_warning(const char* format, ...);
-#define puts_debug(str) log_debug(__FILE__, __LINE__, str)
+void log_fatal(const char* file, int line, const char* format, ...);
+void log_error(const char* file, int line, const char* format, ...);
+void log_warning(const char* file, int line, const char* format, ...);
 void log_debug(const char* file, int line, const char* format, ...);
+void log_info(const char* file, int line, const char* format, ...);
 
 #endif

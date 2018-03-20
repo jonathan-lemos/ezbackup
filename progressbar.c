@@ -55,7 +55,7 @@ static void display_progress(progress* p){
 progress* start_progress(const char* text, uint64_t max){
 	progress* p = malloc(sizeof(progress));
 	if (!p){
-		log_fatal(STR_ENOMEM);
+		log_fatal(__FL__, STR_ENOMEM);
 		return NULL;
 	}
 	p->text = text;
