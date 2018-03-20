@@ -77,6 +77,8 @@ int tar_add_fp_ex(TAR* tp, FILE* fp, const char* path_in_tar, int verbose, const
 		return -1;
 	}
 
+	rewind(fp);
+
 	fd = fileno(fp);
 	fstat(fd, &st);
 
@@ -101,7 +103,6 @@ int tar_add_fp_ex(TAR* tp, FILE* fp, const char* path_in_tar, int verbose, const
 	if (pwd){
 		archive_entry_set_uname(entry, pwd->pw_name);
 	}
-
 	archive_write_header(tp, entry);
 
 	/* no progress bar if it will be 100% instantly */
@@ -122,7 +123,7 @@ int tar_add_fp_ex(TAR* tp, FILE* fp, const char* path_in_tar, int verbose, const
 
 		archive_write_data(tp, buffer, len);
 	}
-	fclose(fp);
+
 	if (verbose){
 		finish_progress(p);
 	}
@@ -146,7 +147,7 @@ int tar_add_file_ex(TAR* tp, const char* filename, const char* path_in_tar, int 
 	}
 
 	if (fclose(fp) != 0){
-		log_error(STR_EFCLOSE, filename, strerror(errno));
+		log_error(STR_EFCLOSE, filename);
 		return -1;
 	}
 	return 0;

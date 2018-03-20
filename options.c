@@ -17,7 +17,7 @@
 
 void version(void){
 	const char* program_name = "ezbackup";
-	const char* version = "0.1 beta";
+	const char* version = "0.2 beta";
 
 	printf("%s %s\n", program_name, version);
 }

@@ -513,7 +513,7 @@ int crypt_extract_salt(FILE* fp_in, crypt_keys* fk){
 
 /* decrypts the file
  * returns 0 on success or err on error */
-int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbose, const char* progress_msg){
+int crypt_decrypt_ex(FILE* fp_in, crypt_keys* fk, FILE* fp_out, int verbose, const char* progress_msg){
 	/* do not want null terminator */
 	EVP_CIPHER_CTX* ctx = NULL;
 	unsigned char inbuffer[BUFFER_LEN];
@@ -522,14 +522,14 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	int outlen;
 	int ret = 0;
 	progress* p = NULL;
-	FILE* fp_in;
-	FILE* fp_out;
 
 	/* checking null arguments */
-	if (!in || !fk || !out){
+	if (!fp_in || !fk || !fp_out){
 		log_error(STR_ENULL);
 		return -1;
 	}
+
+	rewind(fp_in);
 
 	/* checking if keys were actually generated */
 	if (!(fk->flags & FLAG_KEYS_SET)){
@@ -540,20 +540,6 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 	/* checking if salt was extracted */
 	if (!(fk->flags & FLAG_SALT_EXTRACTED)){
 		log_error("Salt was not extracted from the file (call crypt_extract_salt())");
-		return -1;
-	}
-
-	/* open input file for reading */
-	fp_in = fopen(in, "rb");
-	if (!fp_in){
-		log_error(STR_EFOPEN, in, strerror(errno));
-		return -1;
-	}
-	/* open output file for writing */
-	fp_out = fopen(out, "wb");
-	if (!fp_out){
-		log_error(STR_EFOPEN, out, strerror(errno));
-		fclose(fp_in);
 		return -1;
 	}
 
@@ -623,14 +609,12 @@ int crypt_decrypt_ex(const char* in, crypt_keys* fk, const char* out, int verbos
 
 cleanup:
 	free(outbuffer);
-	fclose(fp_in);
-	fclose(fp_out);
 	if (ctx){
 		EVP_CIPHER_CTX_free(ctx);
 	}
 	return ret;
 }
 
-int crypt_decrypt(const char* in, crypt_keys* fk, const char* out){
-	return crypt_decrypt_ex(in, fk, out, 0, NULL);
+int crypt_decrypt(FILE* fp_in, crypt_keys* fk, FILE* fp_out){
+	return crypt_decrypt_ex(fp_in, fk, fp_out, 0, NULL);
 }

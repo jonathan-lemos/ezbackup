@@ -5,9 +5,9 @@
 const char* const STR_ENOMEM  = "Failed to allocate memory.";
 const char* const STR_ENULL   = "A required argument was NULL.";
 const char* const STR_EFOPEN  = "Could not open %s (%s)";
-const char* const STR_EFWRITE = "Failed to write to %s";
+const char* const STR_EFWRITE = "Error writing to %s";
 const char* const STR_EFREAD  = "Error reading from %s";
-const char* const STR_EFCLOSE = "Error writing to %s";
+const char* const STR_EFCLOSE = "Error closing %s";
 
 static LOG_LEVEL err_level = LEVEL_WARNING;
 

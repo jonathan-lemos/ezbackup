@@ -60,40 +60,17 @@ static int is_directory(const char* path){
 	return S_ISDIR(st.st_mode);
 }
 
-static int rename_ex(const char* file_old, const char* file_new){
-	/* if file_old and file_new are on different disks */
-	if (rename(file_old, file_new) < 0){
-		FILE* fp_old;
-		FILE* fp_new;
-		/* file_tar and file_out are on different disks
-		 * have to copy to file_out and remove file_tar */
-		unsigned char buffer[BUFFER_LEN];
-		int len;
+static int copy_fp(FILE* in, FILE* out){
+	unsigned char buffer[BUFFER_LEN];
+	int len;
 
-		fp_old = fopen(file_old, "rb");
-		if (!fp_old){
-			log_error(STR_EFOPEN, file_old, strerror(errno));
-			return -1;
-		}
-		fp_new = fopen(file_new, "rb");
-		if (!fp_new){
-			log_error(STR_EFOPEN, file_new, strerror(errno));
-			return -1;
-		}
-
-		while ((len = read_file(fp_old, buffer, sizeof(buffer))) > 0){
-			if (fwrite(buffer, 1, len, fp_new) != (size_t)len){
-				log_error(STR_EFWRITE, file_new);
-				return -1;
-			}
-		}
-		if (!fclose(fp_old)){
-			log_error(STR_EFCLOSE, file_old);
-		}
-		if (!fclose(fp_new)){
-			log_error(STR_EFCLOSE, file_new);
+	while ((len = read_file(in, buffer, sizeof(buffer))) > 0){
+		if ((int)fwrite(buffer, 1, len, out) != len){
+			log_error(STR_EFWRITE, "file");
+			return 1;
 		}
 	}
+
 	return 0;
 }
 
@@ -200,12 +177,13 @@ static int get_default_backup_name(options* opt){
 	return 0;
 }
 
-static int extract_prev_checksums(FILE* fp_in, FILE* fp_out, const char* enc_algorithm, int verbose){
+static int extract_prev_checksums(FILE* fp_in, char* out, const char* enc_algorithm, int verbose){
 	char pwbuffer[1024];
+	char decrypt_template[] = "/var/tmp/decrypt_XXXXXX";
 	crypt_keys fk;
 	FILE* fp_decrypt;
 
-	if (!fp_in || !fp_out || !enc_algorithm){
+	if (!fp_in || !out || !enc_algorithm){
 		log_error(STR_ENULL);
 		return 1;
 	}
@@ -232,7 +210,7 @@ static int extract_prev_checksums(FILE* fp_in, FILE* fp_out, const char* enc_alg
 	}
 	crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
 
-	if ((fp_decrypt = temp_file("/var/tmp/decrypt_XXXXXX")) == NULL){
+	if ((fp_decrypt = temp_file_ex(decrypt_template)) == NULL){
 		puts_debug("temp_file() for file_decrypt failed");
 		return 1;
 	}
@@ -242,13 +220,14 @@ static int extract_prev_checksums(FILE* fp_in, FILE* fp_out, const char* enc_alg
 		return 1;
 	}
 	crypt_free(&fk);
+	fclose(fp_decrypt);
 
-	if ((tar_extract_file(fp_decrypt, "/checksums", fp_out)) != 0){
+	if ((tar_extract_file(decrypt_template, "/checksums", out)) != 0){
 		puts_debug("tar_extract_file() failed");
 		return 1;
 	}
 
-	fclose(fp_decrypt);
+	shred_file(decrypt_template);
 	return 0;
 }
 
@@ -305,7 +284,7 @@ static int encrypt_file(FILE* fp_in, FILE* fp_out, const char* enc_algorithm, in
 	return 0;
 }
 
-static int read_config_file(func_params fparams){
+static int read_config_file(func_params* fparams){
 	char* backup_conf;
 
 	if (get_config_name(&backup_conf) != 0){
@@ -313,7 +292,7 @@ static int read_config_file(func_params fparams){
 		return -1;
 	}
 
-	if (parse_options_fromfile(backup_conf, &(fparams.opt)) != 0){
+	if (parse_options_fromfile(backup_conf, &(fparams->opt)) != 0){
 		puts_debug("Failed to parse options from file (does it exist?)");
 		free(backup_conf);
 		return 1;
@@ -364,7 +343,11 @@ int fun(const char* file, const char* dir, struct stat* st, void* params){
 
 	err = add_checksum_to_file(file, fparams->opt.hash_algorithm, fparams->fp_hashes, fparams->fp_hashes_prev);
 	if (err == 1){
-		printf("Skipping unchanged (%s)\n", file);
+		/*
+		if (fparams->opt.flags & FLAG_VERBOSE){
+			printf("Skipping unchanged (%s)\n", file);
+		}
+		*/
 		return 1;
 	}
 	else if (err != 0){
@@ -399,11 +382,13 @@ int main(int argc, char** argv){
 	func_params fparams;
 
 	FILE* fp_tar = NULL;
-	FILE* fp_hashes = NULL;
-	FILE* fp_sorted = NULL;
 	FILE* fp_removed = NULL;
+	FILE* fp_sorted = NULL;
 
-	TAR* tar_final;
+	char template_tar[] = "/var/tmp/tar_XXXXXX";
+	char template_sorted[] = "/var/tmp/sorted_XXXXXX";
+	char template_prev[] = "/var/tmp/prev_XXXXXX";
+
 	int i;
 
 	/* set fparams values to all NULL or 0 */
@@ -430,7 +415,7 @@ int main(int argc, char** argv){
 	else{
 		int res;
 
-		res = read_config_file(fparams);
+		res = read_config_file(&fparams);
 		if (res < 0){
 			return 1;
 		}
@@ -442,6 +427,7 @@ int main(int argc, char** argv){
 		}
 	}
 
+
 	/* put in /home/<user>/Backups/backup-<unixtime>.tar(.bz2)(.crypt) */
 	if (!fparams.opt.file_out &&
 			get_default_backup_name(&(fparams.opt)) != 0){
@@ -449,7 +435,7 @@ int main(int argc, char** argv){
 		return 1;
 	}
 
-	/* load hashed from previous backup if it exists */
+	/* load hashes from previous backup if it exists */
 	if (fparams.opt.prev_backup){
 		FILE* fp_hashes_prev;
 		FILE* fp_backup_prev;
@@ -460,28 +446,40 @@ int main(int argc, char** argv){
 			return 1;
 		}
 
-		if (temp_file("/var/tmp/prev_XXXXXX") == NULL){
+		if ((fp_hashes_prev = temp_file_ex(template_prev)) == NULL){
 			puts_debug("Failed to create file_hashes_prev");
 			return 1;
 		}
 
-		if (extract_prev_checksums(fp_backup_prev, fp_hashes_prev, fparams.opt.enc_algorithm, fparams.opt.flags & FLAG_VERBOSE) != 0){
+		fclose(fp_hashes_prev);
+		if (extract_prev_checksums(fp_backup_prev, template_prev, fparams.opt.enc_algorithm, fparams.opt.flags & FLAG_VERBOSE) != 0){
 			puts_debug("Failed to extract previous checksums");
+			return 1;
+		}
+		fp_hashes_prev = fopen(template_prev, "r+b");
+		if (!fp_hashes_prev){
+			puts_debug("Failed to reopen file_hashes_prev");
 			return 1;
 		}
 
 		if (fclose(fp_backup_prev) != 0){
 			log_warning(STR_EFCLOSE, fparams.opt.prev_backup);
 		}
+
+		rewind(fp_hashes_prev);
 		fparams.fp_hashes_prev = fp_hashes_prev;
 	}
 	else{
 		fparams.fp_hashes_prev = NULL;
 	}
 
+	if ((fp_tar = temp_file_ex(template_tar)) == NULL){
+		puts_debug("Failed to make temp file for tar");
+	}
+
 	/* creating the tarball */
 	printf("Adding files to %s...\n", fparams.opt.file_out);
-	fparams.tp = tar_create(fparams.opt.file_out, fparams.opt.comp_algorithm);
+	fparams.tp = tar_create(template_tar, fparams.opt.comp_algorithm);
 
 	/* create initial hash list */
 	if ((fparams.fp_hashes = temp_file("/var/tmp/hashes_XXXXXX")) == NULL){
@@ -497,9 +495,21 @@ int main(int argc, char** argv){
 		}
 		enum_files(fparams.opt.directories[i], fun, &fparams, error, NULL);
 	}
+	remove(template_prev);
 
-	if (tar_add_fp_ex(fparams.tp, fparams.fp_hashes, "/checksums", fparams.opt.flags & FLAG_VERBOSE, "Adding checksum list...") != 0){
-		log_warning("Failed to write checksums to backup");
+	/* sort checksum file and add it to our tar */
+	if ((fp_sorted = temp_file_ex(template_sorted)) == NULL){
+		log_warning("Failed to create temp file for sorted checksum list");
+	}
+	else{
+		if (sort_checksum_file(fparams.fp_hashes, fp_sorted) != 0){
+			log_warning("Failed to sort checksum list");
+		}
+		if (tar_add_fp_ex(fparams.tp, fp_sorted, "/checksums", fparams.opt.flags & FLAG_VERBOSE, "Adding checksum list...") != 0){
+			log_warning("Failed to write checksums to backup");
+		}
+		fclose(fp_sorted);
+		remove(template_sorted);
 	}
 
 	fp_removed = temp_file("/var/tmp/removed_XXXXXX");
@@ -528,16 +538,39 @@ int main(int argc, char** argv){
 
 	/* encrypt output */
 	if (fparams.opt.enc_algorithm){
-		if (encrypt_file(fp_tar, fparams) != 0){
+		FILE* fp_out;
+
+		fp_out = fopen(fparams.opt.file_out, "wb");
+		if (!fp_out){
+			log_error(STR_EFOPEN, fparams.opt.file_out, strerror(errno));
 			return 1;
 		}
+
+		if (encrypt_file(fp_tar, fp_out, fparams.opt.enc_algorithm, fparams.opt.flags & FLAG_VERBOSE) != 0){
+			log_warning("Failed to encrypt file");
+		}
+
+		if (fclose(fp_out) != 0){
+			log_warning("Failed to close %s (%s). Data corruption possible", fparams.opt.file_out, strerror(errno));
+		}
 	}
+
 	else{
-		if ((rename_ex(file_final, fparams.opt.file_out)) != 0){
-			puts_debug("rename_ex() failed");
+		FILE* fp_out;
+
+		fp_out = fopen(fparams.opt.file_out, "wb");
+		if (!fp_out){
+			log_error(STR_EFOPEN, fparams.opt.file_out, strerror(errno));
 			return 1;
 		}
+
+		if (copy_fp(fp_tar, fp_out) != 0){
+			log_warning("Failed to copy output to destination.");
+		}
+
+		fclose(fp_out);
 	}
+	remove(template_tar);
 
 	free(fparams.opt.prev_backup);
 	fparams.opt.prev_backup = fparams.opt.file_out;
@@ -545,10 +578,5 @@ int main(int argc, char** argv){
 	write_config_file(fparams);
 
 	free_options(&(fparams.opt));
-	remove(file_tar);
-	remove(file_final);
-	remove(file_hashes);
-	remove(file_hashes_sorted);
-	remove(file_removed);
 	return 0;
 }

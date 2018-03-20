@@ -72,7 +72,7 @@ element* get_next_checksum_element(FILE* fp){
 	}
 
 	pos_origin = ftell(fp);
-	/* read two \0's */
+	/* read an \0 */
 	while ((c = fgetc(fp)) != '\0'){
 		if (ferror(fp)){
 			log_error(STR_EFREAD, "file");
@@ -279,10 +279,6 @@ static int set_file_limit(int num){
 
 /* reads MAX_RUN_SIZE bytes worth of elements into ram,
  * sorts them, and writes them to a file */
-/* out is char*** and not FILE***, since we need to reopen
- * them in reading mode and also remove() them when we're
- * done */
-/* TODO: refactor */
 int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
 	element** elems = NULL;
 	element* tmp = NULL;
@@ -362,11 +358,15 @@ int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
 		quicksort_elements(elems, 0, elems_len - 1);
 		/* write them to the file */
 		for (i = 0; i < elems_len; ++i){
-			write_element_to_file(fp, elems[i]);
+			if (write_element_to_file(fp, elems[i]) != 0){
+				puts_debug("Failed to write element to file");
+			}
+		}
+		if (fflush(fp) != 0){
+			log_warning("Failed to flush merge file");
 		}
 		/* cleanup */
 		free_element_array(elems, elems_len);
-		fclose(fp);
 		elems = NULL;
 		elems_len = 0;
 		total_len = 0;
@@ -458,6 +458,9 @@ int merge_files(FILE** in, size_t n_files, FILE* fp_out){
 
 	/* cleanup */
 	free_minheapnodes(mhn, n_files);
+	if (fflush(fp_out) != 0){
+		log_warning("Failed to flush sorted checksum file");
+	}
 	return 0;
 }
 
@@ -467,7 +470,7 @@ int search_file(FILE* fp, const char* key, char** checksum){
 	int c;
 	int size;
 	int res;
-	const int end_bsearch_threshold = 512;
+	const int end_bsearch_threshold = 128;
 
 	/* check null arguments */
 	if (!fp || !key || !checksum){
