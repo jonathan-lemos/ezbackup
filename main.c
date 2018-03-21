@@ -567,10 +567,6 @@ int main(int argc, char** argv){
 
 	/* enumerate over each directory with fun() */
 	for (i = 0; i < fparams.opt.directories_len; ++i){
-		if (!is_directory(fparams.opt.directories[i])){
-			log_warning(__FL__, "%s is not a directory. Skipping.\n", fparams.opt.directories[i]);
-			continue;
-		}
 		enum_files(fparams.opt.directories[i], fun, &fparams, error, NULL);
 	}
 	remove(template_prev);

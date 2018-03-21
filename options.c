@@ -90,12 +90,12 @@ static int remove_string(char*** entries, int* len, int index){
 	return 0;
 }
 
-static int sanitize_directories(options* opt){
+static int sanitize_directories(char*** entries, int* len){
 	int n_removed = 0;
 	int i;
-	for (i = 0; i < opt->directories_len; ++i){
-		if (!is_directory(opt->directories[i])){
-			remove_string(&(opt->directories), &(opt->directories_len), i);
+	for (i = 0; i < (*len); ++i){
+		if (!is_directory((*entries)[i])){
+			remove_string(entries, len, i);
 			i--;
 			n_removed++;
 		}
@@ -508,17 +508,18 @@ int menu_directories(options* opt){
 		switch (res){
 			int i;
 			char* str;
+			int res;
 		case 0:
-			str = opt->directories[opt->directories_len - 1] = readline("Enter directory:");
+			str = readline("Enter directory:");
 			if (strcmp(str, "") != 0 && add_string_to_array(&(opt->directories), &(opt->directories_len), str) != 0){
 				log_debug(__FL__, "Failed to add string to directories list");
 				return -1;
 			}
 			free(str);
-			if (sanitize_directories(opt) > 0){
+			if ((res = sanitize_directories(&(opt->directories), &(opt->directories_len))) > 0){
 				title = "Directory specified was invalid";
 			}
-			else if (sanitize_directories(opt) < 0){
+			else if (res < 0){
 				log_warning(__FL__, "Failed to sanitize directory list");
 			}
 			else{
@@ -576,28 +577,20 @@ int menu_exclude(options* opt){
 
 		switch (res){
 			int i;
+			char* str;
+			int res;
 		case 0:
-			opt->exclude_len++;
-			opt->exclude = realloc(opt->exclude, opt->exclude_len * sizeof(*(opt->exclude)));
-			if (!opt->exclude){
-				log_fatal(__FL__, STR_ENOMEM);
+			str = opt->exclude[opt->exclude_len - 1] = readline("Enter exclude path:");
+			if (strcmp(str, "") != 0 && add_string_to_array(&(opt->exclude), &(opt->exclude_len), str) != 0){
+				log_debug(__FL__, "Failed to add string to exclude list");
 				return -1;
 			}
-			opt->exclude[opt->exclude_len - 1] = readline("Enter exclude path:");
-			if (strcmp(opt->exclude[opt->exclude_len - 1], "") == 0){
-				free(opt->exclude[opt->exclude_len - 1]);
-				opt->exclude_len--;
-				opt->exclude = realloc(opt->exclude, opt->exclude_len * sizeof(*(opt->exclude)));
-				if (!opt->exclude){
-					log_fatal(__FL__, STR_ENOMEM);
-					return -1;
-				}
-			}
-			if (sanitize_directories(opt) > 0){
+			free(str);
+			if ((res = sanitize_directories(&(opt->exclude), &(opt->exclude_len))) > 0){
 				title = "Exclude path specified was invalid";
 			}
-			else if (sanitize_directories(opt) < 0){
-				log_warning(__FL__, "Failed to sanitize exclude path list");
+			else if (res < 0){
+				log_warning(__FL__, "Failed to sanitize exclude list");
 			}
 			else{
 				title = "Exclude paths";
@@ -614,13 +607,13 @@ int menu_exclude(options* opt){
 			}
 			options_submenu[opt->exclude_len] = "Exit";
 
-			res_submenu = display_menu(options_submenu, opt->exclude_len + 1, "Choose an exclude path");
+			res_submenu = display_menu(options_submenu, opt->exclude_len + 1, "Choose a directory");
 			if (res_submenu == opt->exclude_len){
 				free(options_submenu);
 				break;
 			}
 			else if (res_submenu < opt->exclude_len){
-				if (remove_directory(opt, res_submenu) != 0){
+				if (remove_string(&(opt->exclude), &(opt->exclude_len), res_submenu) != 0){
 					log_debug(__FL__, "Failed to remove_directory()");
 					return -1;
 				}
