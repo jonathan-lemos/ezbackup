@@ -34,6 +34,8 @@
 #include <sys/resource.h>
 
 #define UNUSED(x) ((void)(x))
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
+
 
 typedef struct func_params{
 	TAR*    tp;
@@ -47,17 +49,6 @@ static int disable_core_dumps(void){
 	rl.rlim_cur = 0;
 	rl.rlim_max = 0;
 	return setrlimit(RLIMIT_CORE, &rl);
-}
-
-static int is_directory(const char* path){
-	struct stat st;
-
-	if (!path){
-		return 0;
-	}
-
-	stat(path, &st);
-	return S_ISDIR(st.st_mode);
 }
 
 static int copy_fp(FILE* in, FILE* out){
@@ -311,7 +302,7 @@ static int read_config_file(func_params* fparams){
 	if (parse_options_fromfile(backup_conf, &(fparams->opt)) != 0){
 		log_debug(__FL__, "Failed to parse options from file");
 		free(backup_conf);
-		return 1;
+		return -1;
 	}
 
 	free(backup_conf);
@@ -335,6 +326,70 @@ int write_config_file(func_params fparams){
 	free(backup_conf);
 	return 0;
 }
+
+static int parse_options(int argc, char** argv, func_params* fparams){
+	int res;
+	const char* choices_initial[] = {
+		"Backup",
+		"Restore",
+		"Configure"
+	};
+
+	/* if we have command line args */
+	if (argc >= 2){
+		int parse_res;
+
+		parse_res = parse_options_cmdline(argc, argv, &(fparams->opt));
+		if (parse_res < 0 || parse_res > argc){
+			log_error(__FL__, "Failed to parse command line arguments");
+			return -1;
+		}
+		else if (parse_res != 0){
+			printf("Invalid parameter %s\n", argv[parse_res]);
+			return -1;
+		}
+		if (fparams->opt.operation == OP_INVALID){
+			printf("No operation specified. Specify one of \"backup\", \"restore\", \"configure\".\n");
+			return -1;
+		}
+		return 0;
+	}
+
+	res = read_config_file(fparams);
+	if (res < 0){
+		log_error(__FL__, "Failed to parse options from file");
+		return -1;
+	}
+	else if (res > 0){
+		log_info(__FL__, "Options file does not exist");
+
+		get_default_options(&(fparams->opt));
+
+		if (parse_options_menu(&(fparams->opt)) != 0){
+			return -1;
+		}
+	}
+
+	/* else get options from menu or config file */
+	res = display_menu(choices_initial, ARRAY_SIZE(choices_initial), "Main Menu");
+	switch (res){
+	case 0:
+		fparams->opt.operation = OP_BACKUP;
+		break;
+	case 1:
+		fparams->opt.operation = OP_RESTORE;
+		break;
+	case 2:
+		fparams->opt.operation = OP_CONFIGURE;
+		break;
+	default:
+		log_fatal(__FL__, "Option %d chosen of %d. This should never happen", res + 1, ARRAY_SIZE(choices_initial));
+		return -1;
+	}
+
+	return 0;
+}
+
 
 /* runs for each file enum_files() finds */
 int fun(const char* file, const char* dir, struct stat* st, void* params){
@@ -414,35 +469,24 @@ int main(int argc, char** argv){
 	log_setlevel(LEVEL_WARNING);
 
 	/* parse command line args */
-	if (argc >= 2){
-		int parse_res;
-
-		parse_res = parse_options_cmdline(argc, argv, &(fparams.opt));
-		if (parse_res < 0 || parse_res > argc){
-			log_error(__FL__, "Failed to parse command line arguments");
-			return 1;
-		}
-		else{
-			log_error(__FL__, "Invalid parameter %s\n", argv[parse_res]);
-			return 1;
-		}
-	}
-	/* get options from menu or config file */
-	else{
-		int res;
-
-		res = read_config_file(&fparams);
-		if (res < 0){
-			return 1;
-		}
-		else if (res > 0){
-			if (parse_options_menu(&(fparams.opt)) != 0){
-				log_error(__FL__, "Failed to parse options from menu");
-				return 1;
-			}
-		}
+	if (parse_options(argc, argv, &fparams) != 0){
+		log_debug(__FL__, "Error parsing options");
+		return 1;
 	}
 
+	switch(fparams.opt.operation){
+	case OP_BACKUP:
+		break;
+	case OP_RESTORE:
+		printf("Restore not implemented yet\n");
+		return 0;
+	case OP_CONFIGURE:
+		parse_options_menu(&(fparams.opt));
+		break;
+	default:
+		log_fatal(__FL__, "Invalid operation specified. This should never happen");
+		return 1;
+	}
 
 	/* put in /home/<user>/Backups/backup-<unixtime>.tar(.bz2)(.crypt) */
 	if (!fparams.opt.file_out &&

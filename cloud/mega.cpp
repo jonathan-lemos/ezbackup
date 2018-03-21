@@ -45,7 +45,7 @@ public:
 		switch(transfer->getType()){
 		case mega::MegaTransfer::TYPE_UPLOAD:
 			if (stat(transfer->getFileName(), &st) != 0){
-				log_warning("MEGA: Could not determine size of %s (%s)", transfer->getFileName(), strerror(errno));
+				log_warning(__FL__, "MEGA: Could not determine size of %s (%s)", transfer->getFileName(), strerror(errno));
 				break;
 			}
 			max = st.st_size;
@@ -56,7 +56,7 @@ public:
 			p = start_progress(msg, max);
 			break;
 		default:
-			log_warning("MEGA: Could not start progress due to unknown transfer type.");
+			log_warning(__FL__, "MEGA: Could not start progress due to unknown transfer type.");
 		}
 	}
 

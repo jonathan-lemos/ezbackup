@@ -6,7 +6,14 @@
 
 #define FLAG_VERBOSE (0x1)
 
-typedef struct options {
+typedef enum OPERATION{
+	OP_INVALID = 0,
+	OP_BACKUP = 1,
+	OP_RESTORE = 2,
+	OP_CONFIGURE = 3
+}OPERATION;
+
+typedef struct options{
 	char*      prev_backup;
 	char**     directories;
 	int        directories_len;
@@ -16,6 +23,7 @@ typedef struct options {
 	char*      enc_algorithm;
 	COMPRESSOR comp_algorithm;
 	char*      file_out;
+	OPERATION  operation;
 	unsigned   flags;
 }options;
 
@@ -26,5 +34,6 @@ int parse_options_menu(options* opt);
 int parse_options_fromfile(const char* file, options* opt);
 int write_options_tofile(const char* file, options* opt);
 void free_options(options* o);
+int get_default_options(options* opt);
 
 #endif

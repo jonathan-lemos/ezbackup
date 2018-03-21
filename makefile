@@ -3,7 +3,7 @@ CC=clang
 CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500
 CXX=clang++
 CXXFLAGS=-Wall -Wextra -pedantic -std=c++11
-LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega -lstdc++
+LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega -lstdc++ -lreadline
 DBGFLAGS=-g
 CXXDBGFLAGS=-g
 RELEASEFLAGS=-O3

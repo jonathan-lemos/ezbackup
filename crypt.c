@@ -138,7 +138,7 @@ static int crypt_hashpassword(unsigned char* data, int data_len, unsigned char**
 		return -1;
 	}
 
-	if (!EVP_BytesToKey(keytype(), hashtype(), *salt, data, data_len, 1000, *hash, *hash + key_len)){
+	if (!EVP_BytesToKey(keytype(), hashtype(), *salt, data, data_len, 25000, *hash, *hash + key_len)){
 		log_error(__FL__, "Failed to generate keys from data");
 		ERR_print_errors_fp(stderr);
 		return -1;
