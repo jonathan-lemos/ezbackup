@@ -4,6 +4,7 @@ openssl
 libarchive
 ncurses
 menu
+libedit
 meganz/sdk
 	libcurl
 	c-ares
