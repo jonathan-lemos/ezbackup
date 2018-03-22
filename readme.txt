@@ -4,7 +4,7 @@ openssl
 libarchive
 ncurses
 menu
-gnu readline
+libedit
 meganz/sdk
 	libcurl
 	c-ares
