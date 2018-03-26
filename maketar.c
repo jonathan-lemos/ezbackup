@@ -33,7 +33,7 @@
 /* malloc */
 #include <stdlib.h>
 
-TAR* tar_create(const char* filename, COMPRESSOR comp){
+TAR* tar_create(const char* filename, COMPRESSOR comp, int compression_level){
 	TAR* tp = archive_write_new();
 
 	if (!filename){
@@ -56,6 +56,11 @@ TAR* tar_create(const char* filename, COMPRESSOR comp){
 		break;
 	default:
 		archive_write_add_filter_none(tp);
+	}
+	if (compression_level){
+		char buf[64];
+		sprintf(buf, "%s:compression-level=%d", compressor_to_string(comp), compression_level);
+		archive_write_set_options(tp, buf);
 	}
 
 	archive_write_set_format_pax_restricted(tp);

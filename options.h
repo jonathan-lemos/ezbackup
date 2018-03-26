@@ -11,28 +11,31 @@
 
 /* compressor */
 #include "maketar.h"
+#include <openssl/evp.h>
 
 #define FLAG_VERBOSE (0x1)
 
 typedef enum OPERATION{
 	OP_INVALID = 0,
-	OP_BACKUP = 1,
+	OP_BACKUP  = 1,
 	OP_RESTORE = 2,
-	OP_CONFIGURE = 3
+	OP_CONFIGURE = 3,
+	OP_EXIT = 4
 }OPERATION;
 
 typedef struct options{
-	char*      prev_backup;
-	char**     directories;
-	int        directories_len;
-	char**     exclude;
-	int        exclude_len;
-	char*      hash_algorithm;
-	char*      enc_algorithm;
-	COMPRESSOR comp_algorithm;
-	char*      file_out;
-	OPERATION  operation;
-	unsigned   flags;
+	char*             prev_backup;
+	char**            directories;
+	int               directories_len;
+	char**            exclude;
+	int               exclude_len;
+	const EVP_MD*     hash_algorithm;
+	const EVP_CIPHER* enc_algorithm;
+	COMPRESSOR        comp_algorithm;
+	int               comp_level;
+	char*             file_out;
+	OPERATION         operation;
+	unsigned          flags;
 }options;
 
 void usage(const char* progname);

@@ -20,8 +20,16 @@
 /* menus */
 #include <ncurses.h>
 #include <menu.h>
+/* char* to EVP_MD(*)(void) */
+#include <openssl/evp.h>
 /* command-line tab completion */
+#if defined(__linux__)
+#include <editline/readline.h>
+#elif defined(__APPLE__)
 #include <readline/readline.h>
+#else
+#error "This operating system is not supported"
+#endif
 /* is_directory() */
 #include <sys/stat.h>
 
@@ -32,13 +40,12 @@ void version(void){
 	const char* version      = "0.2 beta";
 	const char* year         = "2018";
 	const char* name         = "Jonathan Lemos";
-	const char* license      = "License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.\n\
-								This is free software: you are free to change and redistribute it.\n\
-								There is NO WARRANTY, to the extent permitted by law.";
+	const char* license      = "This software may be modified and distributed under the terms of the MIT license.\n\
+								See the LICENSE file for details.";
 
 
 	printf("%s %s\n", program_name, version);
-	printf("Copyright (C) %s %s\n", year, name);
+	printf("Copyright (c) %s %s\n", year, name);
 	printf("%s\n", license);
 }
 
@@ -68,7 +75,7 @@ static int is_directory(const char* path){
 
 static int remove_string(char*** entries, int* len, int index){
 	int i;
-	for (i = index; i < *len - 2; ++i){
+	for (i = index; i < *len - 1; ++i){
 		(*entries)[i] = (*entries)[i + 1];
 	}
 	(*len)--;
@@ -126,7 +133,6 @@ int parse_options_cmdline(int argc, char** argv, options* out){
 	}
 
 	memset(out, 0, sizeof(*out));
-	out->operation = OP_INVALID;
 
 	for (i = 0; i < argc; ++i){
 		if (!strcmp(argv[i], "--version")){
@@ -148,14 +154,15 @@ int parse_options_cmdline(int argc, char** argv, options* out){
 		else if (!strcmp(argv[i], "-C")){
 			/* check next argument */
 			++i;
-			out->hash_algorithm = argv[i];
+			OpenSSL_add_all_algorithms();
+			out->hash_algorithm = EVP_get_digestbyname(argv[i]);
 		}
 		/* encryption */
 		else if (!strcmp(argv[i], "-e")){
 			/* next argument */
 			++i;
-			out->enc_algorithm = malloc(strlen(argv[i]) + 1);
-			strcpy(out->enc_algorithm, argv[i]);
+			OpenSSL_add_all_algorithms();
+			out->enc_algorithm = EVP_get_cipherbyname(argv[i]);
 		}
 		/* verbose */
 		else if (!strcmp(argv[i], "-v")){
@@ -311,6 +318,26 @@ int display_menu(const char** options, int num_options, const char* title){
 	return ret;
 }
 
+static int menu_compression_level(options* opt){
+	int res;
+	const char* options_compression_level[] = {
+		"Default",
+		"1 (fastest, lowest compression)",
+		"2",
+		"3",
+		"4",
+		"5",
+		"6",
+		"7",
+		"8",
+		"9 (slowest, highest compression)"
+	};
+
+	res = display_menu(options_compression_level, ARRAY_SIZE(options_compression_level), "Select a compression level");
+	opt->comp_level = res;
+	return 0;
+}
+
 static int menu_compressor(options* opt){
 	int res;
 	const char* options_compressor[] = {
@@ -320,32 +347,20 @@ static int menu_compressor(options* opt){
 		"lz4   (fastest, lowest compression)",
 		"none"
 	};
+	COMPRESSOR list_compressor[] = {
+		COMPRESSOR_GZIP,
+		COMPRESSOR_BZIP2,
+		COMPRESSOR_XZ,
+		COMPRESSOR_LZ4,
+		COMPRESSOR_NONE
+	};
 
 	res = display_menu(options_compressor, ARRAY_SIZE(options_compressor), "Select a compression algorithm");
-
-	switch (res){
-	case 0:
-		opt->comp_algorithm = COMPRESSOR_GZIP;
-		break;
-	case 1:
-		opt->comp_algorithm = COMPRESSOR_BZIP2;
-		break;
-	case 2:
-		opt->comp_algorithm = COMPRESSOR_XZ;
-		break;
-	case 3:
-		opt->comp_algorithm = COMPRESSOR_LZ4;
-		break;
-	case 4:
-		opt->comp_algorithm = COMPRESSOR_NONE;
-		break;
-	default:
-		log_warning(__FL__, "Invalid compressor selected");
-		opt->comp_algorithm = COMPRESSOR_INVALID;
-		break;
+	if (opt->comp_algorithm != list_compressor[res]){
+		opt->prev_backup = NULL;
 	}
-
-	return 0;
+	opt->comp_algorithm = list_compressor[res];
+	return menu_compression_level(opt);
 }
 
 static int menu_checksum(options* opt){
@@ -357,31 +372,16 @@ static int menu_checksum(options* opt){
 		"md5    (fastest, most collisions)",
 		"none"
 	};
+	const EVP_MD*(*list_checksum[])(void) = {
+		EVP_sha1,
+		EVP_sha256,
+		EVP_sha512,
+		EVP_md5,
+		NULL
+	};
 
 	res = display_menu(options_checksum, ARRAY_SIZE(options_checksum), "Select a checksum algorithm");
-
-	switch(res){
-	case 0:
-		opt->hash_algorithm = "sha1";
-		break;
-	case 1:
-		opt->hash_algorithm = "sha256";
-		break;
-	case 2:
-		opt->hash_algorithm = "sha512";
-		break;
-	case 3:
-		opt->hash_algorithm = "md5";
-		break;
-	case 4:
-		opt->hash_algorithm = NULL;
-		break;
-	default:
-		log_warning(__FL__, "Invalid checksum algorithm selected");
-		opt->hash_algorithm = NULL;
-		break;
-	}
-
+	opt->hash_algorithm = list_checksum[res] ? (list_checksum[res])() : NULL;
 	return 0;
 }
 
@@ -389,116 +389,100 @@ static int menu_encryption(options* opt){
 	int res_encryption = -1;
 	int res_keysize = -1;
 	int res_mode = -1;
+	char* tmp = NULL;
 	const char* options_encryption[] = {
 		"AES (default)",
 		"Camellia",
 		"SEED",
 		"Blowfish",
-		"Triple DES (EDE)",
+		"Triple DES (EDE3)",
 		"none"
+	};
+	const char* list_encryption[] = {
+		"aes",
+		"camellia",
+		"seed",
+		"bf",
+		"des-ede3",
+		NULL
 	};
 	const char* options_keysize[] = {
 		"256 (default)",
 		"192 (faster, less secure)",
 		"128 (fastest, least secure)"
 	};
-	const char* options_mode[] = {
-		"CBC (default)",
-		"CFB",
-		"OFB",
-		"CTR",
+	const char* list_keysize[] = {
+		"-256",
+		"-192",
+		"-128"
 	};
-
-	free(opt->enc_algorithm);
+	const char* options_mode[] = {
+		"Cipher Block Chaining (CBC) (default)",
+		"Cipher Feedback (CFB)",
+		"Output Feedback (OFB)",
+		"Counter (CTR)",
+	};
+	const char* list_mode[] = {
+		"-cbc",
+		"-cfb",
+		"-ofb",
+		"-ctr"
+	};
 
 	res_encryption = display_menu(options_encryption, ARRAY_SIZE(options_encryption), "Select an encryption algorithm");
 	if (res_encryption <= 1){
 		res_keysize = display_menu(options_keysize, ARRAY_SIZE(options_keysize), "Select a key size");
 	}
 	if (res_encryption <= 2){
-		res_mode = display_menu(options_mode, ARRAY_SIZE(options_keysize), "Select an encryption mode");
+		res_mode = display_menu(options_mode, ARRAY_SIZE(options_mode), "Select an encryption mode");
 	}
 	else if (res_encryption <= 4){
-		res_mode = display_menu(options_mode, ARRAY_SIZE(options_keysize) - 1, "Select an encryption mode");
+		res_mode = display_menu(options_mode, ARRAY_SIZE(options_mode) - 1, "Select an encryption mode");
 	}
 
-	opt->enc_algorithm = malloc(sizeof("camellia-256-cbc"));
-	switch (res_encryption){
-	case 0:
-		strcpy(opt->enc_algorithm, "aes");
-		break;
-	case 1:
-		strcpy(opt->enc_algorithm, "camellia");
-		break;
-	case 2:
-		strcpy(opt->enc_algorithm, "seed");
-		break;
-	case 3:
-		strcpy(opt->enc_algorithm, "bf");
-		break;
-	case 4:
-		strcpy(opt->enc_algorithm, "des_ede3");
-		break;
-	case 5:
-		free(opt->enc_algorithm);
-		opt->enc_algorithm = NULL;
-		break;
-	default:
-		log_warning(__FL__, "Invalid encryption algorithm specified");
-		free(opt->enc_algorithm);
-		opt->enc_algorithm = NULL;
-		break;
+	if (res_encryption < 0 || res_encryption == 5){
+		return 0;
 	}
-
-	switch(res_keysize){
-	case 0:
-		strcat(opt->enc_algorithm, "-256");
-		break;
-	case 1:
-		strcat(opt->enc_algorithm, "-192");
-		break;
-	case 2:
-		strcat(opt->enc_algorithm, "-128");
-		break;
+	tmp = malloc(sizeof("camellia-256-cbc"));
+	strcpy(tmp, list_encryption[res_encryption]);
+	if (res_keysize > 0){
+		strcat(tmp, list_keysize[res_keysize]);
 	}
-
-	switch(res_mode){
-	case 0:
-		strcat(opt->enc_algorithm, "-cbc");
-		break;
-	case 1:
-		strcat(opt->enc_algorithm, "-cfb");
-		break;
-	case 2:
-		strcat(opt->enc_algorithm, "-ofb");
-		break;
-	case 3:
-		strcat(opt->enc_algorithm, "-ctr");
-		break;
+	if (res_mode > 0){
+		strcat(tmp, list_mode[res_keysize]);
 	}
+	opt->enc_algorithm = EVP_get_cipherbyname(tmp);
+	free(tmp);
 
 	return 0;
 }
 
 int menu_directories(options* opt){
 	int res;
-	int res_submenu;
-	const char* options_initial[] = {
-		"Add a directory",
-		"Remove a directory",
-		"Exit"
-	};
-	const char** options_submenu = NULL;
+	const char** options_initial = NULL;
 	const char* title = "Directories";
 
 	/* TODO: refactor */
 	do{
-		res = display_menu(options_initial, ARRAY_SIZE(options_initial), title);
+		int i;
+
+		options_initial = malloc((opt->directories_len + 2) * sizeof(*(opt->directories)));
+		if (!options_initial){
+			log_fatal(__FL__, STR_ENOMEM);
+			return -1;
+		}
+		options_initial[0] = "Add a directory";
+		options_initial[1] = "Exit";
+		for (i = 2; i < opt->directories_len + 2; ++i){
+			options_initial[i] = opt->directories[i - 2];
+		}
+
+		res = display_menu(options_initial, opt->directories_len + 2, title);
 
 		switch (res){
-			int i;
 			char* str;
-			int res;
+			int res_confirm;
+			char** options_confirm;
 		case 0:
 			str = readline("Enter directory:");
 			if (strcmp(str, "") != 0 && add_string_to_array(&(opt->directories), &(opt->directories_len), str) != 0){
@@ -517,60 +501,66 @@ int menu_directories(options* opt){
 			}
 			break;
 		case 1:
-			options_submenu = malloc((opt->directories_len + 1) * sizeof(*options_submenu));
-			if (!options_submenu){
+			break;
+		default:
+			options_confirm = malloc(2 * sizeof(*options_confirm));
+			if (!options_confirm){
 				log_fatal(__FL__, STR_ENOMEM);
 				return -1;
 			}
-			for (i = 0; i < opt->directories_len; ++i){
-				options_submenu[i] = opt->directories[i];
+			options_confirm[0] = malloc(sizeof("Remove ") + strlen(opt->directories[res - 2]));
+			if (!options_confirm){
+				log_fatal(__FL__, STR_ENOMEM);
+				return -1;
 			}
-			options_submenu[opt->directories_len] = "Exit";
+			strcpy(options_confirm[0], "Remove ");
+			strcat(options_confirm[0], opt->directories[res - 2]);
+			options_confirm[1] = "Exit";
+			res_confirm = display_menu((const char**)options_confirm, 2, "Removing directory");
 
-			res_submenu = display_menu(options_submenu, opt->directories_len + 1, "Choose a directory");
-			if (res_submenu == opt->directories_len){
-				free(options_submenu);
-				break;
-			}
-			else if (res_submenu < opt->directories_len){
-				if (remove_string(&(opt->directories), &(opt->directories_len), res_submenu) != 0){
+			if (res_confirm == 0){
+				if (remove_string(&(opt->directories), &(opt->directories_len), res - 2) != 0){
 					log_debug(__FL__, "Failed to remove_directory()");
 					return -1;
 				}
 			}
-			free(options_submenu);
+
+			free(options_confirm[0]);
+			free(options_confirm);
 			break;
-		case 2:
-			return 0;
-		default:
-			log_warning(__FL__, "Invalid option selected");
-			return 0;
 		}
-	}while (res != 2);
+	}while (res != 1);
 	return 0;
 }
 
 int menu_exclude(options* opt){
 	int res;
-	int res_submenu;
-	const char* options_initial[] = {
-		"Add an exclude path",
-		"Remove an exclude path",
-		"Exit"
-	};
-	const char** options_submenu = NULL;
-	const char* title = "Exclude paths";
+	const char** options_initial = NULL;
+	const char* title = "Exclude Paths";
 
 	/* TODO: refactor */
 	do{
-		res = display_menu(options_initial, ARRAY_SIZE(options_initial), title);
+		int i;
+
+		options_initial = malloc((opt->exclude_len + 2) * sizeof(*(opt->exclude)));
+		if (!options_initial){
+			log_fatal(__FL__, STR_ENOMEM);
+			return -1;
+		}
+		options_initial[0] = "Add an exclude path";
+		options_initial[1] = "Exit";
+		for (i = 2; i < opt->exclude_len + 2; ++i){
+			options_initial[i] = opt->exclude[i - 2];
+		}
+
+		res = display_menu(options_initial, opt->exclude_len + 2, title);
 
 		switch (res){
-			int i;
 			char* str;
-			int res;
+			int res_confirm;
+			char** options_confirm;
 		case 0:
-			str = opt->exclude[opt->exclude_len - 1] = readline("Enter exclude path:");
+			str = readline("Enter exclude path:");
 			if (strcmp(str, "") != 0 && add_string_to_array(&(opt->exclude), &(opt->exclude_len), str) != 0){
 				log_debug(__FL__, "Failed to add string to exclude list");
 				return -1;
@@ -587,36 +577,35 @@ int menu_exclude(options* opt){
 			}
 			break;
 		case 1:
-			options_submenu = malloc((opt->exclude_len + 1) * sizeof(*options_submenu));
-			if (!options_submenu){
+			break;
+		default:
+			options_confirm = malloc(2 * sizeof(*options_confirm));
+			if (!options_confirm){
 				log_fatal(__FL__, STR_ENOMEM);
 				return -1;
 			}
-			for (i = 0; i < opt->exclude_len; ++i){
-				options_submenu[i] = opt->exclude[i];
+			options_confirm[0] = malloc(sizeof("Remove ") + strlen(opt->exclude[res - 2]));
+			if (!options_confirm){
+				log_fatal(__FL__, STR_ENOMEM);
+				return -1;
 			}
-			options_submenu[opt->exclude_len] = "Exit";
+			strcpy(options_confirm[0], "Remove ");
+			strcat(options_confirm[0], opt->exclude[res - 2]);
+			options_confirm[1] = "Exit";
+			res_confirm = display_menu((const char**)options_confirm, 2, "Removing exclude path");
 
-			res_submenu = display_menu(options_submenu, opt->exclude_len + 1, "Choose a directory");
-			if (res_submenu == opt->exclude_len){
-				free(options_submenu);
-				break;
-			}
-			else if (res_submenu < opt->exclude_len){
-				if (remove_string(&(opt->exclude), &(opt->exclude_len), res_submenu) != 0){
-					log_debug(__FL__, "Failed to remove_directory()");
+			if (res_confirm == 0){
+				if (remove_string(&(opt->exclude), &(opt->exclude_len), res - 2) != 0){
+					log_debug(__FL__, "Failed to remove_string()");
 					return -1;
 				}
 			}
-			free(options_submenu);
+
+			free(options_confirm[0]);
+			free(options_confirm);
 			break;
-		case 2:
-			return 0;
-		default:
-			log_warning(__FL__, "Invalid option selected");
-			return 0;
 		}
-	}while (res != 2);
+	}while (res != 1);
 	return 0;
 }
 
@@ -630,7 +619,6 @@ int parse_options_menu(options* opt){
 		"Exclude paths",
 		"Exit"
 	};
-
 	do{
 		res = display_menu(options_main_menu, ARRAY_SIZE(options_main_menu), "Configure");
 		switch (res){
@@ -662,15 +650,9 @@ int parse_options_menu(options* opt){
 
 int get_default_options(options* opt){
 	opt->comp_algorithm = COMPRESSOR_GZIP;
-	opt->hash_algorithm = "sha1";
-	opt->enc_algorithm = malloc(sizeof("aes-256-cbc"));
-	if (!opt->enc_algorithm){
-		log_fatal(__FL__, STR_ENOMEM);
-		return -1;
-	}
-	strcpy(opt->enc_algorithm, "aes-256-cbc");
+	opt->hash_algorithm = EVP_sha1();
+	opt->enc_algorithm = EVP_aes_256_cbc();
 	opt->prev_backup = NULL;
-	opt->operation = OP_INVALID;
 	opt->directories = malloc(sizeof(*(opt->directories)));
 	if (!opt->directories){
 		log_fatal(__FL__, STR_ENOMEM);
@@ -686,6 +668,7 @@ int get_default_options(options* opt){
 	opt->directories_len = 1;
 	opt->exclude = NULL;
 	opt->exclude_len = 0;
+	opt->operation = OP_INVALID;
 	opt->flags = FLAG_VERBOSE;
 	return 0;
 }
@@ -768,9 +751,23 @@ int parse_options_fromfile(const char* file, options* opt){
 		}
 	}while (tmp && tmp[0] != '\0');
 	fscanf(fp, "\nCHECKSUM=");
-	opt->hash_algorithm = read_file_string(fp);
+	tmp = read_file_string(fp);
+	if (!tmp){
+		opt->hash_algorithm = NULL;
+	}
+	else{
+		opt->hash_algorithm = EVP_get_digestbyname(tmp);
+		free(tmp);
+	}
 	fscanf(fp, "\nENCRYPTION=");
-	opt->enc_algorithm = read_file_string(fp);
+	tmp = read_file_string(fp);
+	if (!tmp){
+		opt->enc_algorithm = NULL;
+	}
+	else{
+		opt->enc_algorithm = EVP_get_cipherbyname(tmp);
+		free(tmp);
+	}
 	fscanf(fp, "\nCOMPRESSION=%d", (int*)&(opt->comp_algorithm));
 	fscanf(fp, "\nFLAGS=%u", &(opt->flags));
 
@@ -818,8 +815,8 @@ int write_options_tofile(const char* file, options* opt){
 		fprintf(fp, "%s%c", opt->exclude[i], '\0');
 	}
 	fputc('\0', fp);
-	fprintf(fp, "\nCHECKSUM=%s%c", opt->hash_algorithm, '\0');
-	fprintf(fp, "\nENCRYPTION=%s%c", opt->enc_algorithm, '\0');
+	fprintf(fp, "\nCHECKSUM=%s%c", EVP_MD_name(opt->hash_algorithm), '\0');
+	fprintf(fp, "\nENCRYPTION=%s%c", EVP_CIPHER_name(opt->enc_algorithm), '\0');
 	fprintf(fp, "\nCOMPRESSION=%d", opt->comp_algorithm);
 	fprintf(fp, "\nFLAGS=%u", opt->flags);
 
@@ -835,7 +832,6 @@ void free_options(options* opt){
 	if (opt->prev_backup != opt->file_out){
 		free(opt->prev_backup);
 	}
-	free(opt->enc_algorithm);
 	free(opt->file_out);
 	for (i = 0; i < opt->exclude_len; ++i){
 		free(opt->exclude[i]);

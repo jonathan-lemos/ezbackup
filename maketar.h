@@ -14,7 +14,7 @@
 typedef struct archive TAR;
 typedef enum COMPRESSOR { COMPRESSOR_NONE, COMPRESSOR_LZ4, COMPRESSOR_GZIP, COMPRESSOR_BZIP2, COMPRESSOR_XZ, COMPRESSOR_INVALID } COMPRESSOR;
 
-TAR* tar_create(const char* filename, COMPRESSOR comp);
+TAR* tar_create(const char* filename, COMPRESSOR comp, int compression_level);
 int tar_add_file(TAR* tp, const char* filename);
 int tar_add_file_ex(TAR* tp, const char* filename, const char* path_in_tar, int verbose, const char* progress_msg);
 int tar_add_fp_ex(TAR* tp, FILE* fp, const char* path_in_tar, int verbose, const char* progress_msg);

@@ -278,9 +278,13 @@ int crypt_set_salt(unsigned char salt[8], crypt_keys* fk){
 	return 0;
 }
 
+const EVP_CIPHER* crypt_get_cipher(const char* encryption_name){
+	return EVP_get_cipherbyname(encryption_name);
+}
+
 /* sets encryption type, this must be the first function called
  * returns 0 on success or 1 if cipher is not recognized */
-int crypt_set_encryption(const char* encryption, crypt_keys* fk){
+int crypt_set_encryption(const EVP_CIPHER* encryption, crypt_keys* fk){
 	if (!fk){
 		log_error(__FL__, STR_ENULL);
 		return -1;
@@ -289,16 +293,8 @@ int crypt_set_encryption(const char* encryption, crypt_keys* fk){
 	fk->flags = FLAG_UNINITIALIZED;
 
 	if (encryption){
-		/* allows EVP_get_cipherbyname to work */
-		OpenSSL_add_all_algorithms();
-		fk->encryption = EVP_get_cipherbyname(encryption);
-		if (!fk->encryption){
-			log_error(__FL__, "Could not set encryption type");
-			ERR_print_errors_fp(stderr);
-			return -1;
-		}
+		fk->encryption = encryption;
 	}
-	/* if encryption is NULL, use no encryption */
 	else{
 		fk->encryption = EVP_enc_null();
 	}

@@ -176,7 +176,7 @@ static int get_default_backup_name(options* opt){
 	return 0;
 }
 
-static int extract_prev_checksums(FILE* fp_in, char* out, const char* enc_algorithm, int verbose){
+static int extract_prev_checksums(FILE* fp_in, char* out, const EVP_CIPHER* enc_algorithm, int verbose){
 	char pwbuffer[1024];
 	char decrypt_template[] = "/var/tmp/decrypt_XXXXXX";
 	crypt_keys fk;
@@ -234,7 +234,7 @@ static int extract_prev_checksums(FILE* fp_in, char* out, const char* enc_algori
 	return 0;
 }
 
-static int encrypt_file(FILE* fp_in, FILE* fp_out, const char* enc_algorithm, int verbose){
+static int encrypt_file(FILE* fp_in, FILE* fp_out, const EVP_CIPHER* enc_algorithm, int verbose){
 	char pwbuffer[1024];
 	crypt_keys fk;
 	int err;
@@ -293,7 +293,7 @@ static int does_file_exist(const char* file){
 	return stat(file, &st) == 0;
 }
 
-static int read_config_file(func_params* fparams){
+static int read_config_file(options* opt){
 	char* backup_conf;
 
 	if (get_config_name(&backup_conf) != 0){
@@ -307,7 +307,7 @@ static int read_config_file(func_params* fparams){
 		return 1;
 	}
 
-	if (parse_options_fromfile(backup_conf, &(fparams->opt)) != 0){
+	if (parse_options_fromfile(backup_conf, opt) != 0){
 		log_debug(__FL__, "Failed to parse options from file");
 		free(backup_conf);
 		return -1;
@@ -317,7 +317,7 @@ static int read_config_file(func_params* fparams){
 	return 0;
 }
 
-int write_config_file(func_params fparams){
+int write_config_file(func_params* fparams){
 	char* backup_conf;
 
 	if ((get_config_name(&backup_conf)) != 0){
@@ -325,7 +325,7 @@ int write_config_file(func_params fparams){
 		return 1;
 	}
 	else{
-		if ((write_options_tofile(backup_conf, &(fparams.opt))) != 0){
+		if ((write_options_tofile(backup_conf, &(fparams->opt))) != 0){
 			log_warning(__FL__, "Failed to write settings for incremental backup.");
 			free(backup_conf);
 			return 1;
@@ -335,19 +335,13 @@ int write_config_file(func_params fparams){
 	return 0;
 }
 
-static int parse_options(int argc, char** argv, func_params* fparams){
+static int parse_options_prev(int argc, char** argv, options* opt){
 	int res;
-	const char* choices_initial[] = {
-		"Backup",
-		"Restore",
-		"Configure"
-	};
-
 	/* if we have command line args */
 	if (argc >= 2){
 		int parse_res;
 
-		parse_res = parse_options_cmdline(argc, argv, &(fparams->opt));
+		parse_res = parse_options_cmdline(argc, argv, opt);
 		if (parse_res < 0 || parse_res > argc){
 			log_error(__FL__, "Failed to parse command line arguments");
 			return -1;
@@ -356,14 +350,14 @@ static int parse_options(int argc, char** argv, func_params* fparams){
 			printf("Invalid parameter %s\n", argv[parse_res]);
 			return -1;
 		}
-		if (fparams->opt.operation == OP_INVALID){
+		if (opt->operation == OP_INVALID){
 			printf("No operation specified. Specify one of \"backup\", \"restore\", \"configure\".\n");
 			return -1;
 		}
 		return 0;
 	}
 
-	res = read_config_file(fparams);
+	res = read_config_file(opt);
 	if (res < 0){
 		log_error(__FL__, "Failed to parse options from file");
 		return -1;
@@ -371,33 +365,47 @@ static int parse_options(int argc, char** argv, func_params* fparams){
 	else if (res > 0){
 		log_info(__FL__, "Options file does not exist");
 
-		get_default_options(&(fparams->opt));
-
-		if (parse_options_menu(&(fparams->opt)) != 0){
-			return -1;
-		}
+		get_default_options(opt);
+		return 1;
 	}
-
-	/* else get options from menu or config file */
-	res = display_menu(choices_initial, ARRAY_SIZE(choices_initial), "Main Menu");
-	switch (res){
-	case 0:
-		fparams->opt.operation = OP_BACKUP;
-		break;
-	case 1:
-		fparams->opt.operation = OP_RESTORE;
-		break;
-	case 2:
-		fparams->opt.operation = OP_CONFIGURE;
-		break;
-	default:
-		log_fatal(__FL__, "Option %d chosen of %d. This should never happen", res + 1, ARRAY_SIZE(choices_initial));
-		return -1;
-	}
-
 	return 0;
 }
 
+static int parse_options_current(const options* prev, options* out, const char* title){
+	int res;
+	const char* choices_initial[] = {
+		"Backup",
+		"Restore",
+		"Configure",
+		"Exit"
+	};
+	memcpy(out, prev, sizeof(*out));
+
+	/* else get options from menu or config file */
+	do{
+		res = display_menu(choices_initial, ARRAY_SIZE(choices_initial), title ? title : "Main Menu");
+		switch (res){
+		case 0:
+			out->operation = OP_BACKUP;
+			break;
+		case 1:
+			out->operation = OP_RESTORE;
+			break;
+		case 2:
+			out->operation = OP_CONFIGURE;
+			parse_options_menu(out);
+			break;
+		case 3:
+			out->operation = OP_EXIT;
+			return 0;
+		default:
+			log_fatal(__FL__, "Option %d chosen of %d. This should never happen", res + 1, ARRAY_SIZE(choices_initial));
+			return -1;
+		}
+	}while (out->operation == OP_CONFIGURE);
+
+	return 0;
+}
 
 /* runs for each file enum_files() finds */
 int fun(const char* file, const char* dir, struct stat* st, void* params){
@@ -422,11 +430,11 @@ int fun(const char* file, const char* dir, struct stat* st, void* params){
 
 	err = add_checksum_to_file(file, fparams->opt.hash_algorithm, fparams->fp_hashes, fparams->fp_hashes_prev);
 	if (err == 1){
-		/*
-		   if (fparams->opt.flags & FLAG_VERBOSE){
-		   printf("Skipping unchanged (%s)\n", file);
-		   }
-		   */
+
+		if (fparams->opt.flags & FLAG_VERBOSE){
+			printf("Skipping unchanged (%s)\n", file);
+		}
+
 		return 1;
 	}
 	else if (err != 0){
@@ -457,60 +465,34 @@ int error(const char* file, int __errno, void* params){
 	return 1;
 }
 
-int main(int argc, char** argv){
-	func_params fparams;
-
+int backup(func_params* fparams, const options* opt_prev){
 	FILE* fp_tar = NULL;
 	FILE* fp_removed = NULL;
 	FILE* fp_sorted = NULL;
+	FILE* fp_config = NULL;
 
+	char* name_config = NULL;
 	char template_tar[] = "/var/tmp/tar_XXXXXX";
 	char template_sorted[] = "/var/tmp/sorted_XXXXXX";
 	char template_prev[] = "/var/tmp/prev_XXXXXX";
 
 	int i;
 
-	/* set fparams values to all NULL or 0 */
-	fparams.tp = NULL;
-	fparams.fp_hashes = NULL;
-
-	log_setlevel(LEVEL_WARNING);
-
-	/* parse command line args */
-	if (parse_options(argc, argv, &fparams) != 0){
-		log_debug(__FL__, "Error parsing options");
-		return 1;
-	}
-
-	switch(fparams.opt.operation){
-	case OP_BACKUP:
-		break;
-	case OP_RESTORE:
-		printf("Restore not implemented yet\n");
-		return 0;
-	case OP_CONFIGURE:
-		parse_options_menu(&(fparams.opt));
-		break;
-	default:
-		log_fatal(__FL__, "Invalid operation specified. This should never happen");
-		return 1;
-	}
-
 	/* put in /home/<user>/Backups/backup-<unixtime>.tar(.bz2)(.crypt) */
-	if (!fparams.opt.file_out &&
-			get_default_backup_name(&(fparams.opt)) != 0){
+	if (!fparams->opt.file_out &&
+			get_default_backup_name(&(fparams->opt)) != 0){
 		log_error(__FL__, "Failed to create backup name");
 		return 1;
 	}
 
 	/* load hashes from previous backup if it exists */
-	if (fparams.opt.prev_backup){
+	if (opt_prev && opt_prev->prev_backup && opt_prev->hash_algorithm == fparams->opt.hash_algorithm){
 		FILE* fp_hashes_prev;
 		FILE* fp_backup_prev;
 
-		fp_backup_prev = fopen(fparams.opt.prev_backup, "rb");
+		fp_backup_prev = fopen(opt_prev->prev_backup, "rb");
 		if (!fp_backup_prev){
-			log_error(__FL__, STR_EFOPEN, fparams.opt.prev_backup, strerror(errno));
+			log_error(__FL__, STR_EFOPEN, opt_prev->prev_backup, strerror(errno));
 			return 1;
 		}
 
@@ -520,7 +502,7 @@ int main(int argc, char** argv){
 		}
 
 		fclose(fp_hashes_prev);
-		if (extract_prev_checksums(fp_backup_prev, template_prev, fparams.opt.enc_algorithm, fparams.opt.flags & FLAG_VERBOSE) != 0){
+		if (extract_prev_checksums(fp_backup_prev, template_prev, opt_prev->enc_algorithm, opt_prev->flags & FLAG_VERBOSE) != 0){
 			log_debug(__FL__, "Failed to extract previous checksums");
 			return 1;
 		}
@@ -531,14 +513,14 @@ int main(int argc, char** argv){
 		}
 
 		if (fclose(fp_backup_prev) != 0){
-			log_warning(__FL__, STR_EFCLOSE, fparams.opt.prev_backup);
+			log_warning(__FL__, STR_EFCLOSE, opt_prev->prev_backup);
 		}
 
 		rewind(fp_hashes_prev);
-		fparams.fp_hashes_prev = fp_hashes_prev;
+		fparams->fp_hashes_prev = fp_hashes_prev;
 	}
 	else{
-		fparams.fp_hashes_prev = NULL;
+		fparams->fp_hashes_prev = NULL;
 	}
 
 	if ((fp_tar = temp_file_ex(template_tar)) == NULL){
@@ -546,18 +528,18 @@ int main(int argc, char** argv){
 	}
 
 	/* creating the tarball */
-	printf("Adding files to %s...\n", fparams.opt.file_out);
-	fparams.tp = tar_create(template_tar, fparams.opt.comp_algorithm);
+	printf("Adding files to %s...\n", fparams->opt.file_out);
+	fparams->tp = tar_create(template_tar, fparams->opt.comp_algorithm, fparams->opt.comp_level);
 
 	/* create initial hash list */
-	if ((fparams.fp_hashes = temp_file("/var/tmp/hashes_XXXXXX")) == NULL){
+	if ((fparams->fp_hashes = temp_file("/var/tmp/hashes_XXXXXX")) == NULL){
 		log_debug(__FL__, "Failed to create temp file for hashes");
 		return 1;
 	}
 
 	/* enumerate over each directory with fun() */
-	for (i = 0; i < fparams.opt.directories_len; ++i){
-		enum_files(fparams.opt.directories[i], fun, &fparams, error, NULL);
+	for (i = 0; i < fparams->opt.directories_len; ++i){
+		enum_files(fparams->opt.directories[i], fun, fparams, error, NULL);
 	}
 	remove(template_prev);
 
@@ -566,10 +548,10 @@ int main(int argc, char** argv){
 		log_warning(__FL__, "Failed to create temp file for sorted checksum list");
 	}
 	else{
-		if (sort_checksum_file(fparams.fp_hashes, fp_sorted) != 0){
+		if (sort_checksum_file(fparams->fp_hashes, fp_sorted) != 0){
 			log_warning(__FL__, "Failed to sort checksum list");
 		}
-		if (tar_add_fp_ex(fparams.tp, fp_sorted, "/checksums", fparams.opt.flags & FLAG_VERBOSE, "Adding checksum list...") != 0){
+		if (tar_add_fp_ex(fparams->tp, fp_sorted, "/checksums", fparams->opt.flags & FLAG_VERBOSE, "Adding checksum list...") != 0){
 			log_warning(__FL__, "Failed to write checksums to backup");
 		}
 		fclose(fp_sorted);
@@ -581,50 +563,65 @@ int main(int argc, char** argv){
 		log_debug(__FL__, "Failed to create removed temp file");
 	}
 	else{
-		if (create_removed_list(fparams.fp_hashes, fp_removed) != 0){
+		if (create_removed_list(fparams->fp_hashes, fp_removed) != 0){
 			log_debug(__FL__, "Failed to create removed list");
 		}
 	}
 
 	/* don't really care if this fails, since this will get removed anyway */
-	fclose(fparams.fp_hashes);
+	fclose(fparams->fp_hashes);
 
-	if (tar_add_fp_ex(fparams.tp, fp_removed, "/removed", fparams.opt.flags & FLAG_VERBOSE, "Adding removed list...") != 0){
+	if (tar_add_fp_ex(fparams->tp, fp_removed, "/removed", fparams->opt.flags & FLAG_VERBOSE, "Adding removed list...") != 0){
 		log_warning(__FL__, "Failed to add removed list to backup");
+	}
+
+	if (get_config_name(&name_config) != 0){
+		log_warning(__FL__, "Failed to determine config name");
+	}
+	else{
+		fp_config = fopen(name_config, "rb");
+		if (!fp_config){
+			log_warning(__FL__, "Failed to open config file");
+		}
+	}
+	if (fp_config){
+		if (tar_add_fp_ex(fparams->tp, fp_config, "/config", fparams->opt.flags & FLAG_VERBOSE, "Adding config...") != 0){
+			log_warning(__FL__, "Failed to add config to backup");
+		}
 	}
 
 	/* ditto above */
 	fclose(fp_removed);
 
-	if (tar_close(fparams.tp) != 0){
+	if (tar_close(fparams->tp) != 0){
 		log_warning(__FL__, "Failed to close tar. Data corruption possible");
 	}
 
 	/* encrypt output */
-	if (fparams.opt.enc_algorithm){
+	if (fparams->opt.enc_algorithm){
 		FILE* fp_out;
 
-		fp_out = fopen(fparams.opt.file_out, "wb");
+		fp_out = fopen(fparams->opt.file_out, "wb");
 		if (!fp_out){
-			log_error(__FL__, STR_EFOPEN, fparams.opt.file_out, strerror(errno));
+			log_error(__FL__, STR_EFOPEN, fparams->opt.file_out, strerror(errno));
 			return 1;
 		}
 
-		if (encrypt_file(fp_tar, fp_out, fparams.opt.enc_algorithm, fparams.opt.flags & FLAG_VERBOSE) != 0){
+		if (encrypt_file(fp_tar, fp_out, fparams->opt.enc_algorithm, fparams->opt.flags & FLAG_VERBOSE) != 0){
 			log_warning(__FL__, "Failed to encrypt file");
 		}
 
 		if (fclose(fp_out) != 0){
-			log_warning(__FL__, "Failed to close %s (%s). Data corruption possible", fparams.opt.file_out, strerror(errno));
+			log_warning(__FL__, "Failed to close %s (%s). Data corruption possible", fparams->opt.file_out, strerror(errno));
 		}
 	}
 
 	else{
 		FILE* fp_out;
 
-		fp_out = fopen(fparams.opt.file_out, "wb");
+		fp_out = fopen(fparams->opt.file_out, "wb");
 		if (!fp_out){
-			log_error(__FL__, STR_EFOPEN, fparams.opt.file_out, strerror(errno));
+			log_error(__FL__, STR_EFOPEN, fparams->opt.file_out, strerror(errno));
 			return 1;
 		}
 
@@ -636,11 +633,55 @@ int main(int argc, char** argv){
 	}
 	remove(template_tar);
 
-	free(fparams.opt.prev_backup);
-	fparams.opt.prev_backup = fparams.opt.file_out;
+	free(fparams->opt.prev_backup);
+	fparams->opt.prev_backup = fparams->opt.file_out;
 
 	write_config_file(fparams);
 
-	free_options(&(fparams.opt));
+	free_options(&(fparams->opt));
+	return 0;
+}
+
+int main(int argc, char** argv){
+	func_params fparams;
+	options opt_prev;
+	int res;
+
+	/* set fparams values to all NULL or 0 */
+	fparams.tp = NULL;
+	fparams.fp_hashes = NULL;
+
+	log_setlevel(LEVEL_WARNING);
+
+	/* parse command line args */
+	res = parse_options_prev(argc, argv, &opt_prev);
+	if (res < 0){
+		log_debug(__FL__, "Error parsing options");
+		return 1;
+	}
+	else if (res > 0){
+		parse_options_current(&opt_prev, &(fparams.opt), "Main Menu - Default Options Generated");
+	}
+	else{
+		parse_options_current(&opt_prev, &(fparams.opt), NULL);
+	}
+
+	switch(fparams.opt.operation){
+	case OP_BACKUP:
+		backup(&fparams, &opt_prev);
+		break;
+	case OP_RESTORE:
+		printf("Restore not implemented yet\n");
+		return 0;
+	case OP_CONFIGURE:
+		parse_options_menu(&(fparams.opt));
+		break;
+	case OP_EXIT:
+		return 0;
+	default:
+		log_fatal(__FL__, "Invalid operation specified. This should never happen");
+		return 1;
+	}
+
 	return 0;
 }

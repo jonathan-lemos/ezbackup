@@ -3,7 +3,7 @@ Dependencies:
 openssl
 libarchive
 ncurses
-menu
+ncurses menu
 libedit
 meganz/sdk
 	libcurl

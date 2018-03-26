@@ -93,10 +93,9 @@ return 0;
 
 /* computes a hash
  * returns 0 on success or err on failure */
-int checksum(const char* file, const char* algorithm, unsigned char** out, unsigned* len){
+int checksum(const char* file, const EVP_MD* algorithm, unsigned char** out, unsigned* len){
 	FILE* fp = NULL;
 	EVP_MD_CTX* ctx = NULL;
-	const EVP_MD* md;
 	unsigned char buffer[BUFFER_LEN];
 	int length;
 	int ret = 0;
@@ -114,22 +113,11 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 		goto cleanup;
 	}
 
-	/* get EVP_MD* from char* */
-	if (algorithm){
-		OpenSSL_add_all_algorithms();
-		if (!(md = EVP_get_digestbyname(algorithm))){
-			log_error(__FL__, "Failed to load digest algorithm from name");
-			ERR_print_errors_fp(stderr);
-			ret = -1;
-			goto cleanup;
-		}
-	}
-	/* default to sha1 if NULL algorithm */
-	else{
-		md = EVP_sha1();
+	if (!algorithm){
+		algorithm = EVP_sha1();
 	}
 
-	if (EVP_DigestInit_ex(ctx, md, NULL) != 1){
+	if (EVP_DigestInit_ex(ctx, algorithm, NULL) != 1){
 		log_error(__FL__, "Failed to initialize digest algorithm");
 		ERR_print_errors_fp(stderr);
 		ret = -1;
@@ -142,8 +130,8 @@ int checksum(const char* file, const char* algorithm, unsigned char** out, unsig
 		ret = -1;
 		goto cleanup;
 	}
-	*len = EVP_MD_size(md);
-	if (!(*out = malloc(EVP_MD_size(md)))){
+	*len = EVP_MD_size(algorithm);
+	if (!(*out = malloc(EVP_MD_size(algorithm)))){
 		log_fatal(__FL__, STR_ENOMEM);
 		ret = -1;
 		goto cleanup;
@@ -176,7 +164,7 @@ cleanup:
 	return ret;
 }
 
-static int file_to_element(const char* file, const char* algorithm, element** out){
+static int file_to_element(const char* file, const EVP_MD* algorithm, element** out){
 	unsigned char* buffer = NULL;
 	unsigned len = 0;
 	int ret = 0;
@@ -239,7 +227,7 @@ cleanup:
  * way to seperate the hash from its filename is to use a '\0'
  *
  * returns 0 on success or err on error */
-int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, FILE* prev_checksums){
+int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, FILE* prev_checksums){
 	element* e;
 	char* checksum = NULL;
 	int ret;
