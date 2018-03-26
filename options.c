@@ -291,10 +291,24 @@ int display_menu(const char** options, int num_options, const char* title){
 		/* handle menu input */
 		switch(c){
 		case KEY_DOWN:
-			menu_driver(my_menu, REQ_DOWN_ITEM);
+			cur_item = current_item(my_menu);
+			ret = item_index(cur_item);
+			if (ret >= num_options - 1){
+				menu_driver(my_menu, REQ_FIRST_ITEM);
+			}
+			else{
+				menu_driver(my_menu, REQ_DOWN_ITEM);
+			}
 			break;
 		case KEY_UP:
-			menu_driver(my_menu, REQ_UP_ITEM);
+			cur_item = current_item(my_menu);
+			ret = item_index(cur_item);
+			if (ret <= 0){
+				menu_driver(my_menu, REQ_LAST_ITEM);
+			}
+			else{
+				menu_driver(my_menu, REQ_UP_ITEM);
+			}
 			break;
 		}
 	}
