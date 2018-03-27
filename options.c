@@ -32,6 +32,9 @@
 #endif
 /* is_directory() */
 #include <sys/stat.h>
+/* get home directory */
+#include <unistd.h>
+#include <pwd.h>
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
@@ -120,6 +123,41 @@ static int add_string_to_array(char*** array, int* array_len, const char* str){
 	return 0;
 }
 
+static int get_backup_directory(char** out){
+	struct passwd* pw;
+	char* homedir;
+	struct stat st;
+
+	/* get home directory */
+	if (!(homedir = getenv("HOME"))){
+		pw = getpwuid(getuid());
+		if (!pw){
+			log_error(__FL__, "Failed to get home directory");
+			return -1;
+		}
+		homedir = pw->pw_dir;
+	}
+
+	/* /home/<user>/Backups */
+	*out = malloc(strlen(homedir) + sizeof("/Backups"));
+	if (!(*out)){
+		log_fatal(__FL__, STR_ENOMEM);
+		return -1;
+	}
+	strcpy(*out, homedir);
+	strcat(*out, "/Backups");
+
+	if (stat(*out, &st) == -1){
+		if (mkdir(*out, 0755) == -1){
+			log_error(__FL__, "Failed to create backup directory at %s", *out);
+			free(*out);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 /* parses command line args
  *
  * returns -1 if out is NULL, 0 on success
@@ -173,8 +211,8 @@ int parse_options_cmdline(int argc, char** argv, options* out){
 			/* next argument */
 			++i;
 			/* must be able to call free() w/o errors */
-			out->file_out = malloc(strlen(argv[i]) + 1);
-			strcpy(out->file_out, argv[i]);
+			out->output_directory = malloc(strlen(argv[i]) + 1);
+			strcpy(out->output_directory, argv[i]);
 		}
 		/* exclude */
 		else if (!strcmp(argv[i], "-x")){
@@ -213,6 +251,10 @@ int parse_options_cmdline(int argc, char** argv, options* out){
 		out->directories[0] = malloc(sizeof("/"));
 		strcpy(out->directories[0], "/");
 		out->directories_len = 1;
+	}
+	if (!out->output_directory && get_backup_directory(&out->output_directory) != 0){
+		log_error(__FL__, "Could not determine output directory");
+		return -1;
 	}
 	return 0;
 }
@@ -359,7 +401,8 @@ static int menu_compressor(options* opt){
 		"bzip2 (higher compression, slower)",
 		"xz    (highest compression, slowest)",
 		"lz4   (fastest, lowest compression)",
-		"none"
+		"none",
+		"Exit"
 	};
 	COMPRESSOR list_compressor[] = {
 		COMPRESSOR_GZIP,
@@ -370,8 +413,8 @@ static int menu_compressor(options* opt){
 	};
 
 	res = display_menu(options_compressor, ARRAY_SIZE(options_compressor), "Select a compression algorithm");
-	if (opt->comp_algorithm != list_compressor[res]){
-		opt->prev_backup = NULL;
+	if (res == 5){
+		return 0;
 	}
 	opt->comp_algorithm = list_compressor[res];
 	return menu_compression_level(opt);
@@ -384,7 +427,8 @@ static int menu_checksum(options* opt){
 		"sha256 (less collisions, slower)",
 		"sha512 (lowest collisions, slowest)",
 		"md5    (fastest, most collisions)",
-		"none"
+		"none",
+		"Exit"
 	};
 	const EVP_MD*(*list_checksum[])(void) = {
 		EVP_sha1,
@@ -395,6 +439,9 @@ static int menu_checksum(options* opt){
 	};
 
 	res = display_menu(options_checksum, ARRAY_SIZE(options_checksum), "Select a checksum algorithm");
+	if (res == 5){
+		return 0;
+	}
 	opt->hash_algorithm = list_checksum[res] ? (list_checksum[res])() : NULL;
 	return 0;
 }
@@ -410,7 +457,8 @@ static int menu_encryption(options* opt){
 		"SEED",
 		"Blowfish",
 		"Triple DES (EDE3)",
-		"none"
+		"none",
+		"Exit"
 	};
 	const char* list_encryption[] = {
 		"aes",
@@ -444,6 +492,9 @@ static int menu_encryption(options* opt){
 	};
 
 	res_encryption = display_menu(options_encryption, ARRAY_SIZE(options_encryption), "Select an encryption algorithm");
+	if (res_encryption == 6){
+		return 0;
+	}
 	if (res_encryption <= 1){
 		res_keysize = display_menu(options_keysize, ARRAY_SIZE(options_keysize), "Select a key size");
 	}
@@ -455,14 +506,15 @@ static int menu_encryption(options* opt){
 	}
 
 	if (res_encryption < 0 || res_encryption == 5){
+		opt->enc_algorithm = EVP_enc_null();
 		return 0;
 	}
 	tmp = malloc(sizeof("camellia-256-cbc"));
 	strcpy(tmp, list_encryption[res_encryption]);
-	if (res_keysize > 0){
+	if (res_keysize >= 0){
 		strcat(tmp, list_keysize[res_keysize]);
 	}
-	if (res_mode > 0){
+	if (res_mode >= 0){
 		strcat(tmp, list_mode[res_keysize]);
 	}
 	opt->enc_algorithm = EVP_get_cipherbyname(tmp);
@@ -623,14 +675,39 @@ int menu_exclude(options* opt){
 	return 0;
 }
 
+int menu_output_directory(options* opt){
+	char* tmp;
+	if (opt->output_directory){
+		printf("Old directory: %s\n", opt->output_directory);
+		free(opt->output_directory);
+	}
+	tmp = readline("Enter the output directory:");
+	if (strcmp(tmp, "") == 0){
+		free(tmp);
+	}
+	else{
+		opt->output_directory = tmp;
+	}
+	return 0;
+}
+
+int parse_options_new(options* opt){
+	menu_compressor(opt);
+	menu_checksum(opt);
+	menu_encryption(opt);
+	menu_directories(opt);
+	menu_exclude(opt);
+	return 0;
+}
+
 int parse_options_menu(options* opt){
 	int res;
 	const char* options_main_menu[] = {
 		"Compression",
-		"Checksums",
 		"Encryption",
 		"Directories",
 		"Exclude paths",
+		"Output Directory",
 		"Exit"
 	};
 	do{
@@ -640,16 +717,16 @@ int parse_options_menu(options* opt){
 			menu_compressor(opt);
 			break;
 		case 1:
-			menu_checksum(opt);
-			break;
-		case 2:
 			menu_encryption(opt);
 			break;
-		case 3:
+		case 2:
 			menu_directories(opt);
 			break;
-		case 4:
+		case 3:
 			menu_exclude(opt);
+			break;
+		case 4:
+			menu_output_directory(opt);
 			break;
 		case 5:
 			break;
@@ -667,22 +744,15 @@ int get_default_options(options* opt){
 	opt->hash_algorithm = EVP_sha1();
 	opt->enc_algorithm = EVP_aes_256_cbc();
 	opt->prev_backup = NULL;
-	opt->directories = malloc(sizeof(*(opt->directories)));
-	if (!opt->directories){
-		log_fatal(__FL__, STR_ENOMEM);
-		return -1;
-	}
-	opt->directories[0] = malloc(sizeof("/"));
-	if (!opt->directories[0]){
-		free(opt->directories);
-		log_fatal(__FL__, STR_ENOMEM);
-		return -1;
-	}
-	strcpy(opt->directories[0], "/");
-	opt->directories_len = 1;
+	opt->directories = NULL;
+	opt->directories_len = 0;
 	opt->exclude = NULL;
 	opt->exclude_len = 0;
 	opt->operation = OP_INVALID;
+	if (get_backup_directory(&(opt->output_directory)) != 0){
+		log_debug(__FL__, "Failed to make backup directory");
+		return 1;
+	}
 	opt->flags = FLAG_VERBOSE;
 	return 0;
 }
@@ -776,7 +846,7 @@ int parse_options_fromfile(const char* file, options* opt){
 	fscanf(fp, "\nENCRYPTION=");
 	tmp = read_file_string(fp);
 	if (!tmp){
-		opt->enc_algorithm = NULL;
+		opt->enc_algorithm = EVP_enc_null();
 	}
 	else{
 		opt->enc_algorithm = EVP_get_cipherbyname(tmp);
@@ -843,10 +913,9 @@ int write_options_tofile(const char* file, options* opt){
 void free_options(options* opt){
 	int i;
 	/* freeing a nullptr is ok */
-	if (opt->prev_backup != opt->file_out){
-		free(opt->prev_backup);
-	}
-	free(opt->file_out);
+
+	free(opt->prev_backup);
+	free(opt->output_directory);
 	for (i = 0; i < opt->exclude_len; ++i){
 		free(opt->exclude[i]);
 	}

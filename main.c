@@ -25,6 +25,8 @@
 #include "readfile.h"
 /* command line args */
 #include "options.h"
+/* mega integration */
+#include "cloud/mega.h"
 /* printf, FILE* */
 #include <stdio.h>
 /* strerror(), strcmp(), etc. */
@@ -40,6 +42,14 @@
 #include <time.h>
 /* disabling core dumps */
 #include <sys/resource.h>
+/* readline() */
+#if defined(__linux__)
+#include <editline/readline.h>
+#elif defined(__APPLE__)
+#include <readline/readline.h>
+#else
+#error "This operating system is not supported"
+#endif
 
 #define UNUSED(x) ((void)(x))
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
@@ -73,10 +83,9 @@ static int copy_fp(FILE* in, FILE* out){
 	return 0;
 }
 
-static int get_backup_directory(char** out){
+static int get_config_name(char** out){
 	struct passwd* pw;
 	char* homedir;
-	struct stat st;
 
 	/* get home directory */
 	if (!(homedir = getenv("HOME"))){
@@ -87,92 +96,56 @@ static int get_backup_directory(char** out){
 		}
 		homedir = pw->pw_dir;
 	}
-
-	/* /home/<user>/Backups */
-	*out = malloc(strlen(homedir) + sizeof("/Backups"));
+	*out = malloc(strlen(homedir) + sizeof("/.ezbackup.conf"));
 	if (!(*out)){
 		log_fatal(__FL__, STR_ENOMEM);
 		return -1;
 	}
+
 	strcpy(*out, homedir);
-	strcat(*out, "/Backups");
-
-	if (stat(*out, &st) == -1){
-		if (mkdir(*out, 0755) == -1){
-			log_error(__FL__, "Failed to create backup directory at %s", *out);
-			free(*out);
-			return -1;
-		}
-	}
+	strcat(*out, "/.ezbackup.conf");
 
 	return 0;
 }
 
-static int get_config_name(char** out){
-	char* backupdir;
-
-	if (get_backup_directory(&backupdir) != 0){
-		log_debug(__FL__, "get_backup_directory() failed");
-		return -1;
-	}
-
-	*out = malloc(strlen(backupdir) + sizeof("/backup.conf"));
-	if (!(*out)){
-		log_fatal(__FL__, STR_ENOMEM);
-		return -1;
-	}
-
-	strcpy(*out, backupdir);
-	strcat(*out, "/backup.conf");
-
-	free(backupdir);
-	return 0;
-}
-
-static int get_default_backup_name(options* opt){
-	char* backupdir;
-	char file[sizeof("/backup-") + 50];
-
-	if (get_backup_directory(&backupdir) != 0){
-		log_debug(__FL__, "get_backup_directory() failed");
-		return -1;
-	}
+static int get_default_backup_name(options* opt, char** out){
+	char file[128];
 
 	/* /home/<user>/Backups/backup-<unixtime>.tar(.bz2)(.crypt) */
-	opt->file_out = malloc(strlen(backupdir) + sizeof(file));
-	if (!opt->file_out){
-		free(backupdir);
+	*out = malloc(strlen(opt->output_directory) + sizeof(file));
+	if (!(out)){
 		log_error(__FL__, STR_ENOMEM);
 		return -1;
 	}
 
 	/* get unix time and concatenate it to the filename */
 	sprintf(file, "/backup-%ld", (long)time(NULL));
-	strcpy(opt->file_out, backupdir);
-	strcat(opt->file_out, file);
+	strcpy(*out, opt->output_directory);
+	strcat(*out, file);
 
 	/* concatenate extensions */
-	strcat(opt->file_out, ".tar");
+	strcat(*out, ".tar");
 	switch (opt->comp_algorithm){
 	case COMPRESSOR_GZIP:
-		strcat(opt->file_out, ".gz");
+		strcat(*out, ".gz");
 		break;
 	case COMPRESSOR_BZIP2:
-		strcat(opt->file_out, ".bz2");
+		strcat(*out, ".bz2");
 		break;
 	case COMPRESSOR_XZ:
-		strcat(opt->file_out, ".xz");
+		strcat(*out, ".xz");
 		break;
 	case COMPRESSOR_LZ4:
-		strcat(opt->file_out, ".lz4");
+		strcat(*out, ".lz4");
 		break;
 	default:
 		;
 	}
 	if (opt->enc_algorithm){
-		strcat(opt->file_out, ".crypt");
+		char enc_algo_str[64];
+		sprintf(enc_algo_str, ".%s", EVP_CIPHER_name(opt->enc_algorithm));
+		strcat(*out, enc_algo_str);
 	}
-	free(backupdir);
 	return 0;
 }
 
@@ -465,25 +438,112 @@ int error(const char* file, int __errno, void* params){
 	return 1;
 }
 
-int backup(func_params* fparams, const options* opt_prev){
+static int mega_create_account(char** out_username){
+	(void)out_username;
+	printf("Not implemented yet\n");
+	sleep(3);
+	return 0;
+}
+
+static int mega_upload(const char* file, const char* username, const char* password){
+	char* uname = NULL;
+	int res;
+	MEGAhandle mh;
+	const char* options_username[] = {
+		"Login",
+		"Create an account (not implemented yet)"
+	};
+
+	if (!username){
+		res = display_menu(options_username, ARRAY_SIZE(options_username), "MEGA");
+		switch (res){
+		case 0:
+			uname = readline("Enter username:");
+			break;
+		case 1:
+			if (mega_create_account(&uname) != 0){
+				log_debug(__FL__, "Failed to create MEGA account");
+				return -1;
+			}
+		default:
+			log_fatal(__FL__, "Option %d chosen of %d. This should never happen", res, ARRAY_SIZE(options_username));
+			return -1;
+		}
+	}
+	else{
+		uname = malloc(strlen(username) + 1);
+		if (!uname){
+			log_fatal(__FL__, STR_ENOMEM);
+			return -1;
+		}
+		strcpy(uname, username);
+	}
+
+	if (MEGAlogin(uname, password, &mh) != 0){
+		log_debug(__FL__, "Failed to log in to MEGA");
+		free(uname);
+		return -1;
+	}
+	if (MEGAmkdir("/Backups", mh) < 0){
+		log_debug(__FL__, "Failed to create backup directory in MEGA");
+		free(uname);
+		MEGAlogout(mh);
+		return -1;
+	}
+	if (MEGAupload(file, "/Backups", "Uploading file to MEGA", mh) != 0){
+		log_debug(__FL__, "Failed to upload file to MEGA");
+		free(uname);
+		MEGAlogout(mh);
+		return -1;
+	}
+	if (MEGAlogout(mh) != 0){
+		log_debug(__FL__, "Failed to logout of MEGA");
+		free(uname);
+		return -1;
+	}
+	free(uname);
+	return 0;
+}
+
+static int mega_download(const char* out_file, const char* username, const char* password){
+	int res;
+	char** files;
+	MEGAhandle mh;
+
+	if (MEGAlogin(username, password, &mh) != 0){
+		log_debug(__FL__, "Failed to login to MEGA");
+		return -1;
+	}
+	res = MEGAreaddir("/Backups", &files, mh);
+}
+
+static int restore(func_params* fparams, const options* opt_prev){
+	int res;
+	const char* options_main[] = {
+		"Restore locally",
+		"Restore from cloud"
+	};
+
+	res = display_menu(options_main, ARRAY_SIZE(options_main), "Restore");
+	switch (res){
+		case 0:
+			;
+		case 1:
+
+	}
+}
+
+static int backup(func_params* fparams, const options* opt_prev){
 	FILE* fp_tar = NULL;
 	FILE* fp_removed = NULL;
 	FILE* fp_sorted = NULL;
-	FILE* fp_config = NULL;
 
-	char* name_config = NULL;
 	char template_tar[] = "/var/tmp/tar_XXXXXX";
 	char template_sorted[] = "/var/tmp/sorted_XXXXXX";
 	char template_prev[] = "/var/tmp/prev_XXXXXX";
 
+	char* file_out;
 	int i;
-
-	/* put in /home/<user>/Backups/backup-<unixtime>.tar(.bz2)(.crypt) */
-	if (!fparams->opt.file_out &&
-			get_default_backup_name(&(fparams->opt)) != 0){
-		log_error(__FL__, "Failed to create backup name");
-		return 1;
-	}
 
 	/* load hashes from previous backup if it exists */
 	if (opt_prev && opt_prev->prev_backup && opt_prev->hash_algorithm == fparams->opt.hash_algorithm){
@@ -527,8 +587,14 @@ int backup(func_params* fparams, const options* opt_prev){
 		log_debug(__FL__, "Failed to make temp file for tar");
 	}
 
+	/* put in /home/<user>/Backups/backup-<unixtime>.tar(.bz2)(.crypt) */
+	if (get_default_backup_name(&(fparams->opt), &file_out) != 0){
+		log_error(__FL__, "Failed to create backup name");
+		return 1;
+	}
+
 	/* creating the tarball */
-	printf("Adding files to %s...\n", fparams->opt.file_out);
+	printf("Adding files to %s...\n", file_out);
 	fparams->tp = tar_create(template_tar, fparams->opt.comp_algorithm, fparams->opt.comp_level);
 
 	/* create initial hash list */
@@ -575,20 +641,22 @@ int backup(func_params* fparams, const options* opt_prev){
 		log_warning(__FL__, "Failed to add removed list to backup");
 	}
 
-	if (get_config_name(&name_config) != 0){
-		log_warning(__FL__, "Failed to determine config name");
-	}
-	else{
-		fp_config = fopen(name_config, "rb");
-		if (!fp_config){
-			log_warning(__FL__, "Failed to open config file");
-		}
-	}
-	if (fp_config){
-		if (tar_add_fp_ex(fparams->tp, fp_config, "/config", fparams->opt.flags & FLAG_VERBOSE, "Adding config...") != 0){
-			log_warning(__FL__, "Failed to add config to backup");
-		}
-	}
+	/*
+	   if (get_config_name(&name_config) != 0){
+	   log_warning(__FL__, "Failed to determine config name");
+	   }
+	   else{
+	   fp_config = fopen(name_config, "rb");
+	   if (!fp_config){
+	   log_warning(__FL__, "Failed to open config file (%s)", strerror(errno));
+	   }
+	   }
+	   if (fp_config){
+	   if (tar_add_fp_ex(fparams->tp, fp_config, "/config", fparams->opt.flags & FLAG_VERBOSE, "Adding config...") != 0){
+	   log_warning(__FL__, "Failed to add config to backup");
+	   }
+	   }
+	   */
 
 	/* ditto above */
 	fclose(fp_removed);
@@ -601,9 +669,9 @@ int backup(func_params* fparams, const options* opt_prev){
 	if (fparams->opt.enc_algorithm){
 		FILE* fp_out;
 
-		fp_out = fopen(fparams->opt.file_out, "wb");
+		fp_out = fopen(file_out, "wb");
 		if (!fp_out){
-			log_error(__FL__, STR_EFOPEN, fparams->opt.file_out, strerror(errno));
+			log_error(__FL__, STR_EFOPEN, file_out, strerror(errno));
 			return 1;
 		}
 
@@ -612,16 +680,16 @@ int backup(func_params* fparams, const options* opt_prev){
 		}
 
 		if (fclose(fp_out) != 0){
-			log_warning(__FL__, "Failed to close %s (%s). Data corruption possible", fparams->opt.file_out, strerror(errno));
+			log_warning(__FL__, "Failed to close %s (%s). Data corruption possible", file_out, strerror(errno));
 		}
 	}
 
 	else{
 		FILE* fp_out;
 
-		fp_out = fopen(fparams->opt.file_out, "wb");
+		fp_out = fopen(file_out, "wb");
 		if (!fp_out){
-			log_error(__FL__, STR_EFOPEN, fparams->opt.file_out, strerror(errno));
+			log_error(__FL__, STR_EFOPEN, file_out, strerror(errno));
 			return 1;
 		}
 
@@ -633,8 +701,13 @@ int backup(func_params* fparams, const options* opt_prev){
 	}
 	remove(template_tar);
 
+	if (mega_upload(file_out, NULL, NULL) != 0){
+		log_debug(__FL__, "Failed to upload to MEGA");
+		return -1;
+	}
+
 	free(fparams->opt.prev_backup);
-	fparams->opt.prev_backup = fparams->opt.file_out;
+	fparams->opt.prev_backup = file_out;
 
 	write_config_file(fparams);
 
@@ -651,7 +724,7 @@ int main(int argc, char** argv){
 	fparams.tp = NULL;
 	fparams.fp_hashes = NULL;
 
-	log_setlevel(LEVEL_WARNING);
+	log_setlevel(LEVEL_INFO);
 
 	/* parse command line args */
 	res = parse_options_prev(argc, argv, &opt_prev);
@@ -663,19 +736,42 @@ int main(int argc, char** argv){
 		parse_options_current(&opt_prev, &(fparams.opt), "Main Menu - Default Options Generated");
 	}
 	else{
+		if (write_config_file(&fparams) != 0){
+			log_warning(__FL__, "Could not write config file");
+		}
 		parse_options_current(&opt_prev, &(fparams.opt), NULL);
 	}
 
-	switch(fparams.opt.operation){
+	switch (fparams.opt.operation){
+		char* homedir;
+		struct passwd* pw;
 	case OP_BACKUP:
+		if (!(homedir = getenv("HOME"))){
+			pw = getpwuid(getuid());
+			if (!pw){
+				log_error(__FL__, "Failed to get home directory");
+				return -1;
+			}
+			homedir = pw->pw_dir;
+		}
+		fparams.opt.directories = malloc(sizeof(*(fparams.opt.directories)));
+		if (!fparams.opt.directories){
+			log_fatal(__FL__, STR_ENOMEM);
+			return -1;
+		}
+		fparams.opt.directories[0] = malloc(strlen(homedir) + 1);
+		if (!fparams.opt.directories[0]){
+			free(fparams.opt.directories);
+			log_fatal(__FL__, STR_ENOMEM);
+			return -1;
+		}
+		fparams.opt.directories_len = 1;
+		strcpy(fparams.opt.directories[0], homedir);
 		backup(&fparams, &opt_prev);
 		break;
 	case OP_RESTORE:
 		printf("Restore not implemented yet\n");
 		return 0;
-	case OP_CONFIGURE:
-		parse_options_menu(&(fparams.opt));
-		break;
 	case OP_EXIT:
 		return 0;
 	default:

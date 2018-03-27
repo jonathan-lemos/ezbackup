@@ -33,7 +33,7 @@ typedef struct options{
 	const EVP_CIPHER* enc_algorithm;
 	COMPRESSOR        comp_algorithm;
 	int               comp_level;
-	char*             file_out;
+	char*             output_directory;
 	OPERATION         operation;
 	unsigned          flags;
 }options;
