@@ -19,5 +19,7 @@ int read_file(FILE* fp, unsigned char* dest, size_t length);
 FILE* temp_file(const char* __template);
 FILE* temp_file_ex(char* __template);
 int shred_file(const char* file);
+int file_opened_for_reading(FILE* fp);
+int file_opened_for_writing(FILE* fp);
 
 #endif

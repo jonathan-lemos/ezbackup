@@ -249,6 +249,16 @@ int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, FIL
 		return -1;
 	}
 
+	if (!file_opened_for_writing(out)){
+		log_error(__FL__, STR_EMODE);
+		return -1;
+	}
+
+	if (prev_checksums && !file_opened_for_reading(out)){
+		log_error(__FL__, STR_EMODE);
+		return -1;
+	}
+
 	if (file_to_element(file, algorithm, &e) != 0){
 		log_debug(__FL__, "Could not create element from file");
 		return -1;
@@ -278,6 +288,17 @@ int sort_checksum_file(FILE* fp_in, FILE* fp_out){
 	FILE** tmp_files;
 	size_t n_files;
 
+	if (!fp_in || !fp_out){
+		log_error(__FL__, STR_ENULL);
+		return -1;
+	}
+
+	if (!file_opened_for_reading(fp_in) || !file_opened_for_writing(fp_out)){
+		log_error(__FL__, STR_ENULL);
+		return -1;
+	}
+	rewind(fp_in);
+
 	if (create_initial_runs(fp_in, &tmp_files, &n_files) != 0){
 		log_debug(__FL__, "Error creating initial runs");
 		return -1;
@@ -292,6 +313,16 @@ int sort_checksum_file(FILE* fp_in, FILE* fp_out){
 }
 
 int search_for_checksum(FILE* fp_checksums, const char* key, char** checksum){
+	if (!fp_checksums || !key || !checksum){
+		log_error(__FL__, STR_ENULL);
+		return -1;
+	}
+
+	if (!file_opened_for_reading(fp_checksums)){
+		log_error(__FL__, STR_EMODE);
+		return -1;
+	}
+
 	return search_file(fp_checksums, key, checksum);
 }
 

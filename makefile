@@ -6,20 +6,19 @@
 # of the MIT license.  See the LICENSE file for details.
 
 NAME=ezbackup
-CC=clang
+CC=gcc
 CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500
-CXX=clang++
+CXX=g++
 CXXFLAGS=-Wall -Wextra -pedantic -std=c++11
 LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega -lstdc++
-DBGFLAGS=-g
-CXXDBGFLAGS=-g
+DBGFLAGS=-g -rdynamic
+CXXDBGFLAGS=-g -rdynamic
 RELEASEFLAGS=-O3
 CXXRELEASEFLAGS=-O3
 HEADERS=fileiterator maketar crypt readfile error checksum progressbar options checksumsort
 CXXHEADERS=cloud/mega
-TESTS=tests/test_checksum.c
+TESTS=tests/test_checksum
 CXXTESTS=
-TESTFLAGS=-rdynamic
 
 SOURCEFILES=$(foreach header,$(HEADERS),$(header).c)
 OBJECTS=$(foreach header,$(HEADERS),$(header).o)
@@ -37,8 +36,8 @@ release: main.o $(OBJECTS) $(CXXOBJECTS)
 debug: main.dbg.o $(DBGOBJECTS) $(CXXDBGOBJECTS)
 	$(CC) -o $(NAME) main.dbg.o $(DBGOBJECTS) $(CXXDBGOBJECTS) $(CFLAGS) $(DBGFLAGS) $(LINKFLAGS)
 
-test: tests/test_base.dbg.o $(DBGOBJECTS) $(CXXDBGOBJECTS)
-	$(foreach test,$(test),$(CC) -o $(test) $(TESTOBJECTS) tests/test_base.dbg.o $(DBGOBJECTS) $(CFLAGS) $(CXXDBGOBJECTS) $(DBGFLAGS) $(LINKFLAGS) $(TESTFLAGS))
+test: tests/test_base.dbg.o $(TESTOBJECTS) $(TESTCXXOBJECTS) $(DBGOBJECTS) $(CXXDBGOBJECTS)
+	$(foreach test,$(TESTS),$(CC) -o $(test) $(TESTOBJECTS) $(TESTCXXOBJECTS) tests/test_base.dbg.o $(DBGOBJECTS) $(CFLAGS) $(CXXDBGOBJECTS) $(DBGFLAGS) $(LINKFLAGS) $(TESTFLAGS))
 
 main.o: main.c
 	$(CC) -c -o main.o main.c $(CFLAGS) $(RELEASEFLAGS)
@@ -59,4 +58,4 @@ main.dbg.o: main.c
 	$(CXX) -c -o $@ $< $(CXXFLAGS) $(CXXDBGFLAGS)
 
 clean:
-	rm -f *.o $(NAME) $(NAME)_unstripped $(CLEANOBJECTS) $(CLEANCXXOBJECTS) $(OBJECTS) $(CXXOBJECTS) $(DBGOBJECTS) $(CXXDBGOBJECTS) main.c.* test.c.* vgcore.* test
+	rm -f *.o $(NAME) $(CLEANOBJECTS) $(CLEANCXXOBJECTS) main.c.* vgcore.* $(TESTOBJECTS) $(TESTCXXOBJECTS) tests/*.o cloud/*.o $(TESTS)

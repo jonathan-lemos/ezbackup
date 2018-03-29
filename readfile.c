@@ -22,6 +22,8 @@
 #include <stdlib.h>
 /* file size */
 #include <sys/stat.h>
+/* check file mode */
+#include <fcntl.h>
 
 /* reads length bytes from fp */
 /* returns the number of bytes sucessfully read */
@@ -138,4 +140,22 @@ int shred_file(const char* file){
 
 	remove(file);
 	return 0;
+}
+
+int file_opened_for_reading(FILE* fp){
+	int fd;
+	if (!fp){
+		return 0;
+	}
+	fd = fileno(fp);
+	return (fcntl(fd, F_GETFL) & O_RDONLY) || (fcntl(fd, F_GETFL) & O_RDWR);
+}
+
+int file_opened_for_writing(FILE* fp){
+	int fd;
+	if (!fp){
+		return 0;
+	}
+	fd = fileno(fp);
+	return (fcntl(fd, F_GETFL) & O_WRONLY) || (fcntl(fd, F_GETFL) & O_RDWR);
 }

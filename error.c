@@ -8,6 +8,7 @@ const char* const STR_EFOPEN  = "Could not open %s (%s)";
 const char* const STR_EFWRITE = "Error writing to %s";
 const char* const STR_EFREAD  = "Error reading from %s";
 const char* const STR_EFCLOSE = "Error closing %s";
+const char* const STR_EMODE = "The file pointer is opened in the incorrect mode";
 
 const char* const COLOR_NORMAL  = "\033[0m";
 const char* const COLOR_RED     = "\033[31m";
