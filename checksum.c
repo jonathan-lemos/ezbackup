@@ -33,7 +33,7 @@
 /* 16mb */
 #define MAX_RUN_SIZE (1 << 24)
 
-int bytes_to_hex(unsigned char* bytes, unsigned len, char** out){
+int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out){
 	unsigned i;
 	unsigned outptr;
 	unsigned outlen;
