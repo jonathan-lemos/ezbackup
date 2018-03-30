@@ -35,11 +35,11 @@ int crypt_set_encryption(const char* encryption, struct crypt_keys* fk);
 int crypt_gen_salt(struct crypt_keys* fk);
 int crypt_set_salt(unsigned char salt[8], struct crypt_keys* fk);
 int crypt_gen_keys(unsigned char* data, int data_len, const EVP_MD* md, int iterations, struct crypt_keys* fk);
-int crypt_encrypt(FILE* fp_in, struct crypt_keys* fk, FILE* fp_out);
-int crypt_encrypt_ex(FILE* fp_in, struct crypt_keys* fk, FILE* fp_out, int verbose, const char* progress_msg);
-int crypt_decrypt(FILE* fp_in, struct crypt_keys* fk, FILE* fp_out);
-int crypt_decrypt_ex(FILE* fp_in, struct crypt_keys* fk, FILE* fp_out, int verbose, const char* progress_msg);
-int crypt_extract_salt(FILE* fp_in, struct crypt_keys* fk);
+int crypt_encrypt(const char* in, struct crypt_keys* fk, const char* out);
+int crypt_encrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int verbose, const char* progress_msg);
+int crypt_decrypt(const char* in, struct crypt_keys* fk, const char* out);
+int crypt_decrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int verbose, const char* progress_msg);
+int crypt_extract_salt(const char* in, struct crypt_keys* fk);
 int crypt_free(struct crypt_keys* fk);
 
 #endif

@@ -21,7 +21,7 @@ struct TMPFILE{
 };
 
 int read_file(FILE* fp, unsigned char* dest, size_t length);
-struct TMPFILE* temp_fopen(const char* __template);
+struct TMPFILE* temp_fopen(const char* __template, const char* modes);
 int temp_fclose(struct TMPFILE* tfp);
 int shred_file(const char* file);
 int file_opened_for_reading(FILE* fp);

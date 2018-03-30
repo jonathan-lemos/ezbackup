@@ -40,9 +40,9 @@ int read_file(FILE* fp, unsigned char* dest, size_t length){
 	return ret;
 }
 
-TMPFILE* temp_fopen(const char* __template){
+struct TMPFILE* temp_fopen(const char* __template, const char* modes){
 	int fd;
-	TMPFILE* tfp;
+	struct TMPFILE* tfp;
 
 	tfp = malloc(sizeof(*tfp));
 	if (!tfp){
@@ -82,7 +82,7 @@ TMPFILE* temp_fopen(const char* __template){
 		return NULL;
 	}
 
-	tfp->fp = fdopen(fd, "w+b");
+	tfp->fp = fdopen(fd, modes);
 	if (!(tfp->fp)){
 		log_error(__FL__, "Failed to open temporary file %s (%s)", tfp->name, strerror(errno));
 		free(tfp->name);
@@ -93,7 +93,7 @@ TMPFILE* temp_fopen(const char* __template){
 	return tfp;
 }
 
-int temp_fclose(TMPFILE* tfp){
+int temp_fclose(struct TMPFILE* tfp){
 	int ret = 0;
 
 	if (!tfp){

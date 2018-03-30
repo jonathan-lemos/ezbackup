@@ -187,9 +187,8 @@ static int get_default_backup_name(options* opt){
 
 static int extract_prev_checksums(FILE* fp_in, char* out, const char* enc_algorithm, int verbose){
 	char pwbuffer[1024];
-	char decrypt_template[] = "/var/tmp/decrypt_XXXXXX";
-	crypt_keys fk;
-	FILE* fp_decrypt;
+	struct crypt_keys fk;
+	struct TMPFILE* tfp_decrypt;
 
 	if (!fp_in || !out || !enc_algorithm){
 		log_error(__FL__, STR_ENULL);
@@ -222,30 +221,32 @@ static int extract_prev_checksums(FILE* fp_in, char* out, const char* enc_algori
 	}
 	crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
 
-	if ((fp_decrypt = temp_file_ex(decrypt_template)) == NULL){
+	if ((tfp_decrypt = temp_fopen("/var/tmp/decrypt_XXXXXX", "w+b")) == NULL){
 		log_debug(__FL__, "temp_file() for file_decrypt failed");
 		return 1;
 	}
-	if ((crypt_decrypt_ex(fp_in, &fk, fp_decrypt, verbose, "Decrypting file...")) != 0){
+	if ((crypt_decrypt_ex(fp_in, &fk, tfp_decrypt->fp, verbose, "Decrypting file...")) != 0){
 		crypt_free(&fk);
 		log_debug(__FL__, "crypt_decrypt() failed");
 		return 1;
 	}
 	crypt_free(&fk);
-	fclose(fp_decrypt);
 
-	if ((tar_extract_file(decrypt_template, "/checksums", out)) != 0){
+	if ((tar_extract_file(tfp_decrypt->name, "/checksums", out)) != 0){
 		log_debug(__FL__, "tar_extract_file() failed");
 		return 1;
 	}
 
-	shred_file(decrypt_template);
+	shred_file(tfp_decrypt->name);
+	if (temp_fclose(tfp_decrypt) != 0){
+		log_debug(__FL__, STR_EFCLOSE);
+	}
 	return 0;
 }
 
 static int encrypt_file(FILE* fp_in, FILE* fp_out, const char* enc_algorithm, int verbose){
 	char pwbuffer[1024];
-	crypt_keys fk;
+	struct crypt_keys fk;
 	int err;
 
 	/* disable core dumps if possible */
