@@ -15,7 +15,7 @@ typedef void MEGAhandle;
 extern "C"{
 #endif
 
-int MEGAlogin(const char* username, const char* password, MEGAhandle* out);
+int MEGAlogin(const char* username, const char* password, MEGAhandle** out);
 int MEGAmkdir(const char* dir, MEGAhandle* mh);
 int MEGAreaddir(const char* dir, char** out, MEGAhandle* mh);
 int MEGAdownload(const char* download_path, const char* out_file, const char* msg, MEGAhandle* mh);
