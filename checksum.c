@@ -285,8 +285,9 @@ int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, FIL
 }
 
 int sort_checksum_file(FILE* fp_in, FILE* fp_out){
-	FILE** tmp_files;
+	struct TMPFILE** tmp_files;
 	size_t n_files;
+	size_t i;
 
 	if (!fp_in || !fp_out){
 		log_error(__FL__, STR_ENULL);
@@ -308,7 +309,9 @@ int sort_checksum_file(FILE* fp_in, FILE* fp_out){
 		return -1;
 	}
 
-	free_filearray(tmp_files, n_files);
+	for (i = 0; i < n_files; ++i){
+		temp_fclose(tmp_files[i]);
+	}
 	return 0;
 }
 

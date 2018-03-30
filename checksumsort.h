@@ -10,6 +10,7 @@
 #define __CHECKSUMSORT_H
 
 #include <stdio.h>
+#include "readfile.h"
 
 typedef struct element{
 	char* file;
@@ -29,8 +30,8 @@ void quicksort_elements(element** elements, int low, int high);
 void free_element(element* e);
 void free_element_array(element** elements, size_t size);
 void free_filearray(FILE** elements, size_t size);
-int create_initial_runs(FILE* in_file, FILE*** out, size_t* n_files);
-int merge_files(FILE** in, size_t n_files, FILE* out_file);
+int create_initial_runs(FILE* in_file, struct TMPFILE*** out, size_t* n_files);
+int merge_files(struct TMPFILE** in, size_t n_files, FILE* out_file);
 int search_file(FILE* fp, const char* key, char** checksum);
 
 #endif

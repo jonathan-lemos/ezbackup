@@ -40,62 +40,74 @@ int read_file(FILE* fp, unsigned char* dest, size_t length){
 	return ret;
 }
 
-FILE* temp_file(const char* __template){
-	char* tmp;
+TMPFILE* temp_fopen(const char* __template){
 	int fd;
-	FILE* fp;
+	TMPFILE* tfp;
 
-	/* template must be writable */
-	tmp = malloc(strlen(__template) + 1);
-	if (!tmp){
+	tfp = malloc(sizeof(*tfp));
+	if (!tfp){
 		log_fatal(__FL__, STR_ENOMEM);
 		return NULL;
 	}
-	strcpy(tmp, __template);
+
+	if (__template){
+		/* template must be writable */
+		tfp->name = malloc(strlen(__template) + 1);
+		if (!(tfp->name)){
+			log_fatal(__FL__, STR_ENOMEM);
+			free(tfp);
+			return NULL;
+		}
+		strcpy(tfp->name, __template);
+	}
+	else{
+		tfp->name = malloc(sizeof("/tmp/tmpfile_XXXXXX"));
+		if (!(tfp->name)){
+			log_fatal(__FL__, STR_ENOMEM);
+			free(tfp);
+			return NULL;
+		}
+		strcpy(tfp->name, "/tmp/tmpfile_XXXXXX");
+	}
 
 	/* makes temporary file and opens it in one call,
 	 * preventing a race condition where another program
 	 * could open it in the mean time */
-	fd = mkstemp(tmp);
-	/* deletes temporary file as soon as fclose() is called
-	 * on it */
-	unlink(tmp);
+	fd = mkstemp(tfp->name);
 
 	if (fd < 0){
 		log_error(__FL__, "Couldn't create temporary file %s (%s)", __template, strerror(errno));
-		free(tmp);
+		free(tfp->name);
+		free(tfp);
 		return NULL;
 	}
 
-	fp = fdopen(fd, "w+b");
-	if (!fp){
-		log_error(__FL__, "Failed to open temporary file %s (%s)", tmp, strerror(errno));
-		free(tmp);
+	tfp->fp = fdopen(fd, "w+b");
+	if (!(tfp->fp)){
+		log_error(__FL__, "Failed to open temporary file %s (%s)", tfp->name, strerror(errno));
+		free(tfp->name);
+		free(tfp);
 		return NULL;
 	}
 
-	free(tmp);
-	return fp;
+	return tfp;
 }
 
-FILE* temp_file_ex(char* __template){
-	int fd;
-	FILE* fp;
+int temp_fclose(TMPFILE* tfp){
+	int ret = 0;
 
-	fd = mkstemp(__template);
-
-	if (fd < 0){
-		log_error(__FL__, "Couldn't create temporary file %s (%s)", __template, strerror(errno));
-		return NULL;
+	if (!tfp){
+		return -1;
 	}
 
-	fp = fdopen(fd, "w+b");
-	if (!fp){
-		log_error(__FL__, "Failed to open temporary file %s (%s)", __template, strerror(errno));
-		return NULL;
+	if (fclose(tfp->fp) != 0){
+		ret = -1;
+		log_warning(__FL__, STR_EFCLOSE, tfp->name);
 	}
-
-	return fp;
+	remove(tfp->name);
+	free(tfp->name);
+	free(tfp);
+	return ret;
 }
 
 int shred_file(const char* file){
