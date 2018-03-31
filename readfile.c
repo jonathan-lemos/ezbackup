@@ -156,18 +156,22 @@ int shred_file(const char* file){
 
 int file_opened_for_reading(FILE* fp){
 	int fd;
+	int flags;
 	if (!fp){
 		return 0;
 	}
 	fd = fileno(fp);
-	return (fcntl(fd, F_GETFL) & O_RDONLY) || (fcntl(fd, F_GETFL) & O_RDWR);
+	flags = fcntl(fd, F_GETFL);
+	return (flags & O_RDWR) || !(flags & O_WRONLY);
 }
 
 int file_opened_for_writing(FILE* fp){
 	int fd;
+	int flags;
 	if (!fp){
 		return 0;
 	}
 	fd = fileno(fp);
-	return (fcntl(fd, F_GETFL) & O_WRONLY) || (fcntl(fd, F_GETFL) & O_RDWR);
+	flags = fcntl(fd, F_GETFL);
+	return (flags & O_RDWR) || !(flags & O_RDONLY);
 }

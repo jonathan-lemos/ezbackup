@@ -254,7 +254,7 @@ int add_checksum_to_file(const char* file, const char* algorithm, FILE* out, FIL
 		return -1;
 	}
 
-	if (prev_checksums && !file_opened_for_reading(out)){
+	if (prev_checksums && !file_opened_for_reading(prev_checksums)){
 		log_error(__FL__, STR_EMODE);
 		return -1;
 	}
@@ -294,8 +294,13 @@ int sort_checksum_file(FILE* fp_in, FILE* fp_out){
 		return -1;
 	}
 
+	if (!file_opened_for_reading(fp_in)){
+		log_error(__FL__, STR_EMODE);
+		return -1;
+	}
+
 	if (!file_opened_for_reading(fp_in) || !file_opened_for_writing(fp_out)){
-		log_error(__FL__, STR_ENULL);
+		log_error(__FL__, STR_EMODE);
 		return -1;
 	}
 	rewind(fp_in);

@@ -254,7 +254,7 @@ int crypt_gen_salt(struct crypt_keys* fk){
 
 /* sets a user-defined salt
  * always returns 0 */
-int crypt_set_salt(unsigned char salt[8], struct crypt_keys* fk){
+int crypt_set_salt(const unsigned char salt[8], struct crypt_keys* fk){
 	unsigned i;
 
 	if (!fk){
@@ -309,7 +309,7 @@ int crypt_set_encryption(const char* encryption, struct crypt_keys* fk){
 
 /* generates a key and iv based on data
  * returns 0 on success or err on error */
-int crypt_gen_keys(unsigned char* data, int data_len, const EVP_MD* md, int iterations, struct crypt_keys* fk){
+int crypt_gen_keys(const unsigned char* data, int data_len, const EVP_MD* md, int iterations, struct crypt_keys* fk){
 
 	if (!fk || !data){
 		log_error(__FL__, STR_ENULL);

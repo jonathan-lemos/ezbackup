@@ -17,7 +17,7 @@ RELEASEFLAGS=-O3
 CXXRELEASEFLAGS=-O3
 HEADERS=fileiterator maketar crypt readfile error checksum progressbar options checksumsort
 CXXHEADERS=cloud/mega
-TESTS=tests/test_checksum
+TESTS=tests/test_checksum tests/test_crypt
 CXXTESTS=
 
 SOURCEFILES=$(foreach header,$(HEADERS),$(header).c)
@@ -37,7 +37,8 @@ debug: main.dbg.o $(DBGOBJECTS) $(CXXDBGOBJECTS)
 	$(CC) -o $(NAME) main.dbg.o $(DBGOBJECTS) $(CXXDBGOBJECTS) $(CFLAGS) $(DBGFLAGS) $(LINKFLAGS)
 
 test: tests/test_base.dbg.o $(TESTOBJECTS) $(TESTCXXOBJECTS) $(DBGOBJECTS) $(CXXDBGOBJECTS)
-	$(foreach test,$(TESTS),$(CC) -o $(test) $(TESTOBJECTS) $(TESTCXXOBJECTS) tests/test_base.dbg.o $(DBGOBJECTS) $(CFLAGS) $(CXXDBGOBJECTS) $(DBGFLAGS) $(LINKFLAGS) $(TESTFLAGS))
+	$(foreach test,$(TESTS),$(CC) -o $(test) $(test).dbg.o tests/test_base.dbg.o $(DBGOBJECTS) $(CFLAGS) $(CXXDBGOBJECTS) $(DBGFLAGS) $(LINKFLAGS) $(TESTFLAGS);)
+	$(foreach cxxtest,$(CXXTESTS),$(CXX) -o $(test) $(test).cxx.dbg.o tests/test_base.dbg.o $(DBGOBJECTS) $(CFLAGS) $(CXXDBGOBJECTS) $(DBGFLAGS) $(LINKFLAGS) $(TESTFLAGS);)
 
 main.o: main.c
 	$(CC) -c -o main.o main.c $(CFLAGS) $(RELEASEFLAGS)

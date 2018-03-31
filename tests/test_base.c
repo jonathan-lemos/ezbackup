@@ -1,6 +1,7 @@
 #include "test_base.h"
 #include <execinfo.h>
 #include <stdlib.h>
+#include <signal.h>
 
 void printf_red(const char* format, ...){
 	va_list ap;
@@ -64,4 +65,40 @@ void __massert(int condition, const char* file, int line, const char* msg){
 	free(strs);
 
 	abort();
+}
+
+static void handle_signals(int signo){
+	switch(signo){
+		case SIGABRT:
+			printf_red("Caught signal SIGABRT\n");
+			break;
+		case SIGSEGV:
+			printf_red("Caught signal SIGSEGV\n");
+			break;
+		case SIGINT:
+			printf_yellow("Caught signal SIGINT\n");
+			break;
+		default:
+			printf_blue("Unknown signal\n");
+	}
+	exit(1);
+}
+
+void set_signal_handler(void){
+	struct sigaction sa;
+	sa.sa_handler = handle_signals;
+	sigfillset(&(sa.sa_mask));
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGABRT, &sa, NULL);
+	sigaction(SIGSEGV, &sa, NULL);
+}
+
+void create_file(const char* name, const unsigned char* data, int len){
+	FILE* fp;
+
+	fp = fopen(name, "wb");
+	massert(fp);
+	fwrite(data, 1, len, fp);
+	massert(ferror(fp) == 0);
+	massert(fclose(fp) == 0);
 }

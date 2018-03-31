@@ -2,41 +2,13 @@
 #include "../checksumsort.h"
 #include "../error.h"
 #include "test_base.h"
-#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 
-static const char* sample_file = "test.txt";
+static const char* const sample_file = "test.txt";
 static const unsigned char sample_data[] = {'t', 'e', 's', 't'};
 static const unsigned char sample_sha1[] = { 0xA9, 0x4A, 0x8F, 0xE5, 0xCC, 0xB1, 0x9B, 0xA6, 0x1C, 0x4C, 0x08, 0x73, 0xD3, 0x91, 0xE9, 0x87, 0x98, 0x2F, 0xBB, 0xD3 };
 static const char sample_sha1_str[] = "A94A8FE5CCB19BA61C4C0873D391E987982FBBD3";
-
-static void handle_signals(int signo){
-	switch(signo){
-		case SIGABRT:
-			printf_red("Caught signal SIGABRT\n");
-			break;
-		case SIGSEGV:
-			printf_red("Caught signal SIGSEGV\n");
-			break;
-		case SIGINT:
-			printf_yellow("Caught signal SIGINT\n");
-			break;
-		default:
-			printf_blue("Unknown signal\n");
-	}
-	exit(1);
-}
-
-static void create_file(const char* name, const unsigned char* data, int len){
-	FILE* fp;
-
-	fp = fopen(name, "wb");
-	massert(fp);
-	fwrite(data, 1, len, fp);
-	massert(ferror(fp) == 0);
-	massert(fclose(fp) == 0);
-}
 
 /* bytes_to_hex() */
 void test_bytes_to_hex(void){
@@ -46,7 +18,7 @@ void test_bytes_to_hex(void){
 
 	printf_yellow("Calling bytes_to_hex()\n");
 	massert(bytes_to_hex(sample_sha1, sizeof(sample_sha1), &out) == 0);
-	printf("Checking the output value\n");
+	printf_yellow("Checking the output value\n");
 	massert(strcmp(out, sample_sha1_str) == 0);
 
 	free(out);
@@ -280,6 +252,8 @@ void test_create_removed_list(void){
 
 	int i;
 
+	printf_blue("Testing create_removed_list()\n");
+
 	printf_yellow("Making files\n");
 	/* make output file */
 	fp1 = fopen(fp1str, "wb");
@@ -346,10 +320,7 @@ void test_get_next_removed(void){
 }
 
 int main(void){
-	struct sigaction sa;
-	sa.sa_handler = handle_signals;
-	sigfillset(&(sa.sa_mask));
-
+	set_signal_handler();
 	log_setlevel(LEVEL_INFO);
 
 	test_bytes_to_hex();

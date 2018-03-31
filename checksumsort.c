@@ -339,7 +339,7 @@ int create_initial_runs(FILE* fp_in, struct TMPFILE*** out, size_t* n_files){
 			log_fatal(__FL__, STR_ENOMEM);
 			return -1;
 		}
-		if ((tfp = temp_fopen("/var/tmp/merge_XXXXXX")) == NULL){
+		if ((tfp = temp_fopen("/var/tmp/merge_XXXXXX", "w+b")) == NULL){
 			log_error(__FL__, "Failed to create temporary merge file");
 			(*n_files)--;
 			*out = realloc(*out, *n_files * sizeof(**out));
