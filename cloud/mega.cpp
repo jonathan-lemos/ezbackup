@@ -125,7 +125,7 @@ private:
 	const char* msg;
 };
 
-int MEGAlogin(const char* email, const char* password, MEGAhandle* out){
+int MEGAlogin(const char* email, const char* password, MEGAhandle** out){
 	const char* API_KEY = "***REMOVED***";
 	std::string prompt;
 	char pwbuffer[1024];
@@ -163,11 +163,11 @@ int MEGAlogin(const char* email, const char* password, MEGAhandle* out){
 		return -1;
 	}
 
-	*out = (void*)mega_api;
+	*out = (MEGAhandle*)mega_api;
 	return 0;
 }
 
-int MEGAmkdir(const char* dir, MEGAhandle mh){
+int MEGAmkdir(const char* dir, MEGAhandle* mh){
 	std::string path;
 	std::string spath;
 	size_t index;
@@ -214,7 +214,7 @@ int MEGAmkdir(const char* dir, MEGAhandle mh){
 	return 0;
 }
 
-int MEGAreaddir(const char* dir, char*** out, size_t* out_len, MEGAhandle mh){
+int MEGAreaddir(const char* dir, char*** out, size_t* out_len, MEGAhandle* mh){
 	std::string path;
 	mega::MegaNode* node;
 	mega::MegaNodeList* children;
@@ -255,7 +255,7 @@ int MEGAreaddir(const char* dir, char*** out, size_t* out_len, MEGAhandle mh){
 	return 0;
 }
 
-int MEGAdownload(const char* download_path, const char* out_file, const char* msg, MEGAhandle mh){
+int MEGAdownload(const char* download_path, const char* out_file, const char* msg, MEGAhandle* mh){
 	std::string path;
 	mega::MegaNode* node;
 	mega::MegaApi* mega_api;
@@ -283,7 +283,7 @@ int MEGAdownload(const char* download_path, const char* out_file, const char* ms
 	return 0;
 }
 
-int MEGAupload(const char* in_file, const char* upload_dir, const char* msg, MEGAhandle mh){
+int MEGAupload(const char* in_file, const char* upload_dir, const char* msg, MEGAhandle* mh){
 	std::string path;
 	mega::MegaNode* node;
 	mega::MegaApi* mega_api;
@@ -310,7 +310,7 @@ int MEGAupload(const char* in_file, const char* upload_dir, const char* msg, MEG
 	return 0;
 }
 
-int MEGAlogout(MEGAhandle mh){
+int MEGAlogout(MEGAhandle* mh){
 	mega::MegaApi* mega_api;
 	mega::SynchronousRequestListener listener;
 

@@ -56,9 +56,9 @@
 
 
 typedef struct func_params{
-	TAR*    tp;
-	FILE*   fp_hashes;
-	FILE*   fp_hashes_prev;
+	TAR*            tp;
+	struct TMPFILE* tfp_hashes;
+	struct TMPFILE* tfp_hashes_prev;
 	options opt;
 }func_params;
 
@@ -149,13 +149,12 @@ static int get_default_backup_name(options* opt, char** out){
 	return 0;
 }
 
-static int extract_prev_checksums(FILE* fp_in, char* out, const EVP_CIPHER* enc_algorithm, int verbose){
+static int extract_prev_checksums(const char* in, const char* out, const char* enc_algorithm, int verbose){
 	char pwbuffer[1024];
-	char decrypt_template[] = "/var/tmp/decrypt_XXXXXX";
-	crypt_keys fk;
-	FILE* fp_decrypt;
+	struct crypt_keys fk;
+	struct TMPFILE* tfp_decrypt;
 
-	if (!fp_in || !out || !enc_algorithm){
+	if (!in || !out || !enc_algorithm){
 		log_error(__FL__, STR_ENULL);
 		return 1;
 	}
@@ -169,7 +168,7 @@ static int extract_prev_checksums(FILE* fp_in, char* out, const EVP_CIPHER* enc_
 		return 1;
 	}
 
-	if ((crypt_extract_salt(fp_in, &fk)) != 0){
+	if ((crypt_extract_salt(in, &fk)) != 0){
 		log_debug(__FL__, "crypt_extract_salt() failed");
 		return 1;
 	}
@@ -186,30 +185,32 @@ static int extract_prev_checksums(FILE* fp_in, char* out, const EVP_CIPHER* enc_
 	}
 	crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
 
-	if ((fp_decrypt = temp_file_ex(decrypt_template)) == NULL){
+	if ((tfp_decrypt = temp_fopen("/var/tmp/decrypt_XXXXXX", "w+b")) == NULL){
 		log_debug(__FL__, "temp_file() for file_decrypt failed");
 		return 1;
 	}
-	if ((crypt_decrypt_ex(fp_in, &fk, fp_decrypt, verbose, "Decrypting file...")) != 0){
+	if ((crypt_decrypt_ex(in, &fk, out, verbose, "Decrypting file...")) != 0){
 		crypt_free(&fk);
 		log_debug(__FL__, "crypt_decrypt() failed");
 		return 1;
 	}
 	crypt_free(&fk);
-	fclose(fp_decrypt);
 
-	if ((tar_extract_file(decrypt_template, "/checksums", out)) != 0){
+	if ((tar_extract_file(tfp_decrypt->name, "/checksums", out)) != 0){
 		log_debug(__FL__, "tar_extract_file() failed");
 		return 1;
 	}
 
-	shred_file(decrypt_template);
+	shred_file(tfp_decrypt->name);
+	if (temp_fclose(tfp_decrypt) != 0){
+		log_debug(__FL__, STR_EFCLOSE);
+	}
 	return 0;
 }
 
-static int encrypt_file(FILE* fp_in, FILE* fp_out, const EVP_CIPHER* enc_algorithm, int verbose){
+static int encrypt_file(const char* in, const char* out, const char* enc_algorithm, int verbose){
 	char pwbuffer[1024];
-	crypt_keys fk;
+	struct crypt_keys fk;
 	int err;
 
 	/* disable core dumps if possible */
@@ -250,7 +251,7 @@ static int encrypt_file(FILE* fp_in, FILE* fp_out, const EVP_CIPHER* enc_algorit
 	crypt_scrub((unsigned char*)pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
 	/* PASSWORD OUT OF MEMORY */
 
-	if ((crypt_encrypt_ex(fp_in, &fk, fp_out, verbose, "Encrypting file...")) != 0){
+	if ((crypt_encrypt_ex(in, &fk, out, verbose, "Encrypting file...")) != 0){
 		crypt_free(&fk);
 		log_debug(__FL__, "crypt_encrypt() failed");
 		return 1;
@@ -401,7 +402,7 @@ int fun(const char* file, const char* dir, struct stat* st, void* params){
 		}
 	}
 
-	err = add_checksum_to_file(file, fparams->opt.hash_algorithm, fparams->fp_hashes, fparams->fp_hashes_prev);
+	err = add_checksum_to_file(file, fparams->opt.hash_algorithm, fparams->tfp_hashes->fp, fparams->tfp_hashes_prev ? fparams->tfp_hashes_prev->fp : NULL);
 	if (err == 1){
 
 		if (fparams->opt.flags & FLAG_VERBOSE){
@@ -526,9 +527,9 @@ static int restore(func_params* fparams, const options* opt_prev){
 
 	res = display_menu(options_main, ARRAY_SIZE(options_main), "Restore");
 	switch (res){
-		case 0:
-			;
-		case 1:
+	case 0:
+		;
+	case 1:
 
 	}
 }
@@ -556,7 +557,7 @@ static int backup(func_params* fparams, const options* opt_prev){
 			return 1;
 		}
 
-		if ((fp_hashes_prev = temp_file_ex(template_prev)) == NULL){
+		if ((tfp_hashes_prev = temp_fopen("/var/tmp/prev_XXXXXX", "w+b")) == NULL){
 			log_debug(__FL__, "Failed to create file_hashes_prev");
 			return 1;
 		}
@@ -583,7 +584,7 @@ static int backup(func_params* fparams, const options* opt_prev){
 		fparams->fp_hashes_prev = NULL;
 	}
 
-	if ((fp_tar = temp_file_ex(template_tar)) == NULL){
+	if ((tfp_tar = temp_fopen("/var/tmp/tar_XXXXXX", "wb")) == NULL){
 		log_debug(__FL__, "Failed to make temp file for tar");
 	}
 
@@ -607,10 +608,10 @@ static int backup(func_params* fparams, const options* opt_prev){
 	for (i = 0; i < fparams->opt.directories_len; ++i){
 		enum_files(fparams->opt.directories[i], fun, fparams, error, NULL);
 	}
-	remove(template_prev);
+	temp_fclose(fparams.tfp_hashes_prev);
 
 	/* sort checksum file and add it to our tar */
-	if ((fp_sorted = temp_file_ex(template_sorted)) == NULL){
+	if ((tfp_sorted = temp_fopen("/var/tmp/template_sorted_XXXXXX", "wb")) == NULL){
 		log_warning(__FL__, "Failed to create temp file for sorted checksum list");
 	}
 	else{
@@ -620,12 +621,11 @@ static int backup(func_params* fparams, const options* opt_prev){
 		if (tar_add_fp_ex(fparams->tp, fp_sorted, "/checksums", fparams->opt.flags & FLAG_VERBOSE, "Adding checksum list...") != 0){
 			log_warning(__FL__, "Failed to write checksums to backup");
 		}
-		fclose(fp_sorted);
-		remove(template_sorted);
+		temp_fclose(tfp_sorted);
 	}
 
-	fp_removed = temp_file("/var/tmp/removed_XXXXXX");
-	if (!fp_removed){
+	tfp_removed = temp_fopen("/var/tmp/removed_XXXXXX", "wb");
+	if (!tfp_removed){
 		log_debug(__FL__, "Failed to create removed temp file");
 	}
 	else{
@@ -660,7 +660,6 @@ static int backup(func_params* fparams, const options* opt_prev){
 
 	/* ditto above */
 	fclose(fp_removed);
-
 	if (tar_close(fparams->tp) != 0){
 		log_warning(__FL__, "Failed to close tar. Data corruption possible");
 	}
@@ -683,7 +682,6 @@ static int backup(func_params* fparams, const options* opt_prev){
 			log_warning(__FL__, "Failed to close %s (%s). Data corruption possible", file_out, strerror(errno));
 		}
 	}
-
 	else{
 		FILE* fp_out;
 
@@ -693,13 +691,14 @@ static int backup(func_params* fparams, const options* opt_prev){
 			return 1;
 		}
 
-		if (copy_fp(fp_tar, fp_out) != 0){
+		if (copy_fp(tfp_tar->fp, fp_out) != 0){
 			log_warning(__FL__, "Failed to copy output to destination.");
 		}
 
 		fclose(fp_out);
 	}
-	remove(template_tar);
+
+	temp_fclose(tfp_tar);
 
 	if (mega_upload(file_out, NULL, NULL) != 0){
 		log_debug(__FL__, "Failed to upload to MEGA");

@@ -7,7 +7,8 @@ const char* const STR_ENULL   = "A required argument was NULL.";
 const char* const STR_EFOPEN  = "Could not open %s (%s)";
 const char* const STR_EFWRITE = "Error writing to %s";
 const char* const STR_EFREAD  = "Error reading from %s";
-const char* const STR_EFCLOSE = "Error closing %s";
+const char* const STR_EFCLOSE = "Error closing %s. Data corruption possible.";
+const char* const STR_EMODE   = "The file pointer is opened in the incorrect mode";
 
 const char* const COLOR_NORMAL  = "\033[0m";
 const char* const COLOR_RED     = "\033[31m";
@@ -58,7 +59,7 @@ void log_warning(const char* file, int line, const char* format, ...){
 		return;
 	}
 
-	fprintf(stderr, "[%sWARN %s](%s:%d): ", COLOR_YELLOW, COLOR_NORMAL, file, line);
+	fprintf(stderr, "[%sWARN%s] (%s:%d): ", COLOR_YELLOW, COLOR_NORMAL, file, line);
 	vfprintf(stderr, format, args);
 	fprintf(stderr, "\n");
 	va_end(args);
@@ -86,7 +87,7 @@ void log_info(const char* file, int line, const char* format, ...){
 		return;
 	}
 
-	fprintf(stderr, "[%sINFO %s](%s:%d): ", COLOR_GREEN, COLOR_NORMAL, file, line);
+	fprintf(stderr, "[%sINFO%s] (%s:%d): ", COLOR_GREEN, COLOR_NORMAL, file, line);
 	vfprintf(stderr, format, args);
 	fprintf(stderr, "\n");
 	va_end(args);

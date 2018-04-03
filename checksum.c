@@ -33,7 +33,7 @@
 /* 16mb */
 #define MAX_RUN_SIZE (1 << 24)
 
-int bytes_to_hex(unsigned char* bytes, unsigned len, char** out){
+int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out){
 	unsigned i;
 	unsigned outptr;
 	unsigned outlen;
@@ -237,6 +237,16 @@ int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, F
 		return -1;
 	}
 
+	if (!file_opened_for_writing(out)){
+		log_error(__FL__, STR_EMODE);
+		return -1;
+	}
+
+	if (prev_checksums && !file_opened_for_reading(prev_checksums)){
+		log_error(__FL__, STR_EMODE);
+		return -1;
+	}
+
 	if (file_to_element(file, algorithm, &e) != 0){
 		log_debug(__FL__, "Could not create element from file");
 		return -1;
@@ -263,8 +273,25 @@ int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, F
 }
 
 int sort_checksum_file(FILE* fp_in, FILE* fp_out){
-	FILE** tmp_files;
+	struct TMPFILE** tmp_files;
 	size_t n_files;
+	size_t i;
+
+	if (!fp_in || !fp_out){
+		log_error(__FL__, STR_ENULL);
+		return -1;
+	}
+
+	if (!file_opened_for_reading(fp_in)){
+		log_error(__FL__, STR_EMODE);
+		return -1;
+	}
+
+	if (!file_opened_for_reading(fp_in) || !file_opened_for_writing(fp_out)){
+		log_error(__FL__, STR_EMODE);
+		return -1;
+	}
+	rewind(fp_in);
 
 	if (create_initial_runs(fp_in, &tmp_files, &n_files) != 0){
 		log_debug(__FL__, "Error creating initial runs");
@@ -275,11 +302,23 @@ int sort_checksum_file(FILE* fp_in, FILE* fp_out){
 		return -1;
 	}
 
-	free_filearray(tmp_files, n_files);
+	for (i = 0; i < n_files; ++i){
+		temp_fclose(tmp_files[i]);
+	}
 	return 0;
 }
 
 int search_for_checksum(FILE* fp_checksums, const char* key, char** checksum){
+	if (!fp_checksums || !key || !checksum){
+		log_error(__FL__, STR_ENULL);
+		return -1;
+	}
+
+	if (!file_opened_for_reading(fp_checksums)){
+		log_error(__FL__, STR_EMODE);
+		return -1;
+	}
+
 	return search_file(fp_checksums, key, checksum);
 }
 

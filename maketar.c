@@ -83,7 +83,7 @@ int tar_add_fp_ex(TAR* tp, FILE* fp, const char* path_in_tar, int verbose, const
 	int len = 0;
 	unsigned char buffer[BUFFER_LEN];
 	/* verbose */
-	progress* p;
+	struct progress* p;
 
 	if (!tp || !fp || !path_in_tar){
 		log_error(__FL__, STR_ENULL);
@@ -305,6 +305,7 @@ int tar_extract(const char* tarchive, const char* outdir){
 	while (ret != ARCHIVE_EOF){
 		const char* tar_file_path = NULL;
 		char* out_path = NULL;
+		entry = NULL;
 
 		/* read the header */
 		ret = archive_read_next_header(tp, &entry);
@@ -312,6 +313,7 @@ int tar_extract(const char* tarchive, const char* outdir){
 		case ARCHIVE_OK:
 			break;
 		case ARCHIVE_EOF:
+			log_info(__FL__, "Reached EOF in %s", tarchive);
 			continue;
 			break;
 		case ARCHIVE_WARN:
@@ -330,13 +332,17 @@ int tar_extract(const char* tarchive, const char* outdir){
 
 		/* make out path based on /<path of tar>/<path of file> */
 		tar_file_path = archive_entry_pathname(entry);
-		out_path = malloc(strlen(tar_file_path) + strlen(outdir) + 1);
+		out_path = malloc(strlen(tar_file_path) + strlen(outdir) + sizeof("/"));
 		if (!out_path){
 			log_fatal(__FL__, STR_ENOMEM);
 			return -1;
 		}
 		strcpy(out_path, outdir);
+		strcat(out_path, "/");
 		strcat(out_path, tar_file_path);
+
+		log_info(__FL__, "Extracting %s to %s", archive_entry_pathname(entry), out_path);
+
 		archive_entry_set_pathname(entry, out_path);
 
 		/* set the output directory */
@@ -382,9 +388,11 @@ int tar_extract(const char* tarchive, const char* outdir){
 		}
 
 		free(out_path);
-		archive_entry_free(entry);
+		/* archive_entry_free(entry); */
 	}
-
+	if (ret == ARCHIVE_EOF){
+		ret = 0;
+	}
 	/* cleanup */
 	archive_write_finish_entry(ext);
 
@@ -468,6 +476,7 @@ int tar_extract_file(const char* tarchive, const char* file_intar, const char* f
 		case ARCHIVE_OK:
 			break;
 		case ARCHIVE_EOF:
+			log_info(__FL__, "%s not found in %s", file_intar, tarchive);
 			return ARCHIVE_EOF;
 			break;
 		case ARCHIVE_WARN:
@@ -479,6 +488,7 @@ int tar_extract_file(const char* tarchive, const char* file_intar, const char* f
 			break;
 		default:
 			log_fatal(__FL__, "Failed to read tar header (%s)", archive_error_string(tp));
+			ret = -1;
 			goto cleanup;
 		}
 
@@ -501,6 +511,7 @@ int tar_extract_file(const char* tarchive, const char* file_intar, const char* f
 			break;
 		default:
 			log_fatal(__FL__, "Failed to write tar header (%s)", archive_error_string(ext));
+			ret = -1;
 			goto cleanup;
 		}
 
@@ -518,6 +529,7 @@ int tar_extract_file(const char* tarchive, const char* file_intar, const char* f
 			break;
 		default:
 			log_fatal(__FL__, "copy_data() failed");
+			ret = -1;
 			goto cleanup;
 		}
 		break;

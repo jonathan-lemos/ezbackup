@@ -244,7 +244,7 @@ cleanup:
 
 /* generates a random salt
  * returns 0 if salt is csrand, err if not */
-int crypt_gen_salt(crypt_keys* fk){
+int crypt_gen_salt(struct crypt_keys* fk){
 	if (!fk){
 		log_error(__FL__, STR_ENULL);
 		return -1;
@@ -254,7 +254,7 @@ int crypt_gen_salt(crypt_keys* fk){
 
 /* sets a user-defined salt
  * always returns 0 */
-int crypt_set_salt(unsigned char salt[8], crypt_keys* fk){
+int crypt_set_salt(const unsigned char salt[8], struct crypt_keys* fk){
 	unsigned i;
 
 	if (!fk){
@@ -284,7 +284,7 @@ const EVP_CIPHER* crypt_get_cipher(const char* encryption_name){
 
 /* sets encryption type, this must be the first function called
  * returns 0 on success or 1 if cipher is not recognized */
-int crypt_set_encryption(const EVP_CIPHER* encryption, crypt_keys* fk){
+int crypt_set_encryption(const EVP_CIPHER* encryption, struct crypt_keys* fk){
 	if (!fk){
 		log_error(__FL__, STR_ENULL);
 		return -1;
@@ -305,13 +305,7 @@ int crypt_set_encryption(const EVP_CIPHER* encryption, crypt_keys* fk){
 
 /* generates a key and iv based on data
  * returns 0 on success or err on error */
-int crypt_gen_keys(
-		unsigned char* data,
-		int data_len,
-		const EVP_MD* md,
-		int iterations,
-		crypt_keys* fk
-		){
+int crypt_gen_keys(const unsigned char* data, int data_len, const EVP_MD* md, int iterations, struct crypt_keys* fk){
 
 	if (!fk || !data){
 		log_error(__FL__, STR_ENULL);
@@ -354,7 +348,7 @@ int crypt_gen_keys(
 
 /* frees memory malloc'd by crypt_gen_keys()
  * returns 0 if fk is not NULL */
-int crypt_free(crypt_keys* fk){
+int crypt_free(struct crypt_keys* fk){
 	if (!fk){
 		log_debug(__FL__, "crypt_free() arg was NULL");
 		return -1;
@@ -372,24 +366,37 @@ int crypt_free(crypt_keys* fk){
 
 /* encrypts the file
  * returns 0 on success or err on error */
-int crypt_encrypt_ex(FILE* fp_in, crypt_keys* fk, FILE* fp_out, int verbose, const char* progress_msg){
+int crypt_encrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int verbose, const char* progress_msg){
 	/* do not want null terminator */
 	const char salt_prefix[8] = { 'S', 'a', 'l', 't', 'e', 'd', '_', '_'};
 	EVP_CIPHER_CTX* ctx = NULL;
 	unsigned char inbuffer[BUFFER_LEN];
 	unsigned char* outbuffer = NULL;
+	FILE* fp_in = NULL;
+	FILE* fp_out = NULL;
 	int inlen;
 	int outlen;
 	int ret = 0;
-	progress* p = NULL;
+	struct progress* p = NULL;
 
 	/* checking null arguments */
-	if (!fp_in || !fk || !fp_out){
+	if (!in || !fk || !out){
 		log_error(__FL__, STR_ENULL);
 		return -1;
 	}
 
-	rewind(fp_in);
+	fp_in = fopen(in, "rb");
+	if (!fp_in){
+		log_error(__FL__, STR_EFOPEN);
+		return -1;
+	}
+
+	fp_out = fopen(out, "wb");
+	if (!fp_out){
+		log_error(__FL__, STR_EFOPEN);
+		fclose(fp_in);
+		return -1;
+	}
 
 	/* checking if keys were actually generated */
 	if (!(fk->flags & FLAG_KEYS_SET)){
@@ -475,6 +482,8 @@ int crypt_encrypt_ex(FILE* fp_in, crypt_keys* fk, FILE* fp_out, int verbose, con
 	fwrite(outbuffer, 1, outlen, fp_out);
 
 cleanup:
+	fclose(fp_in);
+	fclose(fp_out);
 	if (ctx){
 		EVP_CIPHER_CTX_free(ctx);
 	}
@@ -483,20 +492,27 @@ cleanup:
 }
 
 /* simpler wrapper for crypt_encrypt_ex if progressbar is not needed */
-int crypt_encrypt(FILE* fp_in, crypt_keys* fk, FILE* fp_out){
-	return crypt_encrypt_ex(fp_in, fk, fp_out, 0, NULL);
+int crypt_encrypt(const char* in, struct crypt_keys* fk, const char* fp_out){
+	return crypt_encrypt_ex(in, fk, fp_out, 0, NULL);
 }
 
 /* extracts salt from encrypted file */
-int crypt_extract_salt(FILE* fp_in, crypt_keys* fk){
+int crypt_extract_salt(const char* in, struct crypt_keys* fk){
 	const char salt_prefix[8] = { 'S', 'a', 'l', 't', 'e', 'd', '_', '_' };
 	char salt_buffer[8];
 	char buffer[8];
+	FILE* fp_in = NULL;
 	unsigned i;
 
 	/* checking null arguments */
-	if (!fp_in || !fk){
+	if (!in || !fk){
 		log_error(__FL__, STR_ENULL);
+		return -1;
+	}
+
+	fp_in = fopen(in, "rb");
+	if (!fp_in){
+		log_error(__FL__, STR_EFOPEN);
 		return -1;
 	}
 
@@ -504,6 +520,7 @@ int crypt_extract_salt(FILE* fp_in, crypt_keys* fk){
 	 * pointer to the beginning of the salt */
 	if (fread(salt_buffer, 1, sizeof(salt_prefix), fp_in) != sizeof(salt_prefix)){
 		log_error(__FL__, "Failed to read salt prefix from file");
+		fclose(fp_in);
 		return -1;
 	}
 
@@ -511,6 +528,7 @@ int crypt_extract_salt(FILE* fp_in, crypt_keys* fk){
 	 * amount of bytes were read */
 	if (fread(buffer, 1, sizeof(buffer), fp_in) != sizeof(buffer)){
 		log_error(__FL__, "Failed to read salt from file");
+		fclose(fp_in);
 		return -1;
 	}
 
@@ -521,28 +539,42 @@ int crypt_extract_salt(FILE* fp_in, crypt_keys* fk){
 	}
 
 	fk->flags |= FLAG_SALT_EXTRACTED;
+	fclose(fp_in);
 	return 0;
 }
 
 /* decrypts the file
  * returns 0 on success or err on error */
-int crypt_decrypt_ex(FILE* fp_in, crypt_keys* fk, FILE* fp_out, int verbose, const char* progress_msg){
+int crypt_decrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int verbose, const char* progress_msg){
 	/* do not want null terminator */
 	EVP_CIPHER_CTX* ctx = NULL;
 	unsigned char inbuffer[BUFFER_LEN];
 	unsigned char* outbuffer = NULL;
+	FILE* fp_in = NULL;
+	FILE* fp_out = NULL;
 	int inlen;
 	int outlen;
 	int ret = 0;
-	progress* p = NULL;
+	struct progress* p = NULL;
 
 	/* checking null arguments */
-	if (!fp_in || !fk || !fp_out){
+	if (!in || !fk || !out){
 		log_error(__FL__, STR_ENULL);
 		return -1;
 	}
 
-	rewind(fp_in);
+	fp_in = fopen(in, "rb");
+	if (!fp_in){
+		log_error(__FL__, STR_EFOPEN);
+		return -1;
+	}
+
+	fp_out = fopen(out, "wb");
+	if (!fp_out){
+		log_error(__FL__, STR_EFOPEN);
+		fclose(fp_in);
+		return -1;
+	}
 
 	/* checking if keys were actually generated */
 	if (!(fk->flags & FLAG_KEYS_SET)){
@@ -625,6 +657,8 @@ int crypt_decrypt_ex(FILE* fp_in, crypt_keys* fk, FILE* fp_out, int verbose, con
 	fwrite(outbuffer, 1, outlen, fp_out);
 
 cleanup:
+	fclose(fp_in);
+	fclose(fp_out);
 	free(outbuffer);
 	if (ctx){
 		EVP_CIPHER_CTX_free(ctx);
@@ -632,6 +666,6 @@ cleanup:
 	return ret;
 }
 
-int crypt_decrypt(FILE* fp_in, crypt_keys* fk, FILE* fp_out){
-	return crypt_decrypt_ex(fp_in, fk, fp_out, 0, NULL);
+int crypt_decrypt(const char* in, struct crypt_keys* fk, const char* fp_out){
+	return crypt_decrypt_ex(in, fk, fp_out, 0, NULL);
 }

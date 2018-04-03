@@ -9,6 +9,7 @@ extern const char* const STR_EFOPEN;
 extern const char* const STR_EFWRITE;
 extern const char* const STR_EFREAD;
 extern const char* const STR_EFCLOSE;
+extern const char* const STR_EMODE;
 
 typedef enum LOG_LEVEL{
 	LEVEL_NONE    = 0,
