@@ -78,7 +78,7 @@ int tar_add_fp_ex(TAR* tp, FILE* fp, const char* path_in_tar, int verbose, const
 	int len = 0;
 	unsigned char buffer[BUFFER_LEN];
 	/* verbose */
-	progress* p;
+	struct progress* p;
 
 	if (!tp || !fp || !path_in_tar){
 		log_error(__FL__, STR_ENULL);

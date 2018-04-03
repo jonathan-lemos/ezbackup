@@ -366,7 +366,7 @@ int fun(const char* file, const char* dir, struct stat* st, void* params){
 		}
 	}
 
-	err = add_checksum_to_file(file, fparams->opt.hash_algorithm, fparams->tfp_hashes->fp, fparams->fp_hashes_prev->fp);
+	err = add_checksum_to_file(file, fparams->opt.hash_algorithm, fparams->tfp_hashes->fp, fparams->tfp_hashes_prev ? fparams->tfp_hashes_prev->fp : NULL);
 	if (err == 1){
 		/*
 		   if (fparams->opt.flags & FLAG_VERBOSE){

@@ -17,7 +17,7 @@ RELEASEFLAGS=-O3
 CXXRELEASEFLAGS=-O3
 HEADERS=fileiterator maketar crypt readfile error checksum progressbar options checksumsort
 CXXHEADERS=cloud/mega
-TESTS=tests/test_checksum tests/test_crypt tests/test_error tests/test_fileiterator tests/test_maketar
+TESTS=tests/test_checksum tests/test_crypt tests/test_error tests/test_fileiterator tests/test_maketar tests/test_options tests/test_progressbar
 CXXTESTS=
 
 SOURCEFILES=$(foreach header,$(HEADERS),$(header).c)

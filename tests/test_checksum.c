@@ -16,6 +16,8 @@ void test_bytes_to_hex(void){
 
 	printf_blue("Testing bytes_to_hex()\n");
 
+	massert(0);
+
 	printf_yellow("Calling bytes_to_hex()\n");
 	massert(bytes_to_hex(sample_sha1, sizeof(sample_sha1), &out) == 0);
 	printf_yellow("Checking the output value\n");

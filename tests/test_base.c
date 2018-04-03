@@ -1,5 +1,4 @@
 #include "test_base.h"
-#include <execinfo.h>
 #include <stdlib.h>
 #include <signal.h>
 
@@ -49,18 +48,11 @@ void __massert(int condition, const char* file, int line, const char* msg){
 	}
 
 	printf("Assertion Failed (%s:%d): ", file, line);
-	printf("%s", msg);
-	printf("\nCall stack:\n");
-
+	printf("%s\n", msg);
 	abort();
 }
 
 static void handle_signals(int signo){
-	void* callstack[256];
-	char** strs;
-	int frames;
-	int i;
-
 	switch(signo){
 	case SIGABRT:
 		printf_red("Caught signal SIGABRT\n");
@@ -72,16 +64,9 @@ static void handle_signals(int signo){
 		printf_yellow("Caught signal SIGINT\n");
 		break;
 	default:
-		printf_blue("Unknown signal\n");
+		printf_blue("Caught signal %d\n", signo);
 	}
-
-	frames = backtrace(callstack, sizeof(callstack) / sizeof(callstack[0]));
-	strs = backtrace_symbols(callstack, frames);
-	for (i = 0; i < frames; ++i){
-		printf("%s\n", strs[i]);
-	}
-	free(strs);
-
+	/* todo: somehow implement backtrace */
 	exit(1);
 }
 

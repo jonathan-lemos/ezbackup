@@ -28,7 +28,7 @@ static int get_width(void){
 	return w.ws_col;
 }
 
-static void display_progress(progress* p){
+static void display_progress(struct progress* p){
 	/* -2 for end brackets */
 	int num_blank = get_width() - 3 - strlen("(000.00%)");
 	long double pct = (long double)p->count / p->max;
@@ -60,8 +60,8 @@ static void display_progress(progress* p){
 	fflush(stdout);
 }
 
-progress* start_progress(const char* text, uint64_t max){
-	progress* p = malloc(sizeof(progress));
+struct progress* start_progress(const char* text, uint64_t max){
+	struct progress* p = malloc(sizeof(struct progress));
 	if (!p){
 		log_fatal(__FL__, STR_ENOMEM);
 		return NULL;
@@ -84,7 +84,7 @@ progress* start_progress(const char* text, uint64_t max){
 	return p;
 }
 
-void inc_progress(progress* p, uint64_t count){
+void inc_progress(struct progress* p, uint64_t count){
 	if (!p){
 		return;
 	}
@@ -92,7 +92,7 @@ void inc_progress(progress* p, uint64_t count){
 	display_progress(p);
 }
 
-void set_progress(progress* p, uint64_t count){
+void set_progress(struct progress* p, uint64_t count){
 	if (!p){
 		return;
 	}
@@ -100,7 +100,7 @@ void set_progress(progress* p, uint64_t count){
 	display_progress(p);
 }
 
-void finish_progress(progress* p){
+void finish_progress(struct progress* p){
 	if (!p){
 		return;
 	}

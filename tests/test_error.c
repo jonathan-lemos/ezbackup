@@ -3,6 +3,7 @@
 
 int main(void){
 	LOG_LEVEL level;
+
 	set_signal_handler();
 
 	for (level = LEVEL_NONE; level <= LEVEL_INFO; level++){

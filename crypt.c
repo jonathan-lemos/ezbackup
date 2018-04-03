@@ -381,7 +381,7 @@ int crypt_encrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int
 	int inlen;
 	int outlen;
 	int ret = 0;
-	progress* p = NULL;
+	struct progress* p = NULL;
 
 	/* checking null arguments */
 	if (!in || !fk || !out){
@@ -559,7 +559,7 @@ int crypt_decrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int
 	int inlen;
 	int outlen;
 	int ret = 0;
-	progress* p = NULL;
+	struct progress* p = NULL;
 
 	/* checking null arguments */
 	if (!in || !fk || !out){
