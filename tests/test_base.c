@@ -44,11 +44,6 @@ void printf_blue(const char* format, ...){
 }
 
 void __massert(int condition, const char* file, int line, const char* msg){
-	void* callstack[256];
-	char** strs;
-	int frames;
-	int i;
-
 	if (condition){
 		return;
 	}
@@ -57,6 +52,29 @@ void __massert(int condition, const char* file, int line, const char* msg){
 	printf("%s", msg);
 	printf("\nCall stack:\n");
 
+	abort();
+}
+
+static void handle_signals(int signo){
+	void* callstack[256];
+	char** strs;
+	int frames;
+	int i;
+
+	switch(signo){
+	case SIGABRT:
+		printf_red("Caught signal SIGABRT\n");
+		break;
+	case SIGSEGV:
+		printf_red("Caught signal SIGSEGV\n");
+		break;
+	case SIGINT:
+		printf_yellow("Caught signal SIGINT\n");
+		break;
+	default:
+		printf_blue("Unknown signal\n");
+	}
+
 	frames = backtrace(callstack, sizeof(callstack) / sizeof(callstack[0]));
 	strs = backtrace_symbols(callstack, frames);
 	for (i = 0; i < frames; ++i){
@@ -64,23 +82,6 @@ void __massert(int condition, const char* file, int line, const char* msg){
 	}
 	free(strs);
 
-	abort();
-}
-
-static void handle_signals(int signo){
-	switch(signo){
-		case SIGABRT:
-			printf_red("Caught signal SIGABRT\n");
-			break;
-		case SIGSEGV:
-			printf_red("Caught signal SIGSEGV\n");
-			break;
-		case SIGINT:
-			printf_yellow("Caught signal SIGINT\n");
-			break;
-		default:
-			printf_blue("Unknown signal\n");
-	}
 	exit(1);
 }
 
@@ -88,6 +89,7 @@ void set_signal_handler(void){
 	struct sigaction sa;
 	sa.sa_handler = handle_signals;
 	sigfillset(&(sa.sa_mask));
+	sa.sa_flags = SA_RESTART;
 	sigaction(SIGINT, &sa, NULL);
 	sigaction(SIGABRT, &sa, NULL);
 	sigaction(SIGSEGV, &sa, NULL);
@@ -101,4 +103,53 @@ void create_file(const char* name, const unsigned char* data, int len){
 	fwrite(data, 1, len, fp);
 	massert(ferror(fp) == 0);
 	massert(fclose(fp) == 0);
+}
+
+int memcmp_file_data(const char* file, const unsigned char* data, int data_len){
+	FILE* fp;
+	int i;
+
+	fp = fopen(file, "rb");
+	massert(fp);
+	for (i = 0; i < data_len; ++i){
+		int c;
+
+		c = fgetc(fp);
+		if (c != data[i]){
+			fclose(fp);
+			return c - data[i];
+		}
+	}
+	if (fgetc(fp) != EOF){
+		fclose(fp);
+		return 1;
+	}
+
+	fclose(fp);
+	return 0;
+}
+
+int memcmp_file_file(const char* file1, const char* file2){
+	FILE* fp1;
+	FILE* fp2;
+	int c1, c2;
+
+	fp1 = fopen(file1, "rb");
+	massert(fp1);
+	fp2 = fopen(file2, "rb");
+	massert(fp2);
+
+	do{
+		c1 = fgetc(fp1);
+		c2 = fgetc(fp2);
+	}while (c1 == c2 && c1 != EOF);
+
+	fclose(fp1);
+	fclose(fp2);
+
+	if (c1 != c2){
+		return c1 - c2;
+	}
+
+	return 0;
 }

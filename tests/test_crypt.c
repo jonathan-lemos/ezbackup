@@ -1,6 +1,5 @@
 #include "test_base.h"
 #include "../crypt.h"
-#include "../checksum.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -55,10 +54,6 @@ void test_crypt_getpassword(void){
 void test_crypt_encrypt(void){
 	struct crypt_keys fk;
 	char openssl_cmd[256];
-	unsigned char* crypt1_sha1;
-	unsigned int crypt1_sha1_len;
-	unsigned char* crypt2_sha1;
-	unsigned int crypt2_sha1_len;
 
 	printf_blue("Testing crypt_encrypt()\n");
 
@@ -77,14 +72,9 @@ void test_crypt_encrypt(void){
 	crypt_free(&fk);
 
 	printf_yellow("Checking that the files match\n");
-	massert(checksum(sample_file_crypt, "sha1", &crypt1_sha1, &crypt1_sha1_len) == 0);
-	massert(checksum(sample_file_crypt2, "sha1", &crypt2_sha1, &crypt2_sha1_len) == 0);
-	massert(crypt1_sha1_len == crypt2_sha1_len);
-	massert(memcmp(crypt1_sha1, crypt2_sha1, crypt1_sha1_len) == 0);
+	massert(memcmp_file_file(sample_file_crypt, sample_file_crypt2));
 
 	printf_yellow("Cleanup\n");
-	free(crypt1_sha1);
-	free(crypt2_sha1);
 	remove(sample_file);
 	remove(sample_file_crypt);
 	remove(sample_file_crypt2);
@@ -95,10 +85,6 @@ void test_crypt_encrypt(void){
 void test_crypt_decrypt(void){
 	struct crypt_keys fk;
 	char openssl_cmd[256];
-	unsigned char* crypt1_sha1;
-	unsigned int crypt1_sha1_len;
-	unsigned char* crypt2_sha1;
-	unsigned int crypt2_sha1_len;
 
 	printf_blue("Testing crypt_decrypt()\n");
 
@@ -113,7 +99,7 @@ void test_crypt_decrypt(void){
 	sprintf(openssl_cmd, "openssl aes-256-cbc -d -salt -in %s -out %s -pass pass:%s", sample_file_crypt, sample_file_decrypt, password);
 	printf("%s\n", openssl_cmd);
 	system(openssl_cmd);
-	massert(checksum(sample_file_decrypt, "sha1", &crypt1_sha1, &crypt1_sha1_len) == 0);
+	massert(memcmp_file_data(sample_file_decrypt, sample_data, sizeof(sample_data)));
 
 	printf_yellow("Calling crypt_decrypt()\n");
 	massert(crypt_set_encryption("aes-256-cbc", &fk) == 0);
@@ -123,13 +109,9 @@ void test_crypt_decrypt(void){
 	crypt_free(&fk);
 
 	printf_yellow("Checking that the files match\n");
-	massert(checksum(sample_file_decrypt2, "sha1", &crypt2_sha1, &crypt2_sha1_len) == 0);
-	massert(crypt1_sha1_len == crypt2_sha1_len);
-	massert(memcmp(crypt1_sha1, crypt2_sha1, crypt1_sha1_len) == 0);
+	massert(memcmp_file_file(sample_file_decrypt, sample_file_decrypt2));
 
 	printf_yellow("Cleanup\n");
-	free(crypt1_sha1);
-	free(crypt2_sha1);
 	remove(sample_file);
 	remove(sample_file_crypt);
 	remove(sample_file_decrypt);

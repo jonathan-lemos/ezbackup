@@ -296,7 +296,7 @@ static int set_file_limit(int num){
 /* you know this is going to be good when there's a triple pointer */
 
 /* reads MAX_RUN_SIZE bytes worth of elements into ram,
- * sorts them, and writes them to a file */
+ * sorts them, and writes them to one or more files */
 int create_initial_runs(FILE* fp_in, struct TMPFILE*** out, size_t* n_files){
 	element** elems = NULL;
 	element* tmp = NULL;

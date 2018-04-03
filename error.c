@@ -59,7 +59,7 @@ void log_warning(const char* file, int line, const char* format, ...){
 		return;
 	}
 
-	fprintf(stderr, "[%sWARN %s](%s:%d): ", COLOR_YELLOW, COLOR_NORMAL, file, line);
+	fprintf(stderr, "[%sWARN%s] (%s:%d): ", COLOR_YELLOW, COLOR_NORMAL, file, line);
 	vfprintf(stderr, format, args);
 	fprintf(stderr, "\n");
 	va_end(args);
@@ -87,7 +87,7 @@ void log_info(const char* file, int line, const char* format, ...){
 		return;
 	}
 
-	fprintf(stderr, "[%sINFO %s](%s:%d): ", COLOR_GREEN, COLOR_NORMAL, file, line);
+	fprintf(stderr, "[%sINFO%s] (%s:%d): ", COLOR_GREEN, COLOR_NORMAL, file, line);
 	vfprintf(stderr, format, args);
 	fprintf(stderr, "\n");
 	va_end(args);
