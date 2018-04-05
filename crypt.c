@@ -37,6 +37,18 @@
 #define FLAG_KEYS_SET (0x2)
 #define FLAG_SALT_EXTRACTED (0x4)
 
+struct crypt_keys* crypt_new(void){
+	struct crypt_keys* ret;
+
+	ret = calloc(1, sizeof(*ret));
+	if (!ret){
+		log_fatal(__FL__, STR_ENOMEM);
+		return NULL;
+	}
+
+	return ret;
+}
+
 /* generates cryptographically-secure random data and
  * writes it to data, or writes low-grade random data on error
  *
@@ -355,11 +367,14 @@ int crypt_free(struct crypt_keys* fk){
 	}
 
 	/* scrub keys so they can't be retrieved from memory */
-	crypt_scrub(fk->key, fk->key_length);
-	crypt_scrub(fk->iv, fk->iv_length);
+	if (fk->flags & FLAG_KEYS_SET){
+		crypt_scrub(fk->key, fk->key_length);
+		crypt_scrub(fk->iv, fk->iv_length);
+		free(fk->key);
+		free(fk->iv);
+	}
 
-	free(fk->key);
-	free(fk->iv);
+	free(fk);
 
 	return 0;
 }

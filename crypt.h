@@ -28,6 +28,7 @@ struct crypt_keys{
 	int flags;
 };
 
+struct crypt_keys* crypt_new(void);
 int crypt_scrub(void* data, int len);
 unsigned char crypt_randc(void);
 int crypt_secure_memcmp(const void* p1, const void* p2, int len);

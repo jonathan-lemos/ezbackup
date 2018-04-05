@@ -47,5 +47,7 @@ int parse_options_fromfile(const char* file, struct options* opt);
 int write_options_tofile(const char* file, struct options* opt);
 void free_options(struct options* o);
 int get_default_options(struct options* opt);
+int read_config_file(struct options* opt);
+int write_config_file(struct options* opt);
 
 #endif

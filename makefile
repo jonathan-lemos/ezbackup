@@ -17,10 +17,10 @@ CXXDBGFLAGS=-g -rdynamic
 RELEASEFLAGS=-O3
 CXXRELEASEFLAGS=-O3
 # HEADERS=fileiterator maketar crypt readfile error checksum progressbar options checksumsort
-HEADERS=$(shell ls | grep .*\\.c | sed 's/\.c//g;s/main//g')
+HEADERS=$(shell ls | grep .*\\.c$ | sed 's/\.c//g;s/main//g')
 CXXHEADERS=cloud/mega
 # TESTS=tests/test_checksum tests/test_crypt tests/test_error tests/test_fileiterator tests/test_maketar tests/test_options tests/test_progressbar
-TESTS=$(foreach test,$(shell ls tests | grep .*\\.c | sed 's/\.c//g;s/test_base//g'),tests/$(test))
+TESTS=$(foreach test,$(shell ls tests | grep .*\\.c$ | sed 's/\.c//g;s/test_base//g'),tests/$(test))
 CXXTESTS=
 
 SOURCEFILES=$(foreach header,$(HEADERS),$(header).c)

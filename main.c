@@ -267,7 +267,7 @@ static int does_file_exist(const char* file){
 	return stat(file, &st) == 0;
 }
 
-static int read_config_file(options* opt){
+int read_config_file(struct options* opt){
 	char* backup_conf;
 
 	if (get_config_name(&backup_conf) != 0){

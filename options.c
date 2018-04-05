@@ -934,3 +934,77 @@ void free_options(struct options* opt){
 	}
 	free(opt->directories);
 }
+
+static int does_file_exist(const char* file){
+	struct stat st;
+
+	return stat(file, &st) == 0;
+}
+
+int get_config_name(char** out){
+	struct passwd* pw;
+	char* homedir;
+
+	/* get home directory */
+	if (!(homedir = getenv("HOME"))){
+		pw = getpwuid(getuid());
+		if (!pw){
+			log_error(__FL__, "Failed to get home directory");
+			return -1;
+		}
+		homedir = pw->pw_dir;
+	}
+	*out = malloc(strlen(homedir) + sizeof("/.ezbackup.conf"));
+	if (!(*out)){
+		log_fatal(__FL__, STR_ENOMEM);
+		return -1;
+	}
+
+	strcpy(*out, homedir);
+	strcat(*out, "/.ezbackup.conf");
+
+	return 0;
+}
+
+int read_config_file(struct options* opt){
+	char* backup_conf;
+
+	if (get_config_name(&backup_conf) != 0){
+		log_debug(__FL__, "get_config_name() failed");
+		return -1;
+	}
+
+	if (!does_file_exist(backup_conf)){
+		log_info(__FL__, "Backup file does not exist");
+		free(backup_conf);
+		return 1;
+	}
+
+	if (parse_options_fromfile(backup_conf, opt) != 0){
+		log_debug(__FL__, "Failed to parse options from file");
+		free(backup_conf);
+		return -1;
+	}
+
+	free(backup_conf);
+	return 0;
+}
+
+
+int write_config_file(struct options* opt){
+	char* backup_conf;
+
+	if ((get_config_name(&backup_conf)) != 0){
+		log_warning(__FL__, "Failed to get backup name for incremental backup settings.");
+		return 1;
+	}
+	else{
+		if ((write_options_tofile(backup_conf, opt)) != 0){
+			log_warning(__FL__, "Failed to write settings for incremental backup.");
+			free(backup_conf);
+			return 1;
+		}
+	}
+	free(backup_conf);
+	return 0;
+}

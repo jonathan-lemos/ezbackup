@@ -32,9 +32,9 @@
  */
 void enum_files(
 		const char* dir,
-		int(*func)(const char*, const char*, struct stat*, void*),
+		int(*func)(const char* file, const char* dir, struct stat* st, void* params),
 		void* func_params,
-		int(*error)(const char*, int, void*),
+		int(*error)(const char* file, int __errno, void* params),
 		void* error_params
 		);
 
