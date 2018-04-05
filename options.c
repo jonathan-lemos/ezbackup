@@ -36,11 +36,20 @@
 #include <unistd.h>
 #include <pwd.h>
 
+#ifndef PROG_NAME
+#define PROG_NAME "INVALID"
+#error "PROG_NAME not defined"
+#endif
+#ifndef PROG_VERSION
+#define PROG_VERSION "INVALID"
+#error "PROG_VERSION not defined"
+#endif
+
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 void version(void){
-	const char* program_name = "ezbackup";
-	const char* version      = "0.2 beta";
+	const char* program_name = PROG_NAME;
+	const char* version      = PROG_VERSION;
 	const char* year         = "2018";
 	const char* name         = "Jonathan Lemos";
 	const char* license      = "This software may be modified and distributed under the terms of the MIT license.\n\
@@ -162,7 +171,7 @@ static int get_backup_directory(char** out){
  *
  * returns -1 if out is NULL, 0 on success
  * index of bad argument on bad argument */
-int parse_options_cmdline(int argc, char** argv, options* out){
+int parse_options_cmdline(int argc, char** argv, struct options* out){
 	int i;
 
 	if (!out){
@@ -374,7 +383,7 @@ int display_menu(const char** options, int num_options, const char* title){
 	return ret;
 }
 
-static int menu_compression_level(options* opt){
+static int menu_compression_level(struct options* opt){
 	int res;
 	const char* options_compression_level[] = {
 		"Default",
@@ -394,7 +403,7 @@ static int menu_compression_level(options* opt){
 	return 0;
 }
 
-static int menu_compressor(options* opt){
+static int menu_compressor(struct options* opt){
 	int res;
 	const char* options_compressor[] = {
 		"gzip  (default)",
@@ -420,7 +429,7 @@ static int menu_compressor(options* opt){
 	return menu_compression_level(opt);
 }
 
-static int menu_checksum(options* opt){
+static int menu_checksum(struct options* opt){
 	int res;
 	const char* options_checksum[] = {
 		"sha1   (default)",
@@ -446,7 +455,7 @@ static int menu_checksum(options* opt){
 	return 0;
 }
 
-static int menu_encryption(options* opt){
+static int menu_encryption(struct options* opt){
 	int res_encryption = -1;
 	int res_keysize = -1;
 	int res_mode = -1;
@@ -523,7 +532,7 @@ static int menu_encryption(options* opt){
 	return 0;
 }
 
-int menu_directories(options* opt){
+int menu_directories(struct options* opt){
 	int res;
 	const char** options_initial = NULL;
 	const char* title = "Directories";
@@ -599,7 +608,7 @@ int menu_directories(options* opt){
 	return 0;
 }
 
-int menu_exclude(options* opt){
+int menu_exclude(struct options* opt){
 	int res;
 	const char** options_initial = NULL;
 	const char* title = "Exclude Paths";
@@ -675,7 +684,7 @@ int menu_exclude(options* opt){
 	return 0;
 }
 
-int menu_output_directory(options* opt){
+int menu_output_directory(struct options* opt){
 	char* tmp;
 	if (opt->output_directory){
 		printf("Old directory: %s\n", opt->output_directory);
@@ -691,7 +700,7 @@ int menu_output_directory(options* opt){
 	return 0;
 }
 
-int parse_options_new(options* opt){
+int parse_options_new(struct options* opt){
 	menu_compressor(opt);
 	menu_checksum(opt);
 	menu_encryption(opt);
@@ -700,7 +709,7 @@ int parse_options_new(options* opt){
 	return 0;
 }
 
-int parse_options_menu(options* opt){
+int parse_options_menu(struct options* opt){
 	int res;
 	const char* options_main_menu[] = {
 		"Compression",
@@ -739,7 +748,7 @@ int parse_options_menu(options* opt){
 	return 0;
 }
 
-int get_default_options(options* opt){
+int get_default_options(struct options* opt){
 	opt->comp_algorithm = COMPRESSOR_GZIP;
 	opt->hash_algorithm = EVP_sha1();
 	opt->enc_algorithm = EVP_aes_256_cbc();
@@ -783,7 +792,7 @@ static char* read_file_string(FILE* in){
 	return ret;
 }
 
-int parse_options_fromfile(const char* file, options* opt){
+int parse_options_fromfile(const char* file, struct options* opt){
 	FILE* fp;
 	char* tmp;
 
@@ -873,7 +882,7 @@ int parse_options_fromfile(const char* file, options* opt){
  * FLAGS=1
  *
  */
-int write_options_tofile(const char* file, options* opt){
+int write_options_tofile(const char* file, struct options* opt){
 	FILE* fp;
 	int i;
 
@@ -910,7 +919,7 @@ int write_options_tofile(const char* file, options* opt){
 	return 0;
 }
 
-void free_options(options* opt){
+void free_options(struct options* opt){
 	int i;
 	/* freeing a nullptr is ok */
 

@@ -42,7 +42,7 @@
 #include <time.h>
 /* disabling core dumps */
 #include <sys/resource.h>
-/* readline() */
+/* readline) */
 #if defined(__linux__)
 #include <editline/readline.h>
 #elif defined(__APPLE__)

@@ -6,18 +6,21 @@
 # of the MIT license.  See the LICENSE file for details.
 
 NAME=ezbackup
+VERSION=0.2\ beta
 CC=gcc
-CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500
+CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 CXX=g++
-CXXFLAGS=-Wall -Wextra -pedantic -std=c++11
-LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega -lstdc++
+CXXFLAGS=-Wall -Wextra -pedantic -std=c++11 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
+LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega -lstdc++ -ledit
 DBGFLAGS=-g -rdynamic
 CXXDBGFLAGS=-g -rdynamic
 RELEASEFLAGS=-O3
 CXXRELEASEFLAGS=-O3
-HEADERS=fileiterator maketar crypt readfile error checksum progressbar options checksumsort
+# HEADERS=fileiterator maketar crypt readfile error checksum progressbar options checksumsort
+HEADERS=$(shell ls | grep .*\\.c | sed 's/\.c//g;s/main//g')
 CXXHEADERS=cloud/mega
-TESTS=tests/test_checksum tests/test_crypt tests/test_error tests/test_fileiterator tests/test_maketar tests/test_options tests/test_progressbar
+# TESTS=tests/test_checksum tests/test_crypt tests/test_error tests/test_fileiterator tests/test_maketar tests/test_options tests/test_progressbar
+TESTS=$(foreach test,$(shell ls tests | grep .*\\.c | sed 's/\.c//g;s/test_base//g'),tests/$(test))
 CXXTESTS=
 
 SOURCEFILES=$(foreach header,$(HEADERS),$(header).c)

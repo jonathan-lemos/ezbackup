@@ -16,8 +16,6 @@ void test_bytes_to_hex(void){
 
 	printf_blue("Testing bytes_to_hex()\n");
 
-	massert(0);
-
 	printf_yellow("Calling bytes_to_hex()\n");
 	massert(bytes_to_hex(sample_sha1, sizeof(sample_sha1), &out) == 0);
 	printf_yellow("Checking the output value\n");
@@ -38,7 +36,7 @@ void test_checksum(void){
 
 	/* hash that file and check it against the expected value */
 	printf_yellow("Calling checksum()\n");
-	massert(checksum(sample_file, "sha1", &out, &len) == 0);
+	massert(checksum(sample_file, EVP_sha1(), &out, &len) == 0);
 	printf_yellow("Checking the output value\n");
 	massert(memcmp(sample_sha1, out, len) == 0);
 
@@ -91,7 +89,7 @@ void test_sort_checksum_file(void){
 	printf_yellow("Calling add_checksum_to_file() (initial run)\n");
 	for (i = 0; i < 100; ++i){
 		int res;
-		res = add_checksum_to_file(files[i], "sha1", fp1, NULL);
+		res = add_checksum_to_file(files[i], EVP_sha1(), fp1, NULL);
 		massert(res >= 0);
 		if (res == 1){
 			printf("Old element: %s\n", files[i]);
@@ -136,7 +134,7 @@ void test_sort_checksum_file(void){
 	printf_yellow("Calling add_checksum_to_file() (2nd run)\n");
 	for (i = 0; i < 100; ++i){
 		int res;
-		res = add_checksum_to_file(files[i], "sha1", fp2, fp1);
+		res = add_checksum_to_file(files[i], EVP_sha1(), fp2, fp1);
 		massert(res >= 0);
 		if (res == 1){
 			printf("Old element: %s\n", files[i]);
@@ -197,14 +195,14 @@ void test_search_for_checksum(void){
 	printf_yellow("Calling add_checksum_to_file() (initial run)\n");
 	for (i = 0; i < 100; ++i){
 		int res;
-		res = add_checksum_to_file(files[i], "sha1", fp1, NULL);
+		res = add_checksum_to_file(files[i], EVP_sha1(), fp1, NULL);
 		massert(res >= 0);
 		if (res == 1){
 			printf("Old element: %s\n", files[i]);
 		}
 	}
 	create_file(sample_file, sample_data, sizeof(sample_data));
-	add_checksum_to_file(sample_file, "sha1", fp1, NULL);
+	add_checksum_to_file(sample_file, EVP_sha1(), fp1, NULL);
 
 	massert(fclose(fp1) == 0);
 	fp1 = fopen(fp1str, "rb");
@@ -274,7 +272,7 @@ void test_create_removed_list(void){
 	printf_yellow("Calling add_checksum_to_file() (initial run)\n");
 	for (i = 0; i < 100; ++i){
 		int res;
-		res = add_checksum_to_file(files[i], "sha1", fp1, NULL);
+		res = add_checksum_to_file(files[i], EVP_sha1(), fp1, NULL);
 		massert(res >= 0);
 		if (res == 1){
 			printf("Old element: %s\n", files[i]);

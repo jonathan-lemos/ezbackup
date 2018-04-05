@@ -23,7 +23,7 @@ typedef enum OPERATION{
 	OP_EXIT = 4
 }OPERATION;
 
-typedef struct options{
+struct options{
 	char*             prev_backup;
 	char**            directories;
 	int               directories_len;
@@ -36,15 +36,16 @@ typedef struct options{
 	char*             output_directory;
 	OPERATION         operation;
 	unsigned          flags;
-}options;
+};
 
+void version(void);
 void usage(const char* progname);
 int display_menu(const char** options, int num_options, const char* title);
-int parse_options_cmdline(int argc, char** argv, options* out);
-int parse_options_menu(options* opt);
-int parse_options_fromfile(const char* file, options* opt);
-int write_options_tofile(const char* file, options* opt);
-void free_options(options* o);
-int get_default_options(options* opt);
+int parse_options_cmdline(int argc, char** argv, struct options* out);
+int parse_options_menu(struct options* opt);
+int parse_options_fromfile(const char* file, struct options* opt);
+int write_options_tofile(const char* file, struct options* opt);
+void free_options(struct options* o);
+int get_default_options(struct options* opt);
 
 #endif

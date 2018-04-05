@@ -24,7 +24,7 @@ void test_tar_add_file(void){
 	create_file(sample_file3, sample_data3, sizeof(sample_data3));
 
 	printf_yellow("Calling tar_create()\n");
-	tp = tar_create(sample_tar, COMPRESSOR_BZIP2);
+	tp = tar_create(sample_tar, COMPRESSOR_BZIP2, 0);
 
 	printf_yellow("Calling tar_add_create[_ex])\n");
 	massert(tar_add_file_ex(tp, sample_file1, "f-f-fire.txt", 1, "Swiggity swessage, here's the message") == 0);

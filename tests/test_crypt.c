@@ -65,7 +65,7 @@ void test_crypt_encrypt(void){
 	system(openssl_cmd);
 
 	printf_yellow("Calling crypt_encrypt()\n");
-	massert(crypt_set_encryption("aes-256-cbc", &fk) == 0);
+	massert(crypt_set_encryption(EVP_aes_256_cbc(), &fk) == 0);
 	massert(crypt_set_salt(salt, &fk) == 0);
 	massert(crypt_gen_keys((const unsigned char*)password, strlen(password), NULL, 1, &fk) == 0);
 	massert(crypt_encrypt(sample_file, &fk, sample_file_crypt2) == 0);
@@ -102,7 +102,7 @@ void test_crypt_decrypt(void){
 	massert(memcmp_file_data(sample_file_decrypt, sample_data, sizeof(sample_data)));
 
 	printf_yellow("Calling crypt_decrypt()\n");
-	massert(crypt_set_encryption("aes-256-cbc", &fk) == 0);
+	massert(crypt_set_encryption(EVP_aes_256_cbc(), &fk) == 0);
 	massert(crypt_extract_salt(sample_file_crypt, &fk) == 0);
 	massert(crypt_gen_keys((const unsigned char*)password, strlen(password), NULL, 1, &fk) == 0);
 	massert(crypt_decrypt(sample_file_crypt, &fk, sample_file_decrypt2) == 0);

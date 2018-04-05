@@ -132,9 +132,5 @@ int memcmp_file_file(const char* file1, const char* file2){
 	fclose(fp1);
 	fclose(fp2);
 
-	if (c1 != c2){
-		return c1 - c2;
-	}
-
-	return 0;
+	return c1 - c2;
 }
