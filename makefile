@@ -8,8 +8,8 @@
 NAME=ezbackup
 VERSION=0.2\ beta
 CC=gcc
-CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 CXX=g++
+CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 CXXFLAGS=-Wall -Wextra -pedantic -std=c++11 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega -lstdc++ -ledit
 DBGFLAGS=-g -rdynamic
@@ -21,7 +21,7 @@ HEADERS=$(shell ls | grep .*\\.c$ | sed 's/\.c//g;s/main//g')
 CXXHEADERS=cloud/mega
 # TESTS=tests/test_checksum tests/test_crypt tests/test_error tests/test_fileiterator tests/test_maketar tests/test_options tests/test_progressbar
 TESTS=$(foreach test,$(shell ls tests | grep .*\\.c$ | sed 's/\.c//g;s/test_base//g'),tests/$(test))
-CXXTESTS=
+CXXTESTS=$(foreach test,$(shell ls tests | grep .*\\.cpp$ | sed 's/\.cpp//g;s/test_base//g'),tests/$(test))
 
 SOURCEFILES=$(foreach header,$(HEADERS),$(header).c)
 OBJECTS=$(foreach header,$(HEADERS),$(header).o)
@@ -63,3 +63,9 @@ main.dbg.o: main.c
 
 clean:
 	rm -f *.o $(NAME) $(CLEANOBJECTS) $(CLEANCXXOBJECTS) main.c.* vgcore.* $(TESTOBJECTS) $(TESTCXXOBJECTS) tests/*.o cloud/*.o $(TESTS)
+
+linecount:
+	wc -l *.c *.h makefile readme.txt cloud/*.cpp cloud/*.h tests/*.h tests/*.c
+
+linecount_notests:
+	wc -l *.c *.h makefile readme.txt cloud/*.cpp cloud/*.h
