@@ -134,7 +134,7 @@ static int add_string_to_array(char*** array, int* array_len, const char* str){
 
 static int get_backup_directory(char** out){
 	struct passwd* pw;
-	char* homedir;
+	const char* homedir;
 	struct stat st;
 
 	/* get home directory */

@@ -33,7 +33,7 @@
 /* malloc */
 #include <stdlib.h>
 
-TAR* tar_create(const char* filename, COMPRESSOR comp, int compression_level){
+TAR* tar_create(const char* filename, enum COMPRESSOR comp, int compression_level){
 	TAR* tp = archive_write_new();
 
 	if (!filename){
@@ -551,7 +551,7 @@ cleanup:
 	return ret;
 }
 
-COMPRESSOR get_compressor_byname(const char* compressor){
+enum COMPRESSOR get_compressor_byname(const char* compressor){
 	if (!strcmp_nocase(compressor, "none") ||
 			!strcmp_nocase(compressor, "off")){
 		return COMPRESSOR_NONE;
@@ -575,7 +575,7 @@ COMPRESSOR get_compressor_byname(const char* compressor){
 	}
 }
 
-const char* compressor_to_string(COMPRESSOR comp){
+const char* compressor_to_string(enum COMPRESSOR comp){
 	switch(comp){
 	case COMPRESSOR_GZIP:
 		return "gzip";

@@ -16,7 +16,6 @@ extern "C"{
 #include <iostream>
 #include <vector>
 #include <cstring>
-#include <fstream>
 #include <cerrno>
 #include <condition_variable>
 #include <mutex>
@@ -142,6 +141,7 @@ int MEGAlogin(const char* email, const char* password, MEGAhandle** out){
 		if (crypt_getpassword(prompt.c_str(), NULL, pwbuffer, sizeof(pwbuffer)) != 0){
 			log_error(__FL__, "MEGA: Failed to read password from terminal.");
 			crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
+			delete mega_api;
 			return -1;
 		}
 		mega_api->login(email, pwbuffer, &listener);
@@ -153,6 +153,7 @@ int MEGAlogin(const char* email, const char* password, MEGAhandle** out){
 	listener.wait();
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
 		std::cout << "Failed to login (" << listener.getError()->toString() << ")." << std::endl;
+		delete mega_api;
 		return 1;
 	}
 
@@ -160,6 +161,7 @@ int MEGAlogin(const char* email, const char* password, MEGAhandle** out){
 	listener.wait();
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
 		log_error(__FL__, "MEGA: Failed to fetch nodes");
+		delete mega_api;
 		return -1;
 	}
 
@@ -214,45 +216,70 @@ int MEGAmkdir(const char* dir, MEGAhandle* mh){
 	return 0;
 }
 
-int MEGAreaddir(const char* dir, char*** out, size_t* out_len, MEGAhandle* mh){
-	std::string path;
-	mega::MegaNode* node;
-	mega::MegaNodeList* children;
-	mega::MegaApi* mega_api;
+int MEGAreaddir(const char* dir, struct file_node*** out, size_t* out_len, MEGAhandle* mh){
+	std::string path = NULL;
+	mega::MegaNode* node = NULL;
+	mega::MegaNodeList* children = NULL;
+	mega::MegaApi* mega_api = NULL;
+	int ret = 0;
 
 	mega_api = (mega::MegaApi*)mh;
+	(*out) = NULL;
 
 	path = dir;
 	node = mega_api->getNodeByPath(path.c_str());
 	if (!node){
 		log_error(__FL__, "MEGA: Directory does not exist");
-		return -1;
+		ret = -1;
+		goto cleanup_freeout;
 	}
 
 	children = mega_api->getChildren(node);
+	*out = NULL;
 	*out_len = 0;
 	for (int i = 0; i < children->size(); ++i){
+		struct file_node* tmp = (struct file_node*)malloc(sizeof(struct file_node));
+		mega::MegaNode* n;
+
+		if (!tmp){
+			log_fatal(__FL__, STR_ENOMEM);
+			ret = -1;
+			goto cleanup_freeout;
+		}
+
 		(*out_len)++;
-		*out = (char**)realloc(*out, sizeof(**out) * *out_len);
+		*out = (struct file_node**)realloc(*out, sizeof(**out) * *out_len);
 		if (!(*out)){
 			log_fatal(__FL__, STR_ENOMEM);
-			return -1;
+			ret = -1;
+			goto cleanup_freeout;
 		}
 
-		mega::MegaNode* n = children->get(i);
+		n = children->get(i);
 		log_debug(__FL__, "Reading child %s", n->getName());
-		*out[*out_len - 1] = (char*)malloc(strlen(n->getName()) + 1);
-		if (!(*out)[*out_len - 1]){
+		(*out)[*out_len - 1]->name = (char*)malloc(strlen(n->getName()) + 1);
+		if (!(*out)[*out_len - 1]->name){
 			log_fatal(__FL__, STR_ENOMEM);
-			return -1;
+			ret = -1;
+			goto cleanup_freeout;
 		}
-
-		strcpy(*out[*out_len - 1], n->getName());
+		strcpy((*out)[*out_len - 1]->name, n->getName());
+		(*out)[*out_len - 1]->time = n->getCreationTime();
 	}
 
 	delete children;
 	delete node;
-	return 0;
+	return ret;
+
+cleanup_freeout:
+	if (*out){
+		for (size_t i = 0; i < *out_len; ++i){
+			free((*out)[i]);
+		}
+	}
+	delete children;
+	delete node;
+	return ret;
 }
 
 int MEGAdownload(const char* download_path, const char* out_file, const char* msg, MEGAhandle* mh){

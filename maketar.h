@@ -12,7 +12,14 @@
 #include <stdio.h>
 
 typedef struct archive TAR;
-typedef enum COMPRESSOR { COMPRESSOR_NONE, COMPRESSOR_LZ4, COMPRESSOR_GZIP, COMPRESSOR_BZIP2, COMPRESSOR_XZ, COMPRESSOR_INVALID } COMPRESSOR;
+enum COMPRESSOR {
+	COMPRESSOR_NONE,
+	COMPRESSOR_LZ4,
+	COMPRESSOR_GZIP,
+	COMPRESSOR_BZIP2,
+	COMPRESSOR_XZ,
+	COMPRESSOR_INVALID
+};
 
 TAR* tar_create(const char* filename, COMPRESSOR comp, int compression_level);
 int tar_add_file(TAR* tp, const char* filename);

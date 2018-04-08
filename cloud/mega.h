@@ -9,6 +9,14 @@
 #ifndef __MEGA_H
 #define __MEGA_H
 
+#ifdef __cplusplus
+#include <cstddef>
+#else
+#include <stddef.h>
+#endif
+
+#include "cloud_base.h"
+
 typedef void MEGAhandle;
 
 #ifdef __cplusplus
@@ -17,7 +25,7 @@ extern "C"{
 
 int MEGAlogin(const char* username, const char* password, MEGAhandle** out);
 int MEGAmkdir(const char* dir, MEGAhandle* mh);
-int MEGAreaddir(const char* dir, char** out, MEGAhandle* mh);
+int MEGAreaddir(const char* dir, struct file_node** out, size_t* out_len, MEGAhandle* mh);
 int MEGAdownload(const char* download_path, const char* out_file, const char* msg, MEGAhandle* mh);
 int MEGAupload(const char* in_file, const char* upload_path, const char* msg, MEGAhandle* mh);
 int MEGAlogout(MEGAhandle* mh);

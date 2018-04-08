@@ -15,13 +15,13 @@
 
 #define FLAG_VERBOSE (0x1)
 
-typedef enum OPERATION{
+enum OPERATION{
 	OP_INVALID = 0,
 	OP_BACKUP  = 1,
 	OP_RESTORE = 2,
 	OP_CONFIGURE = 3,
 	OP_EXIT = 4
-}OPERATION;
+};
 
 struct options{
 	char*             prev_backup;
@@ -34,7 +34,7 @@ struct options{
 	COMPRESSOR        comp_algorithm;
 	int               comp_level;
 	char*             output_directory;
-	OPERATION         operation;
+	enum OPERATION    operation;
 	unsigned          flags;
 };
 

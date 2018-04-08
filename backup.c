@@ -6,6 +6,7 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
+#include "backup.h"
 #include "readfile.h"
 #include "crypt.h"
 #include "fileiterator.h"
@@ -361,6 +362,44 @@ int get_default_backup_name(struct options* opt, char** out){
 	return 0;
 }
 
+int add_default_directories(struct options* opt){
+	struct passwd* pw;
+	const char* homedir;
+
+	if (!(homedir = getenv("HOME"))){
+		pw = getpwuid(getuid());
+		if (!pw){
+			log_error(__FL__, "Failed to get home directory");
+			return -1;
+		}
+		homedir = pw->pw_dir;
+	}
+
+	if (opt->directories){
+		int i;
+		for (i = 0; i < opt->directories_len; ++i){
+			free(opt->directories[i]);
+		}
+		free(opt->directories);
+	}
+
+	opt->directories_len = 1;
+	opt->directories = malloc(sizeof(*(opt->directories)));
+	if (!opt->directories){
+		log_fatal(__FL__, STR_ENOMEM);
+		return -1;
+	}
+	opt->directories[0] = malloc(strlen(homedir) + 1);
+	if (!opt->directories[0]){
+		log_fatal(__FL__, STR_ENOMEM);
+		free(opt->directories);
+		return -1;
+	}
+
+	strcpy(opt->directories[0], homedir);
+	return 0;
+}
+
 int backup(struct options* opt, const struct options* opt_prev){
 	struct backup_params bp;
 	struct TMPFILE* tfp_tar = NULL;
@@ -372,6 +411,12 @@ int backup(struct options* opt, const struct options* opt_prev){
 
 	memset(&bp, 0, sizeof(bp));
 	bp.opt = opt;
+
+	if (opt->directories_len <= 0 &&
+			add_default_directories(opt) != 0){
+		log_error(__FL__, "Failed to determine directories");
+		return -1;
+	}
 
 	/* load previous hash file */
 	if (opt_prev &&
