@@ -405,6 +405,7 @@ int backup(struct options* opt, const struct options* opt_prev){
 	struct TMPFILE* tfp_tar = NULL;
 	struct TMPFILE* tfp_sorted = NULL;
 	struct TMPFILE* tfp_removed = NULL;
+	struct TMPFILE* tfp_config_prev = NULL;
 	char* file_out = NULL;
 	int ret = 0;
 	int i;

@@ -45,4 +45,7 @@ int crypt_decrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int
 int crypt_extract_salt(const char* in, struct crypt_keys* fk);
 int crypt_free(struct crypt_keys* fk);
 
+#ifdef __UNIT_TESTING__
+int crypt_hashpassword(unsigned char* data, int data_len, unsigned char** salt, int* salt_len, unsigned char** hash, int* hash_len);
+unsigned char crypt_randc(void);
 #endif

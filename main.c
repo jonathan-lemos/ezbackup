@@ -144,6 +144,7 @@ static int restore(func_params* fparams, const options* opt_prev){
 	}
 }
 
+#ifndef __UNIT_TESTING__
 int main(int argc, char** argv){
 	func_params fparams;
 	options opt_prev;
@@ -187,3 +188,4 @@ int main(int argc, char** argv){
 
 	return 0;
 }
+#endif

@@ -9,6 +9,7 @@
 #include "test_base.h"
 #include <stdlib.h>
 #include <signal.h>
+#include <sys/stat.h>
 
 void printf_red(const char* format, ...){
 	va_list ap;
@@ -141,4 +142,9 @@ int memcmp_file_file(const char* file1, const char* file2){
 	fclose(fp2);
 
 	return c1 - c2;
+}
+
+int does_file_exist(const char* file){
+	struct stat st;
+	return stat(file, &st) == 0;
 }

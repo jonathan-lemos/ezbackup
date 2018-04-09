@@ -109,7 +109,7 @@ unsigned char crypt_randc(void){
 	return ret;
 }
 
-static int crypt_hashpassword(unsigned char* data, int data_len, unsigned char** salt, int* salt_len, unsigned char** hash, int* hash_len){
+int crypt_hashpassword(unsigned char* data, int data_len, unsigned char** salt, int* salt_len, unsigned char** hash, int* hash_len){
 	/* we're not actually using this to encrypt anything,
 	 * we're just using it as a parameter to EVP_BytesToKey
 	 * so we can generate our keypair which is irreversable

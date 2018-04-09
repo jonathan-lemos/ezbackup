@@ -31,7 +31,7 @@ struct options{
 	int               exclude_len;
 	const EVP_MD*     hash_algorithm;
 	const EVP_CIPHER* enc_algorithm;
-	COMPRESSOR        comp_algorithm;
+	enum COMPRESSOR   comp_algorithm;
 	int               comp_level;
 	char*             output_directory;
 	enum OPERATION    operation;
@@ -40,14 +40,17 @@ struct options{
 
 void version(void);
 void usage(const char* progname);
-int display_menu(const char** options, int num_options, const char* title);
 int parse_options_cmdline(int argc, char** argv, struct options* out);
 int parse_options_menu(struct options* opt);
 int parse_options_fromfile(const char* file, struct options* opt);
-int write_options_tofile(const char* file, struct options* opt);
 void free_options(struct options* o);
 int get_default_options(struct options* opt);
 int read_config_file(struct options* opt);
-int write_config_file(struct options* opt);
+int write_config_file(const struct options* opt, const char* path);
+
+#ifdef __UNIT_TESTING__
+int display_menu(const char** options, int num_options, const char* title);
+int write_options_tofile(const char* file, const struct options* opt);
+#endif
 
 #endif

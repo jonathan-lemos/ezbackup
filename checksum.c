@@ -33,6 +33,10 @@
 /* 16mb */
 #define MAX_RUN_SIZE (1 << 24)
 
+const EVP_MD* get_evp_md(const char* hash_name){
+	return EVP_get_digestbyname(hash_name);
+}
+
 int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out){
 	unsigned i;
 	unsigned outptr;
@@ -164,7 +168,7 @@ cleanup:
 	return ret;
 }
 
-static int file_to_element(const char* file, const EVP_MD* algorithm, element** out){
+int file_to_element(const char* file, const EVP_MD* algorithm, element** out){
 	unsigned char* buffer = NULL;
 	unsigned len = 0;
 	int ret = 0;
@@ -322,7 +326,7 @@ int search_for_checksum(FILE* fp_checksums, const char* key, char** checksum){
 	return search_file(fp_checksums, key, checksum);
 }
 
-static int check_file_exists(const char* file){
+int check_file_exists(const char* file){
 	struct stat st;
 
 	if (lstat(file, &st) == 0){

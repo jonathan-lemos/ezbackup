@@ -63,12 +63,68 @@ int time_menu(struct file_node* arr, size_t len){
 	return res;
 }
 
-int mega_upload(const char* file, const char* upload_dir, const char* username, const char* password){
-	char* uname = NULL;
+int get_parent_dirs(const char* in, char*** out, size_t* out_len){
 	char* dir = NULL;
 	char* dir_tok = NULL;
+	int ret = 0;
+
+	*out = NULL;
+	*out_len = 0;
+
+	dir = malloc(strlen(in) + 1);
+	dir_tok = strtok(dir, "/");
+	while (dir_tok != NULL){
+		size_t i;
+		size_t len_prev = 0;
+
+		for (i = 0; i < (*out_len); ++i){
+			len_prev += strlen((*out)[i]);
+		}
+
+		(*out_len)++;
+		*out = realloc(*out, *out_len * sizeof(**out));
+		if (!(*out)){
+			(*out_len)--;
+			log_fatal(__FL__, STR_ENOMEM);
+			ret = -1;
+			goto cleanup;
+		}
+
+		(*out)[*out_len - 1] = malloc(len_prev + strlen(dir_tok) + 1);
+		if (!(*out)[*out_len - 1]){
+			(*out_len)--;
+			log_fatal(__FL__, STR_ENOMEM);
+			ret = -1;
+			goto cleanup;
+		}
+
+		(*out)[*out_len - 1][0] = '\0';
+		for (i = 0; i < (*out_len) - 1; ++i){
+			strcat((*out)[*out_len - 1], (*out)[i]);
+		}
+		strcat((*out)[*out_len - 1], "/");
+		strcat((*out)[*out_len - 1], dir_tok);
+	}
+
+cleanup:
+	free(dir);
+	if (*out){
+		size_t i;
+		for (i = 0; i < (*out_len); ++i){
+			free((*out)[i]);
+		}
+		free(*out);
+	}
+	return ret;
+}
+
+int mega_upload(const char* file, const char* upload_dir, const char* username, const char* password){
+	char* uname = NULL;
+	char** parent_dirs;
+	size_t parent_dirs_len;
 	MEGAhandle* mh = NULL;
 	int ret = 0;
+	size_t i;
 
 	if (!username){
 		uname = readline("Enter username:");
@@ -89,21 +145,18 @@ int mega_upload(const char* file, const char* upload_dir, const char* username, 
 		goto cleanup;
 	}
 
-	dir = malloc(strlen(upload_dir) + 1);
-	if (!dir){
-		log_fatal(__FL__, STR_ENOMEM);
+	if (get_parent_dirs(upload_dir, &parent_dirs, &parent_dirs_len) != 0){
+		log_debug(__FL__, "Failed to determine parent directories");
 		ret = -1;
 		goto cleanup;
 	}
 
-	dir_tok = strtok(dir, "/");
-	while (dir_tok != NULL){
-		if (MEGAmkdir(dir_tok, mh) < 0){
-			log_debug(__FL__, "Failed to create backup directory in MEGA");
+	for (i = 0; i < parent_dirs_len; ++i){
+		if (MEGAmkdir(parent_dirs[i], mh) < 0){
+			log_debug(__FL__, "Failed to create directory on MEGA");
 			ret = -1;
 			goto cleanup;
 		}
-		dir_tok = strtok(NULL, "/");
 	}
 
 	if (MEGAupload(file, upload_dir, "Uploading file to MEGA", mh) != 0){
@@ -123,7 +176,14 @@ cleanup:
 		log_debug(__FL__, "Failed to logout of MEGA");
 		ret = -1;
 	}
-	free(dir);
+
+	if (parent_dirs){
+		for (i = 0; i < parent_dirs_len; ++i){
+			free(parent_dirs[i]);
+		}
+		free(parent_dirs);
+	}
+
 	free(uname);
 	return ret;
 }
@@ -193,15 +253,15 @@ int cloud_download(const char* download_dir, const char* out_file, const char* u
 	int ret = 0;
 
 	switch (cp){
-		case CLOUD_NONE:
-			break;
-		case CLOUD_MEGA:
-			ret = mega_download(download_dir, out_file, username, NULL);
-			break;
-		default:
-			log_error(__FL__, "Invalid CLOUD_PROVIDER passed");
-			ret = -1;
-			break;
+	case CLOUD_NONE:
+		break;
+	case CLOUD_MEGA:
+		ret = mega_download(download_dir, out_file, username, NULL);
+		break;
+	default:
+		log_error(__FL__, "Invalid CLOUD_PROVIDER passed");
+		ret = -1;
+		break;
 	}
 
 	return ret;

@@ -25,14 +25,14 @@ extern "C"{
 
 int MEGAlogin(const char* username, const char* password, MEGAhandle** out);
 int MEGAmkdir(const char* dir, MEGAhandle* mh);
-int MEGAreaddir(const char* dir, struct file_node** out, size_t* out_len, MEGAhandle* mh);
+int MEGAreaddir(const char* dir, struct file_node*** out, size_t* out_len, MEGAhandle* mh);
 int MEGAdownload(const char* download_path, const char* out_file, const char* msg, MEGAhandle* mh);
 int MEGAupload(const char* in_file, const char* upload_path, const char* msg, MEGAhandle* mh);
+int MEGArm(const char* file, MEGAhandle* mh);
 int MEGAlogout(MEGAhandle* mh);
 
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif

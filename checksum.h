@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <openssl/evp.h>
 
+const EVP_MD* get_evp_md(const char* hash_name);
 int checksum(const char* file, const EVP_MD* algorithm, unsigned char** out, unsigned* len);
 int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out);
 int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, FILE* prev_checksums);
@@ -21,7 +22,9 @@ int search_for_checksum(FILE* fp, const char* key, char** checksum);
 int create_removed_list(FILE* checksum_file, FILE* out_file);
 char* get_next_removed(FILE* fp);
 
-#ifdef __TESTING__
+#ifdef __UNIT_TESTING__
+int file_to_element(const char* file, const EVP_MD* algorithm, element** out);
+int check_file_exists(const char* file);
 #endif
 
 #endif

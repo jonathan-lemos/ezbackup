@@ -37,12 +37,10 @@
 #include <pwd.h>
 
 #ifndef PROG_NAME
-#define PROG_NAME "INVALID"
-#error "PROG_NAME not defined"
+#define PROG_NAME NULL
 #endif
 #ifndef PROG_VERSION
-#define PROG_VERSION "INVALID"
-#error "PROG_VERSION not defined"
+#define PROG_VERSION NULL
 #endif
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
@@ -54,7 +52,6 @@ void version(void){
 	const char* name         = "Jonathan Lemos";
 	const char* license      = "This software may be modified and distributed under the terms of the MIT license.\n\
 								See the LICENSE file for details.";
-
 
 	printf("%s %s\n", program_name, version);
 	printf("Copyright (c) %s %s\n", year, name);
@@ -413,7 +410,7 @@ static int menu_compressor(struct options* opt){
 		"none",
 		"Exit"
 	};
-	COMPRESSOR list_compressor[] = {
+	enum COMPRESSOR list_compressor[] = {
 		COMPRESSOR_GZIP,
 		COMPRESSOR_BZIP2,
 		COMPRESSOR_XZ,
@@ -882,7 +879,7 @@ int parse_options_fromfile(const char* file, struct options* opt){
  * FLAGS=1
  *
  */
-int write_options_tofile(const char* file, struct options* opt){
+int write_options_tofile(const char* file, const struct options* opt){
 	FILE* fp;
 	int i;
 
@@ -991,18 +988,25 @@ int read_config_file(struct options* opt){
 }
 
 
-int write_config_file(struct options* opt){
-	char* backup_conf;
+int write_config_file(const struct options* opt, const char* path){
+	char* backup_conf = NULL;
 
+	if (path){
+		if (write_options_tofile(path, opt) != 0){
+			log_warning(__FL__, "Failed to write settings to file");
+			return -1;
+		}
+		return 0;
+	}
 	if ((get_config_name(&backup_conf)) != 0){
 		log_warning(__FL__, "Failed to get backup name for incremental backup settings.");
-		return 1;
+		return -1;
 	}
 	else{
 		if ((write_options_tofile(backup_conf, opt)) != 0){
 			log_warning(__FL__, "Failed to write settings for incremental backup.");
 			free(backup_conf);
-			return 1;
+			return -1;
 		}
 	}
 	free(backup_conf);

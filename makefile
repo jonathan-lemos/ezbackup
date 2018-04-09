@@ -65,7 +65,7 @@ clean:
 	rm -f *.o $(NAME) $(CLEANOBJECTS) $(CLEANCXXOBJECTS) main.c.* vgcore.* $(TESTOBJECTS) $(TESTCXXOBJECTS) tests/*.o cloud/*.o $(TESTS)
 
 linecount:
-	wc -l *.c *.h makefile readme.txt cloud/*.cpp cloud/*.h tests/*.h tests/*.c
+	wc -l *.c *.h makefile readme.txt cloud/*.cpp cloud/*.h cloud/*.c tests/*.h tests/*.c
 
 linecount_notests:
-	wc -l *.c *.h makefile readme.txt cloud/*.cpp cloud/*.h
+	wc -l *.c *.h makefile readme.txt cloud/*.cpp cloud/*.h cloud/*.c

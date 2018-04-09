@@ -152,7 +152,7 @@ int MEGAlogin(const char* email, const char* password, MEGAhandle** out){
 	}
 	listener.wait();
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
-		std::cout << "Failed to login (" << listener.getError()->toString() << ")." << std::endl;
+		std::cerr << "Failed to login (" << listener.getError()->toString() << ")." << std::endl;
 		delete mega_api;
 		return 1;
 	}
@@ -212,7 +212,7 @@ int MEGAmkdir(const char* dir, MEGAhandle* mh){
 		return -1;
 	}
 
-	log_debug(__FILE__, __LINE__, "MEGA: Created folder %s successfully", dir);
+	log_debug(__FL__, "MEGA: Created folder %s successfully", dir);
 	return 0;
 }
 
@@ -335,6 +335,31 @@ int MEGAupload(const char* in_file, const char* upload_dir, const char* msg, MEG
 	}
 
 	return 0;
+}
+
+int MEGArm(const char* file, MEGAhandle* mh){
+	std::string path;
+	mega::MegaNode* node;
+	mega::MegaApi* mega_api;
+	mega::SynchronousRequestListener listener;
+
+	mega_api = (mega::MegaApi*)mh;
+
+	path = file;
+
+	node = mega_api->getNodeByPath(path.c_str());
+	if (!node){
+		log_error(__FL__, "MEGA: File not found");
+		return -1;
+	}
+
+	mega_api->remove(node, &listener);
+	listener.wait();
+	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
+		std::cerr << "Failed to remove " << path << " (" << listener.getError()->toString() << ")." << std::endl;
+		delete mega_api;
+		return 1;
+	}
 }
 
 int MEGAlogout(MEGAhandle* mh){
