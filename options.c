@@ -50,9 +50,7 @@ void version(void){
 	const char* version      = PROG_VERSION;
 	const char* year         = "2018";
 	const char* name         = "Jonathan Lemos";
-	const char* license      = "This software may be modified and distributed under the terms of the MIT license.\n\
-								See the LICENSE file for details.";
-
+	const char* license      = "This software may be modified and distributed under the terms of the MIT license.";
 	printf("%s %s\n", program_name, version);
 	printf("Copyright (c) %s %s\n", year, name);
 	printf("%s\n", license);

@@ -16,9 +16,10 @@ void test_read_file(void){
 	printf_blue("Testing read_file()\n");
 
 	create_file(sample_file, sample_data, sizeof(sample_data));
-	fp1 = fopen(sample_file, "wb");
+	fp1 = fopen(sample_file, "rb");
 	massert(fp1);
 	fp2 = fopen(sample_file2, "wb");
+	massert(fp2);
 
 	printf_yellow("Calling read_file()\n");
 	while ((len = read_file(fp1, buf, sizeof(buf))) > 0){
@@ -27,11 +28,14 @@ void test_read_file(void){
 	}
 	massert(len == 0);
 
+	massert(fflush(fp2) == 0);
+
 	printf_yellow("Verifying that the files match\n");
 	massert(memcmp_file_file(sample_file, sample_file2) == 0);
 
 	massert(fclose(fp1) == 0);
 	massert(fclose(fp2) == 0);
+
 	remove(sample_file);
 	remove(sample_file2);
 
@@ -54,6 +58,7 @@ void test_temp_fopen(void){
 	printf_yellow("Writing to file\n");
 	fwrite(sample_data, 1, sizeof(sample_data), tmp->fp);
 	massert(ferror(tmp->fp) == 0);
+	massert(fflush(tmp->fp) == 0);
 
 	printf_yellow("Verifying file integrity\n");
 	massert(memcmp_file_data(tmp->name, sample_data, sizeof(sample_data)) == 0);
@@ -164,4 +169,5 @@ int main(void){
 	test_temp_fopen();
 	test_file_opened_for_reading();
 	test_file_opened_for_writing();
+	return 0;
 }

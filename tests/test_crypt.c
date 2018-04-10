@@ -60,7 +60,7 @@ void test_crypt_getpassword(void){
 }
 
 void test_crypt_encrypt(void){
-	struct crypt_keys fk;
+	struct crypt_keys* fk;
 	char openssl_cmd[256];
 
 	printf_blue("Testing crypt_encrypt()\n");
@@ -73,14 +73,15 @@ void test_crypt_encrypt(void){
 	system(openssl_cmd);
 
 	printf_yellow("Calling crypt_encrypt()\n");
-	massert(crypt_set_encryption(EVP_aes_256_cbc(), &fk) == 0);
-	massert(crypt_set_salt(salt, &fk) == 0);
-	massert(crypt_gen_keys((const unsigned char*)password, strlen(password), NULL, 1, &fk) == 0);
-	massert(crypt_encrypt(sample_file, &fk, sample_file_crypt2) == 0);
-	crypt_free(&fk);
+	massert((fk = crypt_new()) != NULL);
+	massert(crypt_set_encryption(EVP_aes_256_cbc(), fk) == 0);
+	massert(crypt_set_salt(salt, fk) == 0);
+	massert(crypt_gen_keys((const unsigned char*)password, strlen(password), NULL, 1, fk) == 0);
+	massert(crypt_encrypt(sample_file, fk, sample_file_crypt2) == 0);
+	crypt_free(fk);
 
 	printf_yellow("Checking that the files match\n");
-	massert(memcmp_file_file(sample_file_crypt, sample_file_crypt2));
+	massert(memcmp_file_file(sample_file_crypt, sample_file_crypt2) == 0);
 
 	printf_yellow("Cleanup\n");
 	remove(sample_file);
@@ -91,7 +92,7 @@ void test_crypt_encrypt(void){
 }
 
 void test_crypt_decrypt(void){
-	struct crypt_keys fk;
+	struct crypt_keys* fk;
 	char openssl_cmd[256];
 
 	printf_blue("Testing crypt_decrypt()\n");
@@ -107,17 +108,18 @@ void test_crypt_decrypt(void){
 	sprintf(openssl_cmd, "openssl aes-256-cbc -d -salt -in %s -out %s -pass pass:%s", sample_file_crypt, sample_file_decrypt, password);
 	printf("%s\n", openssl_cmd);
 	system(openssl_cmd);
-	massert(memcmp_file_data(sample_file_decrypt, sample_data, sizeof(sample_data)));
+	massert(memcmp_file_data(sample_file_decrypt, sample_data, sizeof(sample_data)) == 0);
 
 	printf_yellow("Calling crypt_decrypt()\n");
-	massert(crypt_set_encryption(EVP_aes_256_cbc(), &fk) == 0);
-	massert(crypt_extract_salt(sample_file_crypt, &fk) == 0);
-	massert(crypt_gen_keys((const unsigned char*)password, strlen(password), NULL, 1, &fk) == 0);
-	massert(crypt_decrypt(sample_file_crypt, &fk, sample_file_decrypt2) == 0);
-	crypt_free(&fk);
+	massert((fk = crypt_new()) != NULL);
+	massert(crypt_set_encryption(EVP_aes_256_cbc(), fk) == 0);
+	massert(crypt_extract_salt(sample_file_crypt, fk) == 0);
+	massert(crypt_gen_keys((const unsigned char*)password, strlen(password), NULL, 1, fk) == 0);
+	massert(crypt_decrypt(sample_file_crypt, fk, sample_file_decrypt2) == 0);
+	crypt_free(fk);
 
 	printf_yellow("Checking that the files match\n");
-	massert(memcmp_file_file(sample_file_decrypt, sample_file_decrypt2));
+	massert(memcmp_file_file(sample_file_decrypt, sample_file_decrypt2) == 0);
 
 	printf_yellow("Cleanup\n");
 	remove(sample_file);

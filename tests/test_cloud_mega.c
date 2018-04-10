@@ -1,5 +1,6 @@
 #include "test_base.h"
 #include "../cloud/mega.h"
+#include "../error.h"
 #include <string.h>
 #include <time.h>
 
@@ -16,6 +17,7 @@ void test_MEGAdownload(void){
 	char buf[256];
 	struct file_node** fn;
 	size_t fn_len;
+	size_t fn_len_prev;
 	size_t i;
 
 	create_file(sample_file, sample_data, strlen((const char*)sample_data));
@@ -24,7 +26,7 @@ void test_MEGAdownload(void){
 	printf_blue("Testing MEGAdownload()\n");
 
 	printf_yellow("Calling MEGAlogin()\n");
-	massert(MEGAlogin(sample_username, NULL, &mh) == 0);
+	massert(MEGAlogin(sample_username, sample_password, &mh) == 0);
 
 	printf_yellow("Calling MEGAmkdir()\n");
 	massert(MEGAmkdir("/test1", mh) >= 0);
@@ -45,9 +47,19 @@ void test_MEGAdownload(void){
 		printf("%s (%s)\n", fn[i]->name, buf);
 	}
 
+	printf_yellow("Calling MEGArm()\n");
+	sprintf(buf, "/test1/%s", sample_file2);
+	massert(MEGArm(buf, mh) == 0);
+
+	printf_yellow("Checking that it worked\n");
+	fn_len_prev = fn_len;
+	massert(MEGAreaddir("/test1", &fn, &fn_len, mh) == 0);
+	massert(fn_len == fn_len_prev - 1);
+
 	printf_yellow("Calling MEGAdownload()\n");
 	sprintf(buf, "/test1/%s", sample_file);
-	massert(MEGAdownload("/test1", sample_file3, "Downloading file", mh) == 0);
+	printf("%s\n", buf);
+	massert(MEGAdownload(buf, sample_file3, "Downloading file", mh) == 0);
 
 	printf_yellow("Checking that the files match\n");
 	massert(memcmp_file_file(sample_file, sample_file3) == 0);
@@ -63,6 +75,7 @@ void test_MEGAdownload(void){
 
 int main(void){
 	set_signal_handler();
+	log_setlevel(LEVEL_INFO);
 
 	test_MEGAdownload();
 	return 0;

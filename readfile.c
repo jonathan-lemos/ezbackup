@@ -32,6 +32,10 @@ int read_file(FILE* fp, unsigned char* dest, size_t length){
 	if (!fp){
 		return -1;
 	}
+	if (!file_opened_for_reading(fp)){
+		log_error(__FL__, STR_EMODE);
+		return -1;
+	}
 
 	ret = fread(dest, 1, length, fp);
 	if (ferror(fp)){
@@ -162,7 +166,7 @@ int file_opened_for_reading(FILE* fp){
 	}
 	fd = fileno(fp);
 	flags = fcntl(fd, F_GETFL);
-	return (flags & O_RDWR) || !(flags & O_WRONLY);
+	return (flags & O_RDWR) || O_RDONLY == 0 ? !(flags & O_WRONLY) : flags & O_RDONLY;
 }
 
 int file_opened_for_writing(FILE* fp){
@@ -173,5 +177,5 @@ int file_opened_for_writing(FILE* fp){
 	}
 	fd = fileno(fp);
 	flags = fcntl(fd, F_GETFL);
-	return (flags & O_RDWR) || !(flags & O_RDONLY);
+	return (flags & O_RDWR) || O_WRONLY == 0 ? !(flags & O_RDONLY) : flags & O_WRONLY;
 }

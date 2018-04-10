@@ -153,7 +153,6 @@ cleanup:
 int encrypt_file(const char* in, const char* out, const EVP_CIPHER* enc_algorithm, int verbose){
 	char pwbuffer[1024];
 	struct crypt_keys* fk;
-	const EVP_CIPHER* enc;
 	char prompt[128];
 	int ret;
 
@@ -179,7 +178,7 @@ int encrypt_file(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 		goto cleanup;
 	}
 
-	sprintf(prompt, "Enter %s encryption password", EVP_CIPHER_name(enc));
+	sprintf(prompt, "Enter %s encryption password", EVP_CIPHER_name(enc_algorithm));
 	/* PASSWORD IN MEMORY */
 	while ((ret = crypt_getpassword(prompt,
 					"Verify encryption password",
@@ -410,43 +409,59 @@ int backup(struct options* opt, const struct options* opt_prev){
 	int ret = 0;
 	int i;
 
+	/* create temp files */
+	tfp_tar = temp_fopen("/var/tmp/tar_XXXXXX", "wb");
+	tfp_removed = temp_fopen("/var/tmp/removed_XXXXXX", "wb");
+	tfp_sorted = temp_fopen("/var/tmp/sorted_XXXXXX", "wb");
+	tfp_config_prev = temp_fopen("/var/tmp/config_XXXXXX", "wb");
+	bp.tfp_hashes = temp_fopen("/var/tmp/hashes_XXXXXX", "w+b");
+	bp.tfp_hashes_prev = temp_fopen("/var/tmp/prev_XXXXXX", "w+b");
+	if (!tfp_tar ||
+			!tfp_removed ||
+			!tfp_sorted ||
+			!tfp_config_prev ||
+			!(bp.tfp_hashes) ||
+			!(bp.tfp_hashes_prev)){
+		log_debug(__FL__, "Failed to create temp file");
+		ret = -1;
+		goto cleanup;
+	}
+
+	/* load bp.opt */
 	memset(&bp, 0, sizeof(bp));
 	bp.opt = opt;
 
-	if (opt->directories_len <= 0 &&
+	if ((!opt->directories || opt->directories_len <= 0) &&
 			add_default_directories(opt) != 0){
 		log_error(__FL__, "Failed to determine directories");
 		return -1;
 	}
 
-	/* load previous hash file */
+	/* load bp.tfp_hashes_prev */
 	if (opt_prev &&
 			opt_prev->prev_backup &&
 			opt_prev->hash_algorithm == bp.opt->hash_algorithm){
-		bp.tfp_hashes_prev = temp_fopen("/var/tmp/prev_XXXXXX", "w+b");
-		if (!bp.tfp_hashes_prev){
-			log_debug(__FL__, "Failed to create temp file for previous backup");
-		}
-
 		if (bp.tfp_hashes_prev && extract_prev_checksums(opt_prev->prev_backup, bp.tfp_hashes_prev->name, opt_prev->enc_algorithm, opt->flags & FLAG_VERBOSE) != 0){
 			log_debug(__FL__, "Failed to extract previous checksums");
 			temp_fclose(bp.tfp_hashes_prev);
 			bp.tfp_hashes_prev = NULL;
 		}
+
+		if (write_config_file(opt_prev, tfp_config_prev->name) != 0){
+			temp_fclose(tfp_config_prev);
+			tfp_config_prev = NULL;
+			log_warning(__FL__, "Could not write old config to file");
+		}
 	}
 
+	/* determine backup name */
 	if (get_default_backup_name(opt, &file_out) != 0){
 		log_debug(__FL__, "Failed to generate backup name");
 		ret = -1;
 		goto cleanup;
 	}
 
-	if ((tfp_tar = temp_fopen("/var/tmp/tar_XXXXXX", "wb")) == NULL){
-		log_debug(__FL__, "Failed to generate temp file for tar");
-		ret = -1;
-		goto cleanup;
-	}
-
+	/* create tar */
 	printf("Adding files to %s...\n", file_out);
 	bp.tp = tar_create(tfp_tar->name, bp.opt->comp_algorithm, bp.opt->comp_level);
 	if (!bp.tp){
@@ -454,56 +469,37 @@ int backup(struct options* opt, const struct options* opt_prev){
 		ret = -1;
 		goto cleanup;
 	}
-
-	bp.tfp_hashes = temp_fopen("/var/tmp/hashes_XXXXXX", "w+b");
-	if (!bp.tfp_hashes){
-		log_debug(__FL__, "Failed to create temp file for hashes");
-		ret = -1;
-		goto cleanup;
-	}
-
+	/* add files to tar */
 	for (i = 0; i < bp.opt->directories_len; ++i){
 		enum_files(bp.opt->directories[i], func, &bp, error, NULL);
 	}
-	temp_fclose(bp.tfp_hashes_prev);
 
-	if ((tfp_sorted = temp_fopen("/var/tmp/sorted_XXXXXX", "wb")) == NULL){
-		log_warning(__FL__, "Failed to create temp file for sorted checksum list");
-		if (tar_add_file_ex(bp.tp, bp.tfp_hashes->name, "/checksums", bp.opt->flags & FLAG_VERBOSE, "Adding unsorted checksum list") != 0){
-			log_warning(__FL__, "Failed to write checksums to backup");
-		}
+	/* add sorted hashes */
+	if (sort_checksum_file(bp.tfp_hashes->fp, tfp_sorted->fp) != 0){
+		log_warning(__FL__, "Failed to sort checksum list");
 	}
-	else{
-		if (sort_checksum_file(bp.tfp_hashes->fp, tfp_sorted->fp) != 0){
-			log_warning(__FL__, "Failed to sort checksum list");
-		}
-		if (tar_add_file_ex(bp.tp, tfp_sorted->name, "/checksums", bp.opt->flags & FLAG_VERBOSE, "Adding checksum list...") != 0){
-			log_warning(__FL__, "Failed to write checksums to file");
-		}
+	else if (tar_add_file_ex(bp.tp, tfp_sorted->name, "/checksums", bp.opt->flags & FLAG_VERBOSE, "Adding checksum list...") != 0){
+		log_warning(__FL__, "Failed to write checksums to file");
 	}
 
-	tfp_removed = temp_fopen("/var/tmp/removed_XXXXXX", "wb");
-	if (!tfp_removed){
-		log_debug(__FL__, "Failed to created removed temp file");
-	}
-	else{
-		if (create_removed_list(bp.tfp_hashes->fp, tfp_removed->fp) != 0){
+	/* removed file list */
+	if (bp.tfp_hashes_prev){
+		if (create_removed_list(bp.tfp_hashes_prev->fp, tfp_removed->fp) != 0){
 			log_debug(__FL__, "Failed to create removed list");
-			temp_fclose(tfp_removed);
-			tfp_removed = NULL;
+		}
+		else if (tar_add_file_ex(bp.tp, tfp_removed->name, "/removed", bp.opt->flags & FLAG_VERBOSE, "Adding removed list...") != 0){
+			log_warning(__FL__, "Failed to add removed list to backup");
 		}
 	}
-	temp_fclose(bp.tfp_hashes);
 
-	if (tfp_removed && tar_add_file_ex(bp.tp, tfp_removed->name, "/removed", bp.opt->flags & FLAG_VERBOSE, "Adding removed list...") != 0){
-		log_warning(__FL__, "Failed to add removed list to backup");
-	}
-	temp_fclose(tfp_removed);
-
-	if (tar_close(bp.tp) != 0){
-		log_warning(__FL__, "Failed to close tar. Data corruption possible");
+	/* add previous config */
+	if (tfp_config_prev &&
+			(write_config_file(opt_prev, tfp_config_prev->name) != 0 ||
+			 tar_add_file_ex(bp.tp, tfp_config_prev->name, "/config", bp.opt->flags & FLAG_VERBOSE, "Adding previous config...") != 0)){
+		log_warning(__FL__, "Failed to add previous config to file");
 	}
 
+	/* encrypt output */
 	if (bp.opt->enc_algorithm){
 		if (encrypt_file(tfp_tar->name, file_out, bp.opt->enc_algorithm, bp.opt->flags & FLAG_VERBOSE) != 0){
 			log_warning(__FL__, "Failed to encrypt file");
@@ -515,14 +511,21 @@ int backup(struct options* opt, const struct options* opt_prev){
 		}
 	}
 
-	if (write_config_file(bp.opt) != 0){
+	/* write new config file */
+	bp.opt->prev_backup = file_out;
+	if (write_config_file(bp.opt, NULL) != 0){
 		log_warning(__FL__, "Failed to write config file");
 	}
 
 cleanup:
 	free(file_out);
-	bp.tp ? tar_close(bp.tp) : 0;
 	tfp_tar ? temp_fclose(tfp_tar) : 0;
+	tfp_removed ? temp_fclose(tfp_removed) : 0;
+	tfp_sorted ? temp_fclose(tfp_sorted) : 0;
+	tfp_config_prev ? temp_fclose(tfp_config_prev) : 0;
+	if (bp.tp && tar_close(bp.tp) != 0){
+		log_warning(__FL__, "Failed to close tar. Data corruption possible");
+	}
 	bp.tfp_hashes ? temp_fclose(bp.tfp_hashes) : 0;
 	bp.tfp_hashes_prev ? temp_fclose(bp.tfp_hashes_prev) : 0;
 

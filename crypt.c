@@ -302,7 +302,10 @@ int crypt_set_encryption(const EVP_CIPHER* encryption, struct crypt_keys* fk){
 		return -1;
 	}
 
-	fk->flags = FLAG_UNINITIALIZED;
+	if (fk->flags != 0){
+		log_error(__FL__, "crypt_keys structure must be made through crypt_new()");
+		return -1;
+	}
 
 	if (encryption){
 		fk->encryption = encryption;

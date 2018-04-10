@@ -73,20 +73,26 @@ public:
 		set_progress(p, transfer->getTransferredBytes());
 	}
 
+	void onTransferTemporaryError(mega::MegaApi* mega_api, mega::MegaTransfer* transfer, mega::MegaError* error){
+		(void)mega_api;
+		(void)transfer;
+		std::cerr << "MEGA Transfer Error: " << error->toString() << std::endl;
+	}
+
 	void onTransferFinish(mega::MegaApi* mega_api, mega::MegaTransfer* transfer, mega::MegaError* error){
 		(void)mega_api;
 
 		this->error = error->copy();
 		this->transfer = transfer->copy();
 
+		finish_progress(p);
+		p = NULL;
+
 		{
 			std::unique_lock<std::mutex> lock(m);
 			notified = true;
 		}
-
 		cv.notify_all();
-		finish_progress(p);
-		p = NULL;
 	}
 
 	void wait(){
@@ -136,7 +142,6 @@ int MEGAlogin(const char* email, const char* password, MEGAhandle** out){
 	if (!password){
 		prompt = "Enter password for ";
 		prompt += email;
-		prompt += ":";
 
 		if (crypt_getpassword(prompt.c_str(), NULL, pwbuffer, sizeof(pwbuffer)) != 0){
 			log_error(__FL__, "MEGA: Failed to read password from terminal.");
@@ -150,7 +155,7 @@ int MEGAlogin(const char* email, const char* password, MEGAhandle** out){
 	else{
 		mega_api->login(email, password, &listener);
 	}
-	listener.wait();
+	listener.trywait(MEGA_WAIT_MS);
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
 		std::cerr << "Failed to login (" << listener.getError()->toString() << ")." << std::endl;
 		delete mega_api;
@@ -158,7 +163,7 @@ int MEGAlogin(const char* email, const char* password, MEGAhandle** out){
 	}
 
 	mega_api->fetchNodes(&listener);
-	listener.wait();
+	listener.trywait(MEGA_WAIT_MS);
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
 		log_error(__FL__, "MEGA: Failed to fetch nodes");
 		delete mega_api;
@@ -204,7 +209,7 @@ int MEGAmkdir(const char* dir, MEGAhandle* mh){
 	}
 
 	mega_api->createFolder(path.c_str() + index + 1, node, &listener);
-	listener.wait();
+	listener.trywait(MEGA_WAIT_MS);
 	delete node;
 
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
@@ -217,10 +222,10 @@ int MEGAmkdir(const char* dir, MEGAhandle* mh){
 }
 
 int MEGAreaddir(const char* dir, struct file_node*** out, size_t* out_len, MEGAhandle* mh){
-	std::string path = NULL;
-	mega::MegaNode* node = NULL;
-	mega::MegaNodeList* children = NULL;
-	mega::MegaApi* mega_api = NULL;
+	std::string path;
+	mega::MegaNode* node;
+	mega::MegaNodeList* children;
+	mega::MegaApi* mega_api;
 	int ret = 0;
 
 	mega_api = (mega::MegaApi*)mh;
@@ -230,8 +235,7 @@ int MEGAreaddir(const char* dir, struct file_node*** out, size_t* out_len, MEGAh
 	node = mega_api->getNodeByPath(path.c_str());
 	if (!node){
 		log_error(__FL__, "MEGA: Directory does not exist");
-		ret = -1;
-		goto cleanup_freeout;
+		return -1;
 	}
 
 	children = mega_api->getChildren(node);
@@ -250,6 +254,13 @@ int MEGAreaddir(const char* dir, struct file_node*** out, size_t* out_len, MEGAh
 		(*out_len)++;
 		*out = (struct file_node**)realloc(*out, sizeof(**out) * *out_len);
 		if (!(*out)){
+			log_fatal(__FL__, STR_ENOMEM);
+			ret = -1;
+			goto cleanup_freeout;
+		}
+
+		(*out)[*out_len - 1] = (struct file_node*)malloc(sizeof(struct file_node));
+		if (!((*out)[*out_len - 1])){
 			log_fatal(__FL__, STR_ENOMEM);
 			ret = -1;
 			goto cleanup_freeout;
@@ -284,13 +295,13 @@ cleanup_freeout:
 
 int MEGAdownload(const char* download_path, const char* out_file, const char* msg, MEGAhandle* mh){
 	std::string path;
+	std::string spath;
 	mega::MegaNode* node;
 	mega::MegaApi* mega_api;
 	ProgressBarTransferListener listener;
 
 	mega_api = (mega::MegaApi*)mh;
 
-	path = "/";
 	path += download_path;
 
 	node = mega_api->getNodeByPath(path.c_str());
@@ -354,12 +365,14 @@ int MEGArm(const char* file, MEGAhandle* mh){
 	}
 
 	mega_api->remove(node, &listener);
-	listener.wait();
+	listener.trywait(MEGA_WAIT_MS);
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
 		std::cerr << "Failed to remove " << path << " (" << listener.getError()->toString() << ")." << std::endl;
 		delete mega_api;
 		return 1;
 	}
+
+	return 0;
 }
 
 int MEGAlogout(MEGAhandle* mh){
@@ -369,7 +382,7 @@ int MEGAlogout(MEGAhandle* mh){
 	mega_api = (mega::MegaApi*)mh;
 
 	mega_api->logout(&listener);
-	listener.wait();
+	listener.trywait(MEGA_WAIT_MS);
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
 		log_warning(__FL__, "MEGA: failed to log out (%s)", listener.getError()->toString());
 		delete mega_api;

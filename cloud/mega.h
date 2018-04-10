@@ -17,6 +17,10 @@
 
 #include "cloud_base.h"
 
+#ifndef MEGA_WAIT_MS
+#define MEGA_WAIT_MS (10000)
+#endif
+
 typedef void MEGAhandle;
 
 #ifdef __cplusplus

@@ -32,6 +32,7 @@ TESTOBJECTS=$(foreach test,$(TESTS),$(test).dbg.o)
 TESTCXXOBJECTS=$(foreach cxxtest,$(CXXTESTS),$(cxxtest).cxx.dbg.o)
 CLEANOBJECTS=$(foreach header,$(HEADERS),$(header).c.*)
 CLEANCXXOBJECTS=$(foreach cxxheader,$(CXXHEADERS),$(header).cpp.*)
+TESTEXECS=$(foreach test,$(TESTS),$(test).x)
 
 release: main.o $(OBJECTS) $(CXXOBJECTS)
 	$(CC) -o $(NAME) main.o $(OBJECTS) $(CXXOBJECTS) $(CFLAGS) $(LINKFLAGS) $(RELEASEFLAGS)
@@ -39,15 +40,11 @@ release: main.o $(OBJECTS) $(CXXOBJECTS)
 debug: main.dbg.o $(DBGOBJECTS) $(CXXDBGOBJECTS)
 	$(CC) -o $(NAME) main.dbg.o $(DBGOBJECTS) $(CXXDBGOBJECTS) $(CFLAGS) $(DBGFLAGS) $(LINKFLAGS)
 
-test: tests/test_base.dbg.o $(TESTOBJECTS) $(TESTCXXOBJECTS) $(DBGOBJECTS) $(CXXDBGOBJECTS)
-	$(foreach test,$(TESTS),$(CC) -o $(test) $(test).dbg.o tests/test_base.dbg.o $(DBGOBJECTS) $(CFLAGS) $(CXXDBGOBJECTS) $(DBGFLAGS) $(LINKFLAGS) $(TESTFLAGS);)
-	$(foreach cxxtest,$(CXXTESTS),$(CXX) -o $(test) $(test).cxx.dbg.o tests/test_base.dbg.o $(DBGOBJECTS) $(CFLAGS) $(CXXDBGOBJECTS) $(DBGFLAGS) $(LINKFLAGS) $(TESTFLAGS);)
+test: $(TESTEXECS) $(TESTOBJECTS) $(DBGOBJECTS) $(CXXDBGOBJECTS) tests/test_base.dbg.o
+	echo "Made all tests"
 
-main.o: main.c
-	$(CC) -c -o main.o main.c $(CFLAGS) $(RELEASEFLAGS)
-
-main.dbg.o: main.c
-	$(CC) -c -o main.dbg.o main.c $(CFLAGS) $(DBGFLAGS)
+%.x: %.dbg.o tests/test_base.dbg.o $(DBGOBJECTS) $(CXXDBGOBJECTS)
+	$(CC) -o $@ $< tests/test_base.dbg.o $(DBGOBJECTS) $(CXXDBGOBJECTS) $(CFLAGS) $(DBGFLAGS) $(LINKFLAGS)
 
 %.o: %.c
 	$(CC) -c -o $@ $< $(CFLAGS) $(RELEASEFLAGS)
@@ -61,11 +58,14 @@ main.dbg.o: main.c
 %.cxx.dbg.o: %.cpp
 	$(CXX) -c -o $@ $< $(CXXFLAGS) $(CXXDBGFLAGS)
 
+.PHONY: clean
 clean:
-	rm -f *.o $(NAME) $(CLEANOBJECTS) $(CLEANCXXOBJECTS) main.c.* vgcore.* $(TESTOBJECTS) $(TESTCXXOBJECTS) tests/*.o cloud/*.o $(TESTS)
+	rm -f *.o $(NAME) $(CLEANOBJECTS) $(CLEANCXXOBJECTS) main.c.* vgcore.* $(TESTOBJECTS) $(TESTCXXOBJECTS) tests/*.o cloud/*.o $(TESTEXECS)
 
+.PHONY: linecount
 linecount:
 	wc -l *.c *.h makefile readme.txt cloud/*.cpp cloud/*.h cloud/*.c tests/*.h tests/*.c
 
+.PHONY: linecount_notests
 linecount_notests:
 	wc -l *.c *.h makefile readme.txt cloud/*.cpp cloud/*.h cloud/*.c
