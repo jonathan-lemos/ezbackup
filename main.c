@@ -175,6 +175,9 @@ int main(int argc, char** argv){
 	switch (fparams.opt.operation){
 	case OP_BACKUP:
 		backup(&fparams.opt, &opt_prev);
+		if (write_config_file(&fparams.opt, NULL) != 0){
+			log_warning(__FL__, "Failed to write config file");
+		}
 		break;
 	case OP_RESTORE:
 		printf("Restore not implemented yet\n");
