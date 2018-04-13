@@ -25,15 +25,13 @@
 /* check file mode */
 #include <fcntl.h>
 
+#include <sys/file.h>
+
 /* reads length bytes from fp */
 /* returns the number of bytes sucessfully read */
 int read_file(FILE* fp, unsigned char* dest, size_t length){
 	int ret;
 	if (!fp){
-		return -1;
-	}
-	if (!file_opened_for_reading(fp)){
-		log_error(__FL__, STR_EMODE);
 		return -1;
 	}
 
@@ -44,118 +42,27 @@ int read_file(FILE* fp, unsigned char* dest, size_t length){
 	return ret;
 }
 
-struct TMPFILE* temp_fopen(const char* __template, const char* modes){
+FILE* temp_fopen(char* __template){
 	int fd;
-	struct TMPFILE* tfp;
-
-	tfp = malloc(sizeof(*tfp));
-	if (!tfp){
-		log_fatal(__FL__, STR_ENOMEM);
-		return NULL;
-	}
-
-	if (__template){
-		/* template must be writable */
-		tfp->name = malloc(strlen(__template) + 1);
-		if (!(tfp->name)){
-			log_fatal(__FL__, STR_ENOMEM);
-			free(tfp);
-			return NULL;
-		}
-		strcpy(tfp->name, __template);
-	}
-	else{
-		tfp->name = malloc(sizeof("/tmp/tmpfile_XXXXXX"));
-		if (!(tfp->name)){
-			log_fatal(__FL__, STR_ENOMEM);
-			free(tfp);
-			return NULL;
-		}
-		strcpy(tfp->name, "/tmp/tmpfile_XXXXXX");
-	}
+	FILE* fp;
 
 	/* makes temporary file and opens it in one call,
 	 * preventing a race condition where another program
 	 * could open it in the mean time */
-	fd = mkstemp(tfp->name);
+	fd = mkstemp(__template);
 
 	if (fd < 0){
 		log_error(__FL__, "Couldn't create temporary file %s (%s)", __template, strerror(errno));
-		free(tfp->name);
-		free(tfp);
 		return NULL;
 	}
 
-	tfp->fp = fdopen(fd, modes);
-	if (!(tfp->fp)){
-		log_error(__FL__, "Failed to open temporary file %s (%s)", tfp->name, strerror(errno));
-		free(tfp->name);
-		free(tfp);
+	fp = fdopen(fd, "w+b");
+	if (!fp){
+		log_error(__FL__, "Failed to open temporary file %s (%s)", __template, strerror(errno));
 		return NULL;
 	}
 
-	return tfp;
-}
-
-int temp_fclose(struct TMPFILE* tfp){
-	int ret = 0;
-
-	if (!tfp){
-		return -1;
-	}
-
-	if (fclose(tfp->fp) != 0){
-		ret = -1;
-		log_warning(__FL__, STR_EFCLOSE, tfp->name);
-	}
-	remove(tfp->name);
-	free(tfp->name);
-	free(tfp);
-	return ret;
-}
-
-int shred_file(const char* file){
-	struct stat st;
-	FILE* fp;
-	__off_t size;
-	__off_t i;
-	int j;
-	unsigned k;
-	/* don't want compiler optimizing this */
-	volatile unsigned seed = 0;
-
-	/* generate truly random seed */
-	for (k = 0; k < sizeof(unsigned); ++k){
-		seed += crypt_randc() << (8 * k);
-	}
-	srandom(seed);
-	/* get seed out of memory */
-	seed = 0;
-
-	/* wipe file 3 times with truly random data */
-	for (j = 0; j < 3; ++j){
-		fp = fopen(file, "wb");
-		if (!fp){
-			log_warning(__FL__, "Could not open %s for shredding (%s)", file, strerror(errno));
-			fclose(fp);
-			return -1;
-		}
-
-		if (stat(file, &st) != 0){
-			log_warning(__FL__, "Could not stat %s for shredding (%s)", file, strerror(errno));
-			fclose(fp);
-			return -1;
-		}
-
-		size = st.st_size;
-		for (i = 0; i < size; ++i){
-			fputc(random(), fp);
-		}
-		fclose(fp);
-	}
-
-	remove(file);
-	return 0;
+	return fp;
 }
 
 int file_opened_for_reading(FILE* fp){
@@ -179,3 +86,4 @@ int file_opened_for_writing(FILE* fp){
 	flags = fcntl(fd, F_GETFL);
 	return (flags & O_RDWR) || O_WRONLY == 0 ? !(flags & O_RDONLY) : flags & O_WRONLY;
 }
+

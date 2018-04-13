@@ -7,6 +7,9 @@
  */
 
 #include "test_base.h"
+#include "../error.h"
+#include <string.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <sys/stat.h>
@@ -93,7 +96,10 @@ void create_file(const char* name, const unsigned char* data, int len){
 	FILE* fp;
 
 	fp = fopen(name, "wb");
-	massert(fp);
+	if (!fp){
+		log_debug(__FL__, "Failed to create_file() (%s)", strerror(errno));
+		return;
+	}
 	fwrite(data, 1, len, fp);
 	massert(ferror(fp) == 0);
 	massert(fclose(fp) == 0);

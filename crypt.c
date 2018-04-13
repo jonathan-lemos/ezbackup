@@ -530,7 +530,7 @@ int crypt_extract_salt(const char* in, struct crypt_keys* fk){
 
 	fp_in = fopen(in, "rb");
 	if (!fp_in){
-		log_error(__FL__, STR_EFOPEN);
+		log_error(__FL__, STR_EFOPEN, in, strerror(errno));
 		return -1;
 	}
 

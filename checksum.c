@@ -276,40 +276,51 @@ int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, F
 	return ret;
 }
 
-int sort_checksum_file(FILE* fp_in, FILE* fp_out){
-	struct TMPFILE** tmp_files;
-	size_t n_files;
+int sort_checksum_file(const char* in, const char* out){
+	FILE** tmp_files = NULL;
+	size_t n_files = 0;
+	FILE* fp_in = NULL;
+	FILE* fp_out = NULL;
 	size_t i;
+	int ret = 0;
 
-	if (!fp_in || !fp_out){
+	if (!in || !out){
 		log_error(__FL__, STR_ENULL);
-		return -1;
+		ret = -1;
+		goto cleanup;
 	}
 
-	if (!file_opened_for_reading(fp_in)){
-		log_error(__FL__, STR_EMODE);
-		return -1;
+	fp_in = fopen(in, "rb");
+	if (!fp_in){
+		log_error(__FL__, STR_EFOPEN, in);
+		ret = -1;
+		goto cleanup;
 	}
-
-	if (!file_opened_for_reading(fp_in) || !file_opened_for_writing(fp_out)){
-		log_error(__FL__, STR_EMODE);
-		return -1;
+	fp_out = fopen(out, "wb");
+	if (!fp_out){
+		log_error(__FL__, STR_EFOPEN, in);
+		ret = -1;
+		goto cleanup;
 	}
-	rewind(fp_in);
 
 	if (create_initial_runs(fp_in, &tmp_files, &n_files) != 0){
 		log_debug(__FL__, "Error creating initial runs");
-		return -1;
+		ret = -1;
+		goto cleanup;
 	}
 	if (merge_files(tmp_files, n_files, fp_out) != 0){
 		log_debug(__FL__, "Error merging files");
-		return -1;
+		ret = -1;
+		goto cleanup;
 	}
 
+cleanup:
 	for (i = 0; i < n_files; ++i){
-		temp_fclose(tmp_files[i]);
+		fclose(tmp_files[i]);
 	}
-	return 0;
+	fp_in ? fclose(fp_in) : 0;
+	fp_out ? fclose(fp_out) : 0;
+	return ret;
 }
 
 int search_for_checksum(FILE* fp_checksums, const char* key, char** checksum){
@@ -342,19 +353,33 @@ int check_file_exists(const char* file){
 	}
 }
 
-int create_removed_list(FILE* checksum_file, FILE* out_file){
+int create_removed_list(const char* checksum_file, const char* out_file){
+	FILE* fp_checksum = NULL;
+	FILE* fp_out = NULL;
 	element* tmp;
 	int err;
+	int ret = 0;
 
-	rewind(out_file);
+	fp_checksum = fopen(checksum_file, "rb");
+	if (!fp_checksum){
+		log_error(__FL__, STR_EFOPEN, checksum_file, strerror(errno));
+		ret = -1;
+		goto cleanup;
+	}
+	fp_out = fopen(out_file, "wb");
+	if (!fp_out){
+		log_error(__FL__, STR_EFOPEN, out_file, strerror(errno));
+		ret = -1;
+		goto cleanup;
+	}
 
-	while ((tmp = get_next_checksum_element(checksum_file)) != NULL){
+	while ((tmp = get_next_checksum_element(fp_checksum)) != NULL){
 		err = check_file_exists(tmp->file);
 		switch (err){
 		case 1:
 			break;
 		case 0:
-			fprintf(out_file, "%s%c\n", tmp->file, '\0');
+			fprintf(fp_out, "%s%c\n", tmp->file, '\0');
 			break;
 		default:
 			free_element(tmp);
@@ -363,7 +388,7 @@ int create_removed_list(FILE* checksum_file, FILE* out_file){
 		free_element(tmp);
 	}
 
-	return 0;
+	return ret;
 }
 
 char* get_next_removed(FILE* fp){

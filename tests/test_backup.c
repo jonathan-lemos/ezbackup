@@ -1,9 +1,12 @@
 #include "test_base.h"
 #include "../backup.h"
 #include "../error.h"
+#include <errno.h>
 #include <sys/resource.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <dirent.h>
 #include <sys/stat.h>
 
 const char* const sample_file1 = "file1.txt";
@@ -125,15 +128,56 @@ void test_rename_ex(void){
 	printf_green("Finished testing rename_ex()\n\n");
 }
 
+static char* rel_path(const char* abs_path){
+	static char rpath[4096];
+
+	getcwd(rpath, sizeof(rpath));
+	strcat(rpath, "/");
+	strcat(rpath, abs_path);
+
+	return rpath;
+}
+
+static void rmdir_recursive(const char* path){
+	struct dirent* dnt;
+	DIR* dp = opendir(path);
+
+	massert(dp);
+	while ((dnt = readdir(dp)) != NULL){
+		char* path_true;
+		struct stat st;
+
+		if (!strcmp(dnt->d_name, ".") || !strcmp(dnt->d_name, "..")){
+			continue;
+		}
+
+		path_true = malloc(strlen(path) + strlen(dnt->d_name) + 3);
+		strcpy(path_true, path);
+		if (path[strlen(path) - 1] != '/'){
+			strcat(path_true, "/");
+		}
+		strcat(path_true, dnt->d_name);
+
+		lstat(path_true, &st);
+		if (S_ISDIR(st.st_mode)){
+			rmdir_recursive(path_true);
+			free(path_true);
+			continue;
+		}
+
+		remove(path_true);
+		free(path_true);
+	}
+	closedir(dp);
+	rmdir(path);
+}
+
 void test_backup(void){
 	struct options opt;
 	struct options opt_prev;
-	char cwd[4096];
-	char cwd_tmp[4096];
 	char files_dir1[10][64];
 	char files_dir2[10][64];
 	char files_ex1[10][64];
-	char files_noaccess[10][64];
 	int i;
 
 	printf_blue("Testing backup()\n");
@@ -147,98 +191,72 @@ void test_backup(void){
 
 	opt.exclude = malloc(sizeof(*(opt.exclude)) * 1);
 	massert(opt.exclude);
-	opt.exclude_len = 3;
-
-	massert(getcwd(cwd, sizeof(cwd)) != NULL);
+	opt.exclude_len = 1;
 
 	/* making ~/dir1 */
-	strcpy(cwd_tmp, cwd);
-	strcat(cwd_tmp, "/dir1");
-	massert(mkdir(cwd_tmp, 0755) == 0);
-	opt.directories[0] = malloc(strlen(cwd_tmp) + 1);
+	if (mkdir(rel_path("dir1"), 0755) != 0){
+		log_debug(__FL__, "Failed to make directory (%s)", strerror(errno));
+	}
+	opt.directories[0] = malloc(strlen(rel_path("dir1")) + 1);
 	massert(opt.directories[0]);
-	strcpy(opt.directories[0], cwd_tmp);
+	strcpy(opt.directories[0], rel_path("dir1"));
 
 	/* making ~/dir2 */
-	strcpy(cwd_tmp, cwd);
-	strcat(cwd_tmp, "/dir2");
-	massert(mkdir(cwd_tmp, 0755) == 0);
-	opt.directories[1] = malloc(strlen(cwd_tmp) + 1);
+	if (mkdir(rel_path("dir2"), 0755) != 0){
+		log_debug(__FL__, "Failed to make directory (%s)", strerror(errno));
+	}
+	opt.directories[1] = malloc(strlen(rel_path("dir2")) + 1);
 	massert(opt.directories[1]);
-	strcpy(opt.directories[1], cwd_tmp);
+	strcpy(opt.directories[1], rel_path("dir2"));
 
 	/* making ~/ex1 (exclude directory) */
-	strcpy(cwd_tmp, cwd);
-	strcat(cwd_tmp, "/ex1");
-	massert(mkdir(cwd_tmp, 0755) == 0);
-	opt.exclude[0] = malloc(strlen(cwd_tmp) + 1);
+	if (mkdir(rel_path("ex1"), 0755) != 0){
+		log_debug(__FL__, "Failed to make directory (%s)", strerror(errno));
+	}
+	opt.exclude[0] = malloc(strlen(rel_path("ex1")) + 1);
 	massert(opt.exclude[0]);
-	strcpy(opt.exclude[0], cwd_tmp);
+	strcpy(opt.exclude[0], rel_path("ex1"));
 
 	/* making ~/noaccess (no permission to access) */
-	strcpy(cwd_tmp, cwd);
-	strcat(cwd_tmp, "/noaccess");
-	massert(mkdir(cwd_tmp, 0000) == 0);
-	opt.directories[2] = malloc(strlen(cwd_tmp) + 1);
+	if (mkdir(rel_path("noaccess"), 0755) != 0){
+		log_debug(__FL__, "Failed to make directory (%s)", strerror(errno));
+	}
+	opt.directories[2] = malloc(strlen(rel_path("noaccess")) + 1);
 	massert(opt.directories[2]);
-	strcpy(opt.directories[2], cwd_tmp);
+	strcpy(opt.directories[2], rel_path("noaccess"));
 
 	for (i = 0; i < 10; ++i){
-		sprintf(files_dir1[i], "/dir1/d1_%03d", i);
-		sprintf(files_dir2[i], "/dir2/d2_%03d", i);
-		sprintf(files_ex1[i], "/ex1/ex_%03d", i);
-		sprintf(files_noaccess[i], "noaccess/nac_%03d", i);
+		sprintf(files_dir1[i], "dir1/d1_%03d", i);
+		sprintf(files_dir2[i], "dir2/d2_%03d", i);
+		sprintf(files_ex1[i], "ex1/ex_%03d", i);
 	}
 	for (i = 0; i < 10; ++i){
 		char data[64];
-		strcpy(cwd_tmp, cwd);
-		strcat(cwd_tmp, files_dir1[i]);
 		sprintf(data, "%s...%d", files_dir1[i], i);
-		create_file(cwd_tmp, (const unsigned char*)data, strlen(data));
+		create_file(rel_path(files_dir1[i]), (const unsigned char*)data, strlen(data));
 
-		strcpy(cwd_tmp, cwd);
-		strcat(cwd_tmp, files_dir2[i]);
 		sprintf(data, "%s...%d", files_dir2[i], i);
-		create_file(cwd_tmp, (const unsigned char*)data, strlen(data));
+		create_file(rel_path(files_dir2[i]), (const unsigned char*)data, strlen(data));
 
-		strcpy(cwd_tmp, cwd);
-		strcat(cwd_tmp, files_ex1[i]);
 		sprintf(data, "%s...%d", files_ex1[i], i);
-		create_file(cwd_tmp, (const unsigned char*)data, strlen(data));
-
-		strcpy(cwd_tmp, cwd);
-		strcat(cwd_tmp, files_noaccess[i]);
-		sprintf(data, "%s...%d", files_noaccess[i], i);
-		create_file(cwd_tmp, (const unsigned char*)data, strlen(data));
+		create_file(rel_path(files_ex1[i]), (const unsigned char*)data, strlen(data));
 	}
 
 	massert(backup(&opt, NULL) == 0);
 	massert(write_config_file(&opt, sample_config_file) == 0);
 
 	printf_yellow("Removing/adding select files\n");
-	remove(files_dir1[3]);
-	strcpy(files_dir1[3], "/dir1/d1_999");
-	strcpy(cwd_tmp, cwd);
-	strcat(cwd_tmp, files_dir1[3]);
-	create_file(cwd_tmp, (const unsigned char*)"changed", sizeof("changed"));
+	remove(rel_path(files_dir1[3]));
+	strcpy(files_dir1[3], "dir1/d1_999");
+	create_file(rel_path(files_dir1[3]), (const unsigned char*)"changed", sizeof("changed"));
 
-	remove(files_dir2[3]);
-	strcpy(files_dir2[3], "/dir2/d2_999");
-	strcpy(cwd_tmp, cwd);
-	strcat(cwd_tmp, files_dir2[3]);
-	create_file(cwd_tmp, (const unsigned char*)"changed", sizeof("changed"));
+	remove(rel_path(files_dir2[3]));
+	strcpy(files_dir2[3], "dir2/d2_999");
+	create_file(rel_path(files_dir2[3]), (const unsigned char*)"changed", sizeof("changed"));
 
-	remove(files_ex1[3]);
-	strcpy(files_ex1[3], "/ex1/d1_999");
-	strcpy(cwd_tmp, cwd);
-	strcat(cwd_tmp, files_ex1[3]);
-	create_file(cwd_tmp, (const unsigned char*)"changed", sizeof("changed"));
-
-	remove(files_noaccess[3]);
-	strcpy(files_noaccess[3], "/noaccess/d1_999");
-	strcpy(cwd_tmp, cwd);
-	strcat(cwd_tmp, files_noaccess[3]);
-	create_file(cwd_tmp, (const unsigned char*)"changed", sizeof("changed"));
+	remove(rel_path(files_ex1[3]));
+	strcpy(files_ex1[3], "ex1/ex_999");
+	create_file(rel_path(files_ex1[3]), (const unsigned char*)"changed", sizeof("changed"));
 
 	opt_prev = opt;
 	printf_yellow("Testing backup() with previous backup\n");
@@ -246,40 +264,25 @@ void test_backup(void){
 
 	printf_yellow("Cleaning up environment\n");
 	remove(sample_config_file);
-	for (i = 0; i < 10; ++i){
-		remove(files_dir1[i]);
-		remove(files_dir2[i]);
-		remove(files_ex1[i]);
-		remove(files_noaccess[i]);
-	}
 
-	strcpy(cwd_tmp, cwd);
-	strcat(cwd_tmp, "/path1");
-	rmdir(cwd_tmp);
-
-	strcpy(cwd_tmp, cwd);
-	strcat(cwd_tmp, "/path2");
-	rmdir(cwd_tmp);
-
-	strcpy(cwd_tmp, cwd);
-	strcat(cwd_tmp, "/ex1");
-	rmdir(cwd_tmp);
-
-	strcpy(cwd_tmp, cwd);
-	strcat(cwd_tmp, "/noaccess");
-	chmod(cwd_tmp, 0755);
-	rmdir(cwd_tmp);
+	rmdir_recursive(rel_path("dir1"));
+	rmdir_recursive(rel_path("dir2"));
+	rmdir_recursive(rel_path("ex1"));
+	chmod(rel_path("noaccess"), 0755);
+	rmdir(rel_path("noaccess"));
 
 	printf_green("Finished testing backup()\n\n");
 }
 
 void test_get_default_backup_name(void){
 	char* name;
+	struct options opt;
 
 	printf_blue("Testing get_default_backup_name()\n");
+	massert(get_default_options(&opt) == 0);
 
 	printf_yellow("Calling get_default_backup_name()\n");
-	massert(get_default_backup_name(NULL, &name) == 0);
+	massert(get_default_backup_name(&opt, &name) == 0);
 	printf("%s\n", name);
 
 	free(name);
@@ -290,11 +293,12 @@ void test_get_default_backup_name(void){
 int main(void){
 	set_signal_handler();
 	log_setlevel(LEVEL_INFO);
-
-	test_disable_core_dumps();
-	test_extract_prev_checksums();
-	test_encrypt_file();
-	test_rename_ex();
+	/*
+	   test_disable_core_dumps();
+	   test_extract_prev_checksums();
+	   test_encrypt_file();
+	   test_rename_ex();
+	   */
 	test_backup();
 	test_get_default_backup_name();
 	return 0;

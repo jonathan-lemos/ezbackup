@@ -24,8 +24,8 @@
 
 struct backup_params{
 	TAR*            tp;
-	struct TMPFILE* tfp_hashes;
-	struct TMPFILE* tfp_hashes_prev;
+	FILE*           fp_hashes;
+	FILE*           fp_hashes_prev;
 	struct options* opt;
 };
 
@@ -70,8 +70,9 @@ int enable_core_dumps(void){
 
 int extract_prev_checksums(const char* in, const char* out, const EVP_CIPHER* enc_algorithm, int verbose){
 	char pwbuffer[1024];
+	char template_decrypt[] = "/var/tmp/decrypt_XXXXXX";
 	struct crypt_keys* fk;
-	struct TMPFILE* tfp_decrypt = NULL;
+	FILE* fp_decrypt = NULL;
 	char prompt[128];
 	int ret = 0;
 
@@ -116,20 +117,19 @@ int extract_prev_checksums(const char* in, const char* out, const EVP_CIPHER* en
 	}
 	crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
 
-	if ((tfp_decrypt = temp_fopen("/var/tmp/decrypt_XXXXXX", "w+b")) == NULL){
+	if ((fp_decrypt = temp_fopen(template_decrypt)) == NULL){
 		log_debug(__FL__, "temp_file() for file_decrypt failed");
 		ret = -1;
 		goto cleanup;
 	}
 
-	if ((crypt_decrypt_ex(in, fk, tfp_decrypt->name, verbose, "Decrypting file...")) != 0){
-		crypt_free(fk);
+	if ((crypt_decrypt_ex(in, fk, template_decrypt, verbose, "Decrypting file...")) != 0){
 		log_debug(__FL__, "crypt_decrypt() failed");
 		ret = -1;
 		goto cleanup;
 	}
 
-	if (tar_extract_file(tfp_decrypt->name, "/checksums", out) != 0){
+	if (tar_extract_file(template_decrypt, "/checksums", out) != 0){
 		log_debug(__FL__, "tar_extract_file() failed");
 		ret = -1;
 		goto cleanup;
@@ -138,9 +138,8 @@ int extract_prev_checksums(const char* in, const char* out, const EVP_CIPHER* en
 cleanup:
 	crypt_free(fk);
 
-	if (tfp_decrypt && temp_fclose(tfp_decrypt) != 0){
-		log_debug(__FL__, STR_EFCLOSE);
-	}
+	fp_decrypt ? fclose(fp_decrypt) : 0;
+	remove(template_decrypt);
 
 	if (enable_core_dumps() != 0){
 		log_debug(__FL__, "enable_core_dumps() failed");
@@ -282,13 +281,11 @@ int func(const char* file, const char* dir, struct stat* st, void* params){
 		}
 	}
 
-	err = add_checksum_to_file(file, bparams->opt->hash_algorithm, bparams->tfp_hashes->fp, bparams->tfp_hashes_prev ? bparams->tfp_hashes_prev->fp : NULL);
+	err = add_checksum_to_file(file, bparams->opt->hash_algorithm, bparams->fp_hashes, bparams->fp_hashes_prev);
 	if (err == 1){
-
 		if (bparams->opt->flags & FLAG_VERBOSE){
 			printf("Skipping unchanged (%s)\n", file);
 		}
-
 		return 1;
 	}
 	else if (err != 0){
@@ -397,23 +394,24 @@ int add_default_directories(struct options* opt){
 	return 0;
 }
 
-static int add_auxillary_files(TAR* tp, const struct TMPFILE* tfp_hashes, const struct TMPFILE* tfp_hashes_prev, const struct TMPFILE* tfp_config_prev, const struct options* opt_prev, int verbose){
-	struct TMPFILE* tfp_sorted = NULL;
-	struct TMPFILE* tfp_removed = NULL;
+static int add_auxillary_files(TAR* tp, FILE* fp_hashes, FILE* fp_hashes_prev, const struct options* opt_prev, int verbose){
+	FILE* fp_sorted = NULL;
+	FILE* fp_removed = NULL;
+	FILE* fp_config_prev = NULL;
 	int ret = 0;
 
-	tfp_removed = temp_fopen("/var/tmp/removed_XXXXXX", "wb");
-	tfp_sorted = temp_fopen("/var/tmp/sorted_XXXXXX", "wb");
-	tfp_config_prev = temp_fopen("/var/tmp/config_XXXXXX", "wb");
-	if (!tfp_removed ||
-			!tfp_sorted ||
-			!tfp_config_prev){
+	fp_removed = temp_fopen("/var/tmp/removed_XXXXXX");
+	fp_sorted = temp_fopen("/var/tmp/sorted_XXXXXX");
+	fp_config_prev = temp_fopen("/var/tmp/config_XXXXXX");
+	if (!fp_removed ||
+			!fp_sorted ||
+			!fp_config_prev){
 		log_error(__FL__, "Failed to make one or more temporary files");
 		ret = -1;
 		goto cleanup;
 	}
 	/* add sorted hashes */
-	if (sort_checksum_file(tfp_hashes->fp, tfp_sorted->fp) != 0){
+	if (sort_checksum_file(fp_hashes, fp_sorted) != 0 || fflush(fp_sorted) != 0){
 		log_warning(__FL__, "Failed to sort checksum list");
 	}
 	else if (tar_add_file_ex(tp, tfp_sorted->name, "/checksums", verbose, "Adding checksum list...") != 0){
@@ -422,7 +420,7 @@ static int add_auxillary_files(TAR* tp, const struct TMPFILE* tfp_hashes, const 
 
 	/* removed file list */
 	if (tfp_hashes_prev){
-		if (create_removed_list(tfp_hashes_prev->fp, tfp_removed->fp) != 0){
+		if (create_removed_list(tfp_hashes_prev->fp, tfp_removed->fp) != 0 || fflush(tfp_removed->fp) != 0){
 			log_debug(__FL__, "Failed to create removed list");
 		}
 		else if (tar_add_file_ex(tp, tfp_removed->name, "/removed", verbose, "Adding removed list...") != 0){
@@ -431,7 +429,7 @@ static int add_auxillary_files(TAR* tp, const struct TMPFILE* tfp_hashes, const 
 	}
 
 	/* add previous config */
-	if (tfp_config_prev &&
+	if (tfp_config_prev && opt_prev &&
 			(write_config_file(opt_prev, tfp_config_prev->name) != 0 ||
 			 tar_add_file_ex(tp, tfp_config_prev->name, "/config", verbose, "Adding previous config...") != 0)){
 		log_warning(__FL__, "Failed to add previous config to file");
@@ -440,34 +438,32 @@ static int add_auxillary_files(TAR* tp, const struct TMPFILE* tfp_hashes, const 
 cleanup:
 	tfp_sorted ? temp_fclose(tfp_sorted) : 0;
 	tfp_removed ? temp_fclose(tfp_removed) : 0;
+	tfp_config_prev ? temp_fclose(tfp_config_prev) : 0;
 	return ret;
 }
 
 int backup(struct options* opt, const struct options* opt_prev){
 	struct backup_params bp;
 	struct TMPFILE* tfp_tar = NULL;
-	struct TMPFILE* tfp_config_prev = NULL;
 	char* file_out = NULL;
 	int ret = 0;
 	int i;
 
+	/* load bp.opt */
+	memset(&bp, 0, sizeof(bp));
+	bp.opt = opt;
+
 	/* create temp files */
-	tfp_tar = temp_fopen("/var/tmp/tar_XXXXXX", "wb");
-	tfp_config_prev = temp_fopen("/var/tmp/config_XXXXXX", "wb");
-	bp.tfp_hashes = temp_fopen("/var/tmp/hashes_XXXXXX", "w+b");
-	bp.tfp_hashes_prev = temp_fopen("/var/tmp/prev_XXXXXX", "w+b");
+	tfp_tar = temp_fopen("/var/tmp/tar_XXXXXX");
+	bp.tfp_hashes = temp_fopen("/var/tmp/hashes_XXXXXX");
+	bp.tfp_hashes_prev = temp_fopen("/var/tmp/prev_XXXXXX");
 	if (!tfp_tar ||
-			!tfp_config_prev ||
 			!(bp.tfp_hashes) ||
 			!(bp.tfp_hashes_prev)){
 		log_debug(__FL__, "Failed to create temp file");
 		ret = -1;
 		goto cleanup;
 	}
-
-	/* load bp.opt */
-	memset(&bp, 0, sizeof(bp));
-	bp.opt = opt;
 
 	if ((!opt->directories || opt->directories_len <= 0) &&
 			add_default_directories(opt) != 0){
@@ -482,16 +478,13 @@ int backup(struct options* opt, const struct options* opt_prev){
 			temp_fclose(bp.tfp_hashes_prev);
 			bp.tfp_hashes_prev = NULL;
 		}
-
-		if (write_config_file(opt_prev, tfp_config_prev->name) != 0){
-			temp_fclose(tfp_config_prev);
-			tfp_config_prev = NULL;
-			log_warning(__FL__, "Could not write old config to file");
+		if (temp_freopen_reading(bp.tfp_hashes_prev) != 0){
+			log_debug(__FL__, "Failed to reopen previous hash file for reading");
+			temp_fclose(bp.tfp_hashes_prev);
+			bp.tfp_hashes_prev = NULL;
 		}
 	}
 	else{
-		temp_fclose(tfp_config_prev);
-		tfp_config_prev = NULL;
 		temp_fclose(bp.tfp_hashes_prev);
 		bp.tfp_hashes_prev = NULL;
 	}
@@ -518,11 +511,24 @@ int backup(struct options* opt, const struct options* opt_prev){
 	}
 
 	/* add /checksums /config /removed */
-	if (add_auxillary_files(bp.tp, bp.tfp_hashes, bp.tfp_hashes_prev, tfp_config_prev, opt_prev, bp.opt->flags & FLAG_VERBOSE) != 0){
+	if (temp_freopen_reading(bp.tfp_hashes) != 0){
+		log_debug(__FL__, "Failed to reopen hash file for reading");
+	}
+	if (add_auxillary_files(bp.tp, bp.tfp_hashes, bp.tfp_hashes_prev, opt_prev, bp.opt->flags & FLAG_VERBOSE) != 0){
 		log_debug(__FL__, "Failed to add one or more auxillary files");
 	}
 
+	if (tar_close(bp.tp) != 0){
+		log_warning(__FL__, "Failed to close tar. Data corruption possible");
+	}
+	bp.tp = NULL;
+
 	/* encrypt output */
+	if (temp_freopen_reading(tfp_tar) != 0){
+		log_debug(__FL__, "Failed to reopen tfp_tar for reading");
+		ret = -1;
+		goto cleanup;
+	}
 	if (bp.opt->enc_algorithm){
 		if (encrypt_file(tfp_tar->name, file_out, bp.opt->enc_algorithm, bp.opt->flags & FLAG_VERBOSE) != 0){
 			log_warning(__FL__, "Failed to encrypt file");
@@ -538,9 +544,7 @@ int backup(struct options* opt, const struct options* opt_prev){
 	bp.opt->prev_backup = file_out;
 
 cleanup:
-	free(file_out);
 	tfp_tar ? temp_fclose(tfp_tar) : 0;
-	tfp_config_prev ? temp_fclose(tfp_config_prev) : 0;
 	if (bp.tp && tar_close(bp.tp) != 0){
 		log_warning(__FL__, "Failed to close tar. Data corruption possible");
 	}
