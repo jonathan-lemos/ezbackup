@@ -176,7 +176,7 @@ int parse_options_cmdline(int argc, char** argv, struct options* out){
 
 	memset(out, 0, sizeof(*out));
 
-	for (i = 0; i < argc; ++i){
+	for (i = 1; i < argc; ++i){
 		if (!strcmp(argv[i], "--version")){
 			version();
 			exit(0);
@@ -223,12 +223,14 @@ int parse_options_cmdline(int argc, char** argv, struct options* out){
 			while (++i < argc && argv[i][0] != '-'){
 				add_string_to_array(&(out->exclude), &(out->exclude_len), argv[i]);
 			}
+			--i;
 		}
 		/* exclude */
 		else if (!strcmp(argv[i], "-d")){
 			while (++i < argc && argv[i][0] != '-'){
 				add_string_to_array(&(out->directories), &(out->directories_len), argv[i]);
 			}
+			--i;
 		}
 		/* directories */
 		else if (argv[i][0] != '-'){
@@ -519,7 +521,7 @@ static int menu_encryption(struct options* opt){
 		strcat(tmp, list_keysize[res_keysize]);
 	}
 	if (res_mode >= 0){
-		strcat(tmp, list_mode[res_keysize]);
+		strcat(tmp, list_mode[res_mode]);
 	}
 	opt->enc_algorithm = EVP_get_cipherbyname(tmp);
 	free(tmp);
@@ -744,20 +746,20 @@ int parse_options_menu(struct options* opt){
 }
 
 int get_default_options(struct options* opt){
-	opt->comp_algorithm = COMPRESSOR_GZIP;
-	opt->comp_level = 0;
-	opt->hash_algorithm = EVP_sha1();
-	opt->enc_algorithm = EVP_aes_256_cbc();
 	opt->prev_backup = NULL;
 	opt->directories = NULL;
 	opt->directories_len = 0;
 	opt->exclude = NULL;
 	opt->exclude_len = 0;
-	opt->operation = OP_INVALID;
+	opt->hash_algorithm = EVP_sha1();
+	opt->enc_algorithm = EVP_aes_256_cbc();
+	opt->comp_algorithm = COMPRESSOR_GZIP;
+	opt->comp_level = 0;
 	if (get_backup_directory(&(opt->output_directory)) != 0){
 		log_debug("Failed to make backup directory");
 		return 1;
 	}
+	opt->operation = OP_INVALID;
 	opt->flags = FLAG_VERBOSE;
 	return 0;
 }
@@ -798,7 +800,10 @@ int parse_options_fromfile(const char* file, struct options* opt){
 		return -1;
 	}
 
-	memset(opt, 0, sizeof(*opt));
+	if (get_default_options(opt) != 0){
+		log_debug("Failed to get default options");
+		return -1;
+	}
 
 	fscanf(fp, "[Options]");
 	fscanf(fp, "\nPREV=");
@@ -858,6 +863,7 @@ int parse_options_fromfile(const char* file, struct options* opt){
 		free(tmp);
 	}
 	fscanf(fp, "\nCOMPRESSION=%d", (int*)&(opt->comp_algorithm));
+	fscanf(fp, "\nCOMP_LEVEL=%d", &(opt->comp_level));
 	fscanf(fp, "\nFLAGS=%u", &(opt->flags));
 
 	if (fclose(fp) != 0){
@@ -907,6 +913,7 @@ int write_options_tofile(const char* file, const struct options* opt){
 	fprintf(fp, "\nCHECKSUM=%s%c", EVP_MD_name(opt->hash_algorithm), '\0');
 	fprintf(fp, "\nENCRYPTION=%s%c", EVP_CIPHER_name(opt->enc_algorithm), '\0');
 	fprintf(fp, "\nCOMPRESSION=%d", opt->comp_algorithm);
+	fprintf(fp, "\nCOMP_LEVEL=%d", opt->comp_level);
 	fprintf(fp, "\nFLAGS=%u", opt->flags);
 
 	if (fclose(fp) != 0){
