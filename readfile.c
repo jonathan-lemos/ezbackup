@@ -37,7 +37,7 @@ int read_file(FILE* fp, unsigned char* dest, size_t length){
 
 	ret = fread(dest, 1, length, fp);
 	if (ferror(fp)){
-		log_error(__FL__, "Error reading file (%s)", strerror(errno));
+		log_efread("file");
 	}
 	return ret;
 }
@@ -52,13 +52,13 @@ FILE* temp_fopen(char* __template){
 	fd = mkstemp(__template);
 
 	if (fd < 0){
-		log_error(__FL__, "Couldn't create temporary file %s (%s)", __template, strerror(errno));
+		log_error_ex("Failed to create temporary file (%s)", strerror(errno));
 		return NULL;
 	}
 
 	fp = fdopen(fd, "w+b");
 	if (!fp){
-		log_error(__FL__, "Failed to open temporary file %s (%s)", __template, strerror(errno));
+		log_efopen(__template);
 		return NULL;
 	}
 
@@ -86,4 +86,3 @@ int file_opened_for_writing(FILE* fp){
 	flags = fcntl(fd, F_GETFL);
 	return (flags & O_RDWR) || O_WRONLY == 0 ? !(flags & O_RDONLY) : flags & O_WRONLY;
 }
-

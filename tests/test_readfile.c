@@ -43,37 +43,28 @@ void test_read_file(void){
 }
 
 void test_temp_fopen(void){
-	struct TMPFILE* tmp;
-	char* file;
+	FILE* tmp;
+	char tmp_template[] = "tmp_XXXXXX";
 
 	printf_blue("Testing temp_fopen()\n");
 
 	printf_yellow("Calling temp_fopen()\n");
-	tmp = temp_fopen("file_XXXXXX", "wb");
+	tmp = temp_fopen(tmp_template);
 	massert(tmp);
 
 	printf_yellow("Checking that the file exists\n");
-	massert(does_file_exist(tmp->name));
+	massert(does_file_exist(tmp_template));
 
 	printf_yellow("Writing to file\n");
-	fwrite(sample_data, 1, sizeof(sample_data), tmp->fp);
-	massert(ferror(tmp->fp) == 0);
-	massert(fflush(tmp->fp) == 0);
+	fwrite(sample_data, 1, sizeof(sample_data), tmp);
+	massert(ferror(tmp) == 0);
+	massert(fflush(tmp) == 0);
 
 	printf_yellow("Verifying file integrity\n");
-	massert(memcmp_file_data(tmp->name, sample_data, sizeof(sample_data)) == 0);
+	massert(memcmp_file_data(tmp_template, sample_data, sizeof(sample_data)) == 0);
 
-	file = malloc(strlen(tmp->name) + 1);
-	massert(file);
-	strcpy(file, tmp->name);
+	massert(fclose(tmp) == 0);
 
-	printf_yellow("Calling temp_fclose()\n");
-	massert(temp_fclose(tmp) == 0);
-
-	printf_yellow("Checking that the file does not exist\n");
-	massert(does_file_exist(file) == 0);
-
-	free(file);
 	printf_green("Finished testing temp_fopen()\n\n");
 }
 

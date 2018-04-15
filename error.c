@@ -3,11 +3,11 @@
 #include <stdio.h>
 
 const char* const COLOR_NORMAL  = "\033[0m";
-const char* const COLOR_RED     = "\033[91m";
-const char* const COLOR_GREEN   = "\033[92m";
-const char* const COLOR_YELLOW  = "\033[93m";
-const char* const COLOR_MAGENTA = "\033[95m";
-const char* const COLOR_CYAN    = "\033[96m";
+const char* const COLOR_RED     = "\033[31m";
+const char* const COLOR_GREEN   = "\033[32m";
+const char* const COLOR_YELLOW  = "\033[33m";
+const char* const COLOR_MAGENTA = "\033[35m";
+const char* const COLOR_CYAN    = "\033[36m";
 
 static enum LOG_LEVEL err_level = LEVEL_WARNING;
 
@@ -42,6 +42,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
 	default:
 		break;
 	}
+
 	vfprintf(stderr, format, args);
 	fprintf(stderr, "\n");
 	va_end(args);

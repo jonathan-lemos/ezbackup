@@ -17,7 +17,7 @@
 void printf_red(const char* format, ...){
 	va_list ap;
 	va_start(ap, format);
-	printf("\033[91m");
+	printf("\033[31m");
 	vprintf(format, ap);
 	printf("\033[m");
 	fflush(stdout);
@@ -37,7 +37,7 @@ void printf_yellow(const char* format, ...){
 void printf_green(const char* format, ...){
 	va_list ap;
 	va_start(ap, format);
-	printf("\033[92m");
+	printf("\033[32m");
 	vprintf(format, ap);
 	printf("\033[m");
 	fflush(stdout);
@@ -47,7 +47,7 @@ void printf_green(const char* format, ...){
 void printf_blue(const char* format, ...){
 	va_list ap;
 	va_start(ap, format);
-	printf("\033[94m");
+	printf("\033[36m");
 	vprintf(format, ap);
 	printf("\033[m");
 	fflush(stdout);
@@ -97,8 +97,8 @@ void create_file(const char* name, const unsigned char* data, int len){
 
 	fp = fopen(name, "wb");
 	if (!fp){
-		log_debug(__FL__, "Failed to create_file() (%s)", strerror(errno));
-		return;
+		log_efopen(name);
+		massert(0);
 	}
 	fwrite(data, 1, len, fp);
 	massert(ferror(fp) == 0);

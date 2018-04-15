@@ -48,7 +48,7 @@ int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out){
 		'C', 'D', 'E', 'F'};
 
 	if (!out || !bytes){
-		log_error(__FL__, STR_ENULL);
+		log_enull();
 	}
 
 	/* 2 hex chars = 1 byte */
@@ -56,7 +56,7 @@ int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out){
 	outlen = len * 2 + 1;
 	*out = malloc(outlen);
 	if (!out){
-		log_fatal(__FL__, STR_ENOMEM);
+		log_enomem();
 		return -1;
 	}
 
@@ -106,12 +106,12 @@ int checksum(const char* file, const EVP_MD* algorithm, unsigned char** out, uns
 
 	fp = fopen(file, "rb");
 	if (!fp){
-		log_error(__FL__, STR_EFOPEN, file, strerror(errno));
+		log_efopen(file);
 		return -1;
 	}
 
 	if (!(ctx = EVP_MD_CTX_create())){
-		log_error(__FL__, "Failed to initialize EVP_MD_CTX");
+		log_error("Failed to initialize EVP_MD_CTX");
 		ERR_print_errors_fp(stderr);
 		ret = -1;
 		goto cleanup;
@@ -122,7 +122,7 @@ int checksum(const char* file, const EVP_MD* algorithm, unsigned char** out, uns
 	}
 
 	if (EVP_DigestInit_ex(ctx, algorithm, NULL) != 1){
-		log_error(__FL__, "Failed to initialize digest algorithm");
+		log_error("Failed to initialize digest algorithm");
 		ERR_print_errors_fp(stderr);
 		ret = -1;
 		goto cleanup;
@@ -130,31 +130,31 @@ int checksum(const char* file, const EVP_MD* algorithm, unsigned char** out, uns
 
 	/* both of these must point to valid locations */
 	if (!len || !out){
-		log_error(__FL__, STR_ENULL);
+		log_enull();
 		ret = -1;
 		goto cleanup;
 	}
 	*len = EVP_MD_size(algorithm);
 	if (!(*out = malloc(EVP_MD_size(algorithm)))){
-		log_fatal(__FL__, STR_ENOMEM);
+		log_enomem();
 		ret = -1;
 		goto cleanup;
 	}
 
 	while ((length = read_file(fp, buffer, sizeof(buffer))) > 0){
 		if (ferror(fp)){
-			log_error(__FL__, STR_EFREAD, fp);
+			log_efread(file);
 			goto cleanup;
 		}
 		if (EVP_DigestUpdate(ctx, buffer, length) != 1){
-			log_error(__FL__, "Failed to calculate checksum");
+			log_error("Failed to calculate checksum");
 			ERR_print_errors_fp(stderr);
 			goto cleanup;
 		}
 	}
 
 	if (EVP_DigestFinal_ex(ctx, *out, len) != 1){
-		log_error(__FL__, "Failed to finalize checksum calculation");
+		log_error("Failed to finalize checksum calculation");
 		goto cleanup;
 	}
 
@@ -174,19 +174,19 @@ int file_to_element(const char* file, const EVP_MD* algorithm, element** out){
 	int ret = 0;
 
 	if (!file || !out){
-		log_error(__FL__, STR_ENULL);
+		log_enull();
 		return -1;
 	}
 
 	*out = malloc(sizeof(**out));
 	if (!out){
-		log_fatal(__FL__, STR_ENOMEM);
+		log_enomem();
 		return -1;
 	}
 	(*out)->file = malloc(strlen(file) + 1);
 	(*out)->checksum = NULL;
 	if (!(*out)->file){
-		log_fatal(__FL__, STR_ENOMEM);
+		log_enomem();
 		ret = -1;
 		goto cleanup;
 	}
@@ -194,14 +194,14 @@ int file_to_element(const char* file, const EVP_MD* algorithm, element** out){
 
 	/* compute checksum */
 	if (checksum(file, algorithm, &buffer, &len) != 0){
-		log_debug(__FL__, "checksum() in file_to_element() did not return 0");
+		log_debug("checksum() in file_to_element() did not return 0");
 		ret = -1;
 		goto cleanup;
 	}
 
 	/* convert it to hex */
 	if (bytes_to_hex(buffer, len, &(*out)->checksum) != 0){
-		log_warning(__FL__, "Failed to convert raw checksum to hexadecimal");
+		log_error("Failed to convert raw checksum to hexadecimal");
 		ret = -1;
 		goto cleanup;
 	}
@@ -237,22 +237,22 @@ int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, F
 	int ret;
 
 	if (!file ||  !out){
-		log_error(__FL__, STR_ENULL);
+		log_enull();
 		return -1;
 	}
 
 	if (!file_opened_for_writing(out)){
-		log_error(__FL__, STR_EMODE);
+		log_emode();
 		return -1;
 	}
 
 	if (prev_checksums && !file_opened_for_reading(prev_checksums)){
-		log_error(__FL__, STR_EMODE);
+		log_emode();
 		return -1;
 	}
 
 	if (file_to_element(file, algorithm, &e) != 0){
-		log_debug(__FL__, "Could not create element from file");
+		log_debug("Could not create element from file");
 		return -1;
 	}
 
@@ -268,7 +268,7 @@ int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, F
 
 	if (write_element_to_file(out, e) != 0){
 		free_element(e);
-		log_debug(__FL__, "Could not write element to file");
+		log_debug("Could not write element to file");
 		return -1;
 	}
 
@@ -285,31 +285,31 @@ int sort_checksum_file(const char* in, const char* out){
 	int ret = 0;
 
 	if (!in || !out){
-		log_error(__FL__, STR_ENULL);
+		log_enull();
 		ret = -1;
 		goto cleanup;
 	}
 
 	fp_in = fopen(in, "rb");
 	if (!fp_in){
-		log_error(__FL__, STR_EFOPEN, in);
+		log_efopen(in);
 		ret = -1;
 		goto cleanup;
 	}
 	fp_out = fopen(out, "wb");
 	if (!fp_out){
-		log_error(__FL__, STR_EFOPEN, in);
+		log_efopen(in);
 		ret = -1;
 		goto cleanup;
 	}
 
 	if (create_initial_runs(fp_in, &tmp_files, &n_files) != 0){
-		log_debug(__FL__, "Error creating initial runs");
+		log_debug("Error creating initial runs");
 		ret = -1;
 		goto cleanup;
 	}
 	if (merge_files(tmp_files, n_files, fp_out) != 0){
-		log_debug(__FL__, "Error merging files");
+		log_debug("Error merging files");
 		ret = -1;
 		goto cleanup;
 	}
@@ -325,12 +325,12 @@ cleanup:
 
 int search_for_checksum(FILE* fp_checksums, const char* key, char** checksum){
 	if (!fp_checksums || !key || !checksum){
-		log_error(__FL__, STR_ENULL);
+		log_enull();
 		return -1;
 	}
 
 	if (!file_opened_for_reading(fp_checksums)){
-		log_error(__FL__, STR_EMODE);
+		log_emode();
 		return -1;
 	}
 
@@ -348,7 +348,7 @@ int check_file_exists(const char* file){
 	case ENOTDIR:
 		return 0;
 	default:
-		log_error(__FL__, "Could not check for existence of %s (%s)", file, strerror(errno));
+		log_estat(file);
 		return -1;
 	}
 }
@@ -362,13 +362,13 @@ int create_removed_list(const char* checksum_file, const char* out_file){
 
 	fp_checksum = fopen(checksum_file, "rb");
 	if (!fp_checksum){
-		log_error(__FL__, STR_EFOPEN, checksum_file, strerror(errno));
+		log_efopen(checksum_file);
 		ret = -1;
 		goto cleanup;
 	}
 	fp_out = fopen(out_file, "wb");
 	if (!fp_out){
-		log_error(__FL__, STR_EFOPEN, out_file, strerror(errno));
+		log_efopen(out_file);
 		ret = -1;
 		goto cleanup;
 	}
@@ -388,6 +388,13 @@ int create_removed_list(const char* checksum_file, const char* out_file){
 		free_element(tmp);
 	}
 
+cleanup:
+	if (fp_checksum && fclose(fp_checksum) != 0){
+		log_efclose(checksum_file);
+	}
+	if (fp_out && fclose(fp_out) != 0){
+		log_efclose(fp_out);
+	}
 	return ret;
 }
 
@@ -399,7 +406,7 @@ char* get_next_removed(FILE* fp){
 	char* ret = NULL;
 
 	if (!fp){
-		log_error(__FL__, STR_ENULL);
+		log_enull();
 		return NULL;
 	}
 
@@ -407,7 +414,7 @@ char* get_next_removed(FILE* fp){
 
 	while ((c = fgetc(fp)) != '\0'){
 		if (c == EOF){
-			log_debug(__FL__, "get_next_removed(): reached EOF");
+			log_debug("get_next_removed(): reached EOF");
 			return NULL;
 		}
 	}
@@ -416,7 +423,7 @@ char* get_next_removed(FILE* fp){
 
 	ret = malloc(len_file);
 	if (!ret){
-		log_fatal(__FL__, STR_ENOMEM);
+		log_enomem();
 		return NULL;
 	}
 

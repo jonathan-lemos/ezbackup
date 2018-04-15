@@ -88,7 +88,7 @@ static int remove_string(char*** entries, int* len, int index){
 	(*len)--;
 	(*entries) = realloc(*entries, *len * sizeof(*(*entries)));
 	if (!(*entries) && (*len) != 0){
-		log_fatal(__FL__, STR_ENOMEM);
+		log_enomem();
 		return -1;
 	}
 	return 0;
@@ -112,14 +112,14 @@ static int add_string_to_array(char*** array, int* array_len, const char* str){
 
 	*array = realloc(*array, *array_len * sizeof(*(*array)));
 	if (!(*array)){
-		log_fatal(__FL__, STR_ENOMEM);
+		log_enomem();
 		(*array_len)--;
 		return -1;
 	}
 
 	(*array)[*array_len - 1] = malloc(strlen(str) + 1);
 	if (!(*array)[*array_len - 1]){
-		log_fatal(__FL__, STR_ENOMEM);
+		log_enomem();
 		return -1;
 	}
 
@@ -136,7 +136,7 @@ static int get_backup_directory(char** out){
 	if (!(homedir = getenv("HOME"))){
 		pw = getpwuid(getuid());
 		if (!pw){
-			log_error(__FL__, "Failed to get home directory");
+			log_error("Failed to get home directory");
 			return -1;
 		}
 		homedir = pw->pw_dir;
@@ -145,7 +145,7 @@ static int get_backup_directory(char** out){
 	/* /home/<user>/Backups */
 	*out = malloc(strlen(homedir) + sizeof("/Backups"));
 	if (!(*out)){
-		log_fatal(__FL__, STR_ENOMEM);
+		log_enomem();
 		return -1;
 	}
 	strcpy(*out, homedir);
@@ -153,7 +153,7 @@ static int get_backup_directory(char** out){
 
 	if (stat(*out, &st) == -1){
 		if (mkdir(*out, 0755) == -1){
-			log_error(__FL__, "Failed to create backup directory at %s", *out);
+			log_error_ex("Failed to create backup directory at %s", *out);
 			free(*out);
 			return -1;
 		}
@@ -170,7 +170,7 @@ int parse_options_cmdline(int argc, char** argv, struct options* out){
 	int i;
 
 	if (!out){
-		log_error(__FL__, STR_ENULL);
+		log_enull();
 		return -1;
 	}
 
@@ -257,7 +257,7 @@ int parse_options_cmdline(int argc, char** argv, struct options* out){
 		out->directories_len = 1;
 	}
 	if (!out->output_directory && get_backup_directory(&out->output_directory) != 0){
-		log_error(__FL__, "Could not determine output directory");
+		log_error("Could not determine output directory");
 		return -1;
 	}
 	return 0;
@@ -278,7 +278,7 @@ int display_menu(const char** options, int num_options, const char* title){
 	int ret;
 
 	if (!options || !title || num_options <= 0){
-		log_error(__FL__, STR_ENULL);
+		log_enull();
 		return -1;
 	}
 
@@ -538,7 +538,7 @@ int menu_directories(struct options* opt){
 
 		options_initial = malloc((opt->directories_len + 2) * sizeof(*(opt->directories)));
 		if (!options_initial){
-			log_fatal(__FL__, STR_ENOMEM);
+			log_enomem();
 			return -1;
 		}
 		options_initial[0] = "Add a directory";
@@ -556,7 +556,7 @@ int menu_directories(struct options* opt){
 		case 0:
 			str = readline("Enter directory:");
 			if (strcmp(str, "") != 0 && add_string_to_array(&(opt->directories), &(opt->directories_len), str) != 0){
-				log_debug(__FL__, "Failed to add string to directories list");
+				log_debug("Failed to add string to directories list");
 				return -1;
 			}
 			free(str);
@@ -564,7 +564,7 @@ int menu_directories(struct options* opt){
 				title = "Directory specified was invalid";
 			}
 			else if (res < 0){
-				log_warning(__FL__, "Failed to sanitize directory list");
+				log_warning("Failed to sanitize directory list");
 			}
 			else{
 				title = "Directories";
@@ -575,12 +575,12 @@ int menu_directories(struct options* opt){
 		default:
 			options_confirm = malloc(2 * sizeof(*options_confirm));
 			if (!options_confirm){
-				log_fatal(__FL__, STR_ENOMEM);
+				log_enomem();
 				return -1;
 			}
 			options_confirm[0] = malloc(sizeof("Remove ") + strlen(opt->directories[res - 2]));
 			if (!options_confirm){
-				log_fatal(__FL__, STR_ENOMEM);
+				log_enomem();
 				return -1;
 			}
 			strcpy(options_confirm[0], "Remove ");
@@ -590,7 +590,7 @@ int menu_directories(struct options* opt){
 
 			if (res_confirm == 0){
 				if (remove_string(&(opt->directories), &(opt->directories_len), res - 2) != 0){
-					log_debug(__FL__, "Failed to remove_directory()");
+					log_debug("Failed to remove_directory()");
 					return -1;
 				}
 			}
@@ -614,7 +614,7 @@ int menu_exclude(struct options* opt){
 
 		options_initial = malloc((opt->exclude_len + 2) * sizeof(*(opt->exclude)));
 		if (!options_initial){
-			log_fatal(__FL__, STR_ENOMEM);
+			log_enomem();
 			return -1;
 		}
 		options_initial[0] = "Add an exclude path";
@@ -632,7 +632,7 @@ int menu_exclude(struct options* opt){
 		case 0:
 			str = readline("Enter exclude path:");
 			if (strcmp(str, "") != 0 && add_string_to_array(&(opt->exclude), &(opt->exclude_len), str) != 0){
-				log_debug(__FL__, "Failed to add string to exclude list");
+				log_debug("Failed to add string to exclude list");
 				return -1;
 			}
 			free(str);
@@ -640,7 +640,7 @@ int menu_exclude(struct options* opt){
 				title = "Exclude path specified was invalid";
 			}
 			else if (res < 0){
-				log_warning(__FL__, "Failed to sanitize exclude list");
+				log_warning("Failed to sanitize exclude list");
 			}
 			else{
 				title = "Exclude paths";
@@ -651,12 +651,12 @@ int menu_exclude(struct options* opt){
 		default:
 			options_confirm = malloc(2 * sizeof(*options_confirm));
 			if (!options_confirm){
-				log_fatal(__FL__, STR_ENOMEM);
+				log_enomem();
 				return -1;
 			}
 			options_confirm[0] = malloc(sizeof("Remove ") + strlen(opt->exclude[res - 2]));
 			if (!options_confirm){
-				log_fatal(__FL__, STR_ENOMEM);
+				log_enomem();
 				return -1;
 			}
 			strcpy(options_confirm[0], "Remove ");
@@ -666,7 +666,7 @@ int menu_exclude(struct options* opt){
 
 			if (res_confirm == 0){
 				if (remove_string(&(opt->exclude), &(opt->exclude_len), res - 2) != 0){
-					log_debug(__FL__, "Failed to remove_string()");
+					log_debug("Failed to remove_string()");
 					return -1;
 				}
 			}
@@ -735,7 +735,7 @@ int parse_options_menu(struct options* opt){
 		case 5:
 			break;
 		default:
-			log_warning(__FL__, "Invalid choice");
+			log_warning("Invalid choice");
 			return 0;
 
 		}
@@ -745,6 +745,7 @@ int parse_options_menu(struct options* opt){
 
 int get_default_options(struct options* opt){
 	opt->comp_algorithm = COMPRESSOR_GZIP;
+	opt->comp_level = 0;
 	opt->hash_algorithm = EVP_sha1();
 	opt->enc_algorithm = EVP_aes_256_cbc();
 	opt->prev_backup = NULL;
@@ -754,7 +755,7 @@ int get_default_options(struct options* opt){
 	opt->exclude_len = 0;
 	opt->operation = OP_INVALID;
 	if (get_backup_directory(&(opt->output_directory)) != 0){
-		log_debug(__FL__, "Failed to make backup directory");
+		log_debug("Failed to make backup directory");
 		return 1;
 	}
 	opt->flags = FLAG_VERBOSE;
@@ -768,14 +769,14 @@ static char* read_file_string(FILE* in){
 
 	while ((c = fgetc(in)) != '\0'){
 		if (c == EOF){
-			log_debug(__FL__, "Reached EOF");
+			log_debug("Reached EOF");
 			free(ret);
 			return NULL;
 		}
 		ret_len++;
 		ret = realloc(ret, ret_len);
 		if (!ret){
-			log_fatal(__FL__, STR_ENOMEM);
+			log_enomem();
 			return NULL;
 		}
 		ret[ret_len - 1] = c;
@@ -793,7 +794,7 @@ int parse_options_fromfile(const char* file, struct options* opt){
 
 	fp = fopen(file, "rb");
 	if (!fp){
-		log_error(__FL__, STR_EFOPEN, file, strerror(errno));
+		log_efopen(file);
 		return -1;
 	}
 
@@ -860,7 +861,7 @@ int parse_options_fromfile(const char* file, struct options* opt){
 	fscanf(fp, "\nFLAGS=%u", &(opt->flags));
 
 	if (fclose(fp) != 0){
-		log_error(__FL__, STR_EFCLOSE, file);
+		log_efclose(file);
 	}
 	return 0;
 }
@@ -882,13 +883,13 @@ int write_options_tofile(const char* file, const struct options* opt){
 	int i;
 
 	if (!file || !opt){
-		log_error(__FL__, STR_ENULL);
+		log_enull();
 		return -1;
 	}
 
 	fp = fopen(file, "wb");
 	if (!fp){
-		log_error(__FL__, STR_EFOPEN, file, strerror(errno));
+		log_efopen(file);
 		return -1;
 	}
 	fprintf(fp, "[Options]");
@@ -909,7 +910,7 @@ int write_options_tofile(const char* file, const struct options* opt){
 	fprintf(fp, "\nFLAGS=%u", opt->flags);
 
 	if (fclose(fp) != 0){
-		log_error(__FL__, STR_EFCLOSE, file);
+		log_efclose(file);
 	}
 	return 0;
 }
@@ -944,14 +945,14 @@ int get_config_name(char** out){
 	if (!(homedir = getenv("HOME"))){
 		pw = getpwuid(getuid());
 		if (!pw){
-			log_error(__FL__, "Failed to get home directory");
+			log_error("Failed to get home directory");
 			return -1;
 		}
 		homedir = pw->pw_dir;
 	}
 	*out = malloc(strlen(homedir) + sizeof("/.ezbackup.conf"));
 	if (!(*out)){
-		log_fatal(__FL__, STR_ENOMEM);
+		log_enomem();
 		return -1;
 	}
 
@@ -965,18 +966,18 @@ int read_config_file(struct options* opt){
 	char* backup_conf;
 
 	if (get_config_name(&backup_conf) != 0){
-		log_debug(__FL__, "get_config_name() failed");
+		log_debug("get_config_name() failed");
 		return -1;
 	}
 
 	if (!does_file_exist(backup_conf)){
-		log_info(__FL__, "Backup file does not exist");
+		log_info("Backup file does not exist");
 		free(backup_conf);
 		return 1;
 	}
 
 	if (parse_options_fromfile(backup_conf, opt) != 0){
-		log_debug(__FL__, "Failed to parse options from file");
+		log_debug("Failed to parse options from file");
 		free(backup_conf);
 		return -1;
 	}
@@ -991,18 +992,18 @@ int write_config_file(const struct options* opt, const char* path){
 
 	if (path){
 		if (write_options_tofile(path, opt) != 0){
-			log_warning(__FL__, "Failed to write settings to file");
+			log_warning("Failed to write settings to file");
 			return -1;
 		}
 		return 0;
 	}
 	if ((get_config_name(&backup_conf)) != 0){
-		log_warning(__FL__, "Failed to get backup name for incremental backup settings.");
+		log_warning("Failed to get backup name for incremental backup settings.");
 		return -1;
 	}
 	else{
 		if ((write_options_tofile(backup_conf, opt)) != 0){
-			log_warning(__FL__, "Failed to write settings for incremental backup.");
+			log_warning("Failed to write settings for incremental backup.");
 			free(backup_conf);
 			return -1;
 		}

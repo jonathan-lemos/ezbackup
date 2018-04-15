@@ -63,7 +63,7 @@ static void display_progress(struct progress* p){
 struct progress* start_progress(const char* text, uint64_t max){
 	struct progress* p = malloc(sizeof(struct progress));
 	if (!p){
-		log_fatal(__FL__, STR_ENOMEM);
+		log_enomem();
 		return NULL;
 	}
 	p->text = text;

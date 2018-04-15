@@ -195,7 +195,7 @@ void test_backup(void){
 
 	/* making ~/dir1 */
 	if (mkdir(rel_path("dir1"), 0755) != 0){
-		log_debug(__FL__, "Failed to make directory (%s)", strerror(errno));
+		log_msg(__FILE__, __LINE__, LEVEL_WARNING, "Failed to make ~/dir1 (%s)", strerror(errno));
 	}
 	opt.directories[0] = malloc(strlen(rel_path("dir1")) + 1);
 	massert(opt.directories[0]);
@@ -203,7 +203,7 @@ void test_backup(void){
 
 	/* making ~/dir2 */
 	if (mkdir(rel_path("dir2"), 0755) != 0){
-		log_debug(__FL__, "Failed to make directory (%s)", strerror(errno));
+		log_msg(__FILE__, __LINE__, LEVEL_WARNING, "Failed to make ~/dir2 (%s)", strerror(errno));
 	}
 	opt.directories[1] = malloc(strlen(rel_path("dir2")) + 1);
 	massert(opt.directories[1]);
@@ -211,7 +211,7 @@ void test_backup(void){
 
 	/* making ~/ex1 (exclude directory) */
 	if (mkdir(rel_path("ex1"), 0755) != 0){
-		log_debug(__FL__, "Failed to make directory (%s)", strerror(errno));
+		log_msg(__FILE__, __LINE__, LEVEL_WARNING, "Failed to make ~/ex1 (%s)", strerror(errno));
 	}
 	opt.exclude[0] = malloc(strlen(rel_path("ex1")) + 1);
 	massert(opt.exclude[0]);
@@ -219,7 +219,7 @@ void test_backup(void){
 
 	/* making ~/noaccess (no permission to access) */
 	if (mkdir(rel_path("noaccess"), 0755) != 0){
-		log_debug(__FL__, "Failed to make directory (%s)", strerror(errno));
+		log_msg(__FILE__, __LINE__, LEVEL_WARNING, "Failed to make ~/noaccess (%s)", strerror(errno));
 	}
 	opt.directories[2] = malloc(strlen(rel_path("noaccess")) + 1);
 	massert(opt.directories[2]);
