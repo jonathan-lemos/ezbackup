@@ -31,7 +31,7 @@ void test_version_usage(void){
 }
 
 void test_parse_options_cmdline(void){
-	struct options opt = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+	struct options opt;
 	char* argv_pass[] = {
 		"PROG_NAME",
 		"backup",
@@ -49,7 +49,15 @@ void test_parse_options_cmdline(void){
 		"-v",
 		"-x",
 		"/ex1",
-		"/ex2"
+		"/ex2",
+		"-u",
+		"john_doe@example.com",
+		"-p",
+		"hunter2",
+		"-i",
+		"mega",
+		"-I",
+		"/mybackups"
 	};
 	char* argv_fail[] = {
 		"PROG_NAME",
@@ -84,7 +92,7 @@ void test_parse_options_cmdline(void){
 }
 
 void test_parse_options_menu(void){
-	struct options opt = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+	struct options opt;
 
 	printf_blue("Testing parse_options_menu()\n");
 
@@ -102,8 +110,8 @@ void test_parse_options_menu(void){
 }
 
 void test_parse_options_fromfile(void){
-	struct options opt = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-	struct options opt_read = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+	struct options opt;
+	struct options opt_read;
 
 	printf_blue("Testing parse_options_fromfile()\n");
 
@@ -128,8 +136,8 @@ void test_parse_options_fromfile(void){
 }
 
 void test_read_config_file(void){
-	struct options opt = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-	struct options opt_read = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+	struct options opt;
+	struct options opt_read;
 
 	printf_blue("Testing read_config_file()\n");
 

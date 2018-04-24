@@ -128,7 +128,7 @@ The OpenSSL License (full text):
  */
 
 Components licensed under the BSD-2-Clause license:
-	libarchive, Copyright (c) 2003-2009 <author(s)>
+	libarchive, Copyright (c) 2003-2009 Tim Kientzle
 	MEGA SDK, Copyright (c) 2013 Mega Limited
 	libedit, Copyright (c) 1997 The NetBSD Foundation, Inc.
 

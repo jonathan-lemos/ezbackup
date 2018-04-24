@@ -104,16 +104,10 @@ void test_sort_checksum_file(void){
 		}
 	}
 	massert(fclose(fp1) == 0);
-	fp1 = fopen(fp1str, "rb");
-	massert(fp1);
-	fp2 = fopen(fp2str, "wb");
-	massert(fp2);
 	/* sorting file */
 	printf_yellow("Calling sort_checksum_file()\n");
-	massert(sort_checksum_file(fp1, fp2) == 0);
-	massert(fclose(fp1) == 0);
+	massert(sort_checksum_file(fp1str, fp2str) == 0);
 	/* checking that it's sorted */
-	massert(fclose(fp2) == 0);
 	fp2 = fopen(fp2str, "rb");
 	massert(fp2);
 	e1 = get_next_checksum_element(fp2);
@@ -213,15 +207,13 @@ void test_search_for_checksum(void){
 	add_checksum_to_file(sample_file, EVP_sha1(), fp1, NULL);
 
 	massert(fclose(fp1) == 0);
-	fp1 = fopen(fp1str, "rb");
-	massert(fp1);
-	fp2 = fopen(fp2str, "wb");
-	massert(fp2);
 	/* sorting file */
 	printf_yellow("Calling sort_checksum_file()\n");
-	massert(sort_checksum_file(fp1, fp2) == 0);
+	massert(sort_checksum_file(fp1str, fp2str) == 0);
 	massert(fclose(fp1) == 0);
 	/* checking that it's sorted */
+	fp2 = fopen(fp2str, "rb");
+	massert(fp2);
 	e1 = get_next_checksum_element(fp2);
 	for (i = 0; i < 100 - 1; ++i){
 		e2 = get_next_checksum_element(fp2);
@@ -297,9 +289,9 @@ void test_create_removed_list(void){
 		remove(files[i]);
 	}
 	printf_yellow("Calling create_removed_list()\n");
-	massert(create_removed_list(fp1, fp2) == 0);
 	massert(fclose(fp1) == 0);
 	massert(fclose(fp2) == 0);
+	massert(create_removed_list(fp1str, fp2str) == 0);
 	fp2 = fopen(fp2str, "rb");
 	massert(fp2);
 

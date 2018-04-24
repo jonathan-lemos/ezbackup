@@ -155,7 +155,10 @@ int MEGAlogin(const char* email, const char* password, MEGAhandle** out){
 	else{
 		mega_api->login(email, password, &listener);
 	}
-	listener.trywait(MEGA_WAIT_MS);
+	if (listener.trywait(MEGA_WAIT_MS) != 0){
+		std::cerr << "Connection timed out" << std::endl;
+		return 1;
+	}
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
 		std::cerr << "Failed to login (" << listener.getError()->toString() << ")." << std::endl;
 		delete mega_api;
@@ -163,7 +166,10 @@ int MEGAlogin(const char* email, const char* password, MEGAhandle** out){
 	}
 
 	mega_api->fetchNodes(&listener);
-	listener.trywait(MEGA_WAIT_MS);
+	if (listener.trywait(MEGA_WAIT_MS) != 0){
+		std::cerr << "Connection timed out" << std::endl;
+		return 1;
+	}
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
 		log_error("MEGA: Failed to fetch nodes");
 		delete mega_api;
@@ -209,7 +215,10 @@ int MEGAmkdir(const char* dir, MEGAhandle* mh){
 	}
 
 	mega_api->createFolder(path.c_str() + index + 1, node, &listener);
-	listener.trywait(MEGA_WAIT_MS);
+	if (listener.trywait(MEGA_WAIT_MS) != 0){
+		std::cerr << "Connection timed out" << std::endl;
+		return 1;
+	}
 	delete node;
 
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
@@ -268,13 +277,17 @@ int MEGAreaddir(const char* dir, struct file_node*** out, size_t* out_len, MEGAh
 
 		n = children->get(i);
 		log_debug_ex("Reading child %s", n->getName());
-		(*out)[*out_len - 1]->name = (char*)malloc(strlen(n->getName()) + 1);
+		(*out)[*out_len - 1]->name = (char*)malloc(strlen(dir) + strlen(n->getName()) + 2);
 		if (!(*out)[*out_len - 1]->name){
 			log_enomem();
 			ret = -1;
 			goto cleanup_freeout;
 		}
-		strcpy((*out)[*out_len - 1]->name, n->getName());
+		strcpy((*out)[*out_len - 1]->name, dir);
+		if (dir[strlen(dir) - 1] != '/'){
+			strcat((*out)[*out_len - 1]->name, "/");
+		}
+		strcat((*out)[*out_len - 1]->name, n->getName());
 		(*out)[*out_len - 1]->time = n->getCreationTime();
 	}
 
@@ -365,7 +378,10 @@ int MEGArm(const char* file, MEGAhandle* mh){
 	}
 
 	mega_api->remove(node, &listener);
-	listener.trywait(MEGA_WAIT_MS);
+	if (listener.trywait(MEGA_WAIT_MS) != 0){
+		std::cerr << "Connection timed out" << std::endl;
+		return 1;
+	}
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
 		std::cerr << "Failed to remove " << path << " (" << listener.getError()->toString() << ")." << std::endl;
 		delete mega_api;
@@ -382,7 +398,10 @@ int MEGAlogout(MEGAhandle* mh){
 	mega_api = (mega::MegaApi*)mh;
 
 	mega_api->logout(&listener);
-	listener.trywait(MEGA_WAIT_MS);
+	if (listener.trywait(MEGA_WAIT_MS) != 0){
+		std::cerr << "Connection timed out" << std::endl;
+		return 1;
+	}
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
 		log_warning_ex("MEGA: failed to log out (%s)", listener.getError()->toString());
 		delete mega_api;

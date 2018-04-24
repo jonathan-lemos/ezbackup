@@ -11,6 +11,10 @@
 /* errors */
 #include "error.h"
 #include <errno.h>
+
+#include "crypt.h"
+
+#include "cli.h"
 /* printf */
 #include <stdio.h>
 /* strcmp */
@@ -35,6 +39,7 @@
 /* get home directory */
 #include <unistd.h>
 #include <pwd.h>
+#include <termios.h>
 
 #ifndef PROG_NAME
 #define PROG_NAME NULL
@@ -59,72 +64,18 @@ void version(void){
 void usage(const char* progname){
 	printf("Usage: %s (backup|restore|configure) [options]\n", progname);
 	printf("Options:\n");
-	printf("\t-c compressor\n");
-	printf("\t-C checksum\n");
-	printf("\t-d /dir1 /dir2 /...\n");
-	printf("\t-e encryption\n");
+	printf("\t-c, --compressor <gz|bz2|...>\n");
+	printf("\t-C, --checksum <md5|sha1|...>\n");
+	printf("\t-d, --directories </dir1 /dir2 /...>\n");
+	printf("\t-e, --encryption <aes-256-cbc|seed-ctr|...>\n");
 	printf("\t-h, --help\n");
-	printf("\t-o /out/file\n");
-	printf("\t-v\n");
-	printf("\t-x /dir1 /dir2 /...\n");
-}
-
-static int is_directory(const char* path){
-	struct stat st;
-
-	if (!path){
-		return 0;
-	}
-
-	stat(path, &st);
-	return S_ISDIR(st.st_mode);
-}
-
-static int remove_string(char*** entries, int* len, int index){
-	int i;
-	for (i = index; i < *len - 1; ++i){
-		(*entries)[i] = (*entries)[i + 1];
-	}
-	(*len)--;
-	(*entries) = realloc(*entries, *len * sizeof(*(*entries)));
-	if (!(*entries) && (*len) != 0){
-		log_enomem();
-		return -1;
-	}
-	return 0;
-}
-
-static int sanitize_directories(char*** entries, int* len){
-	int n_removed = 0;
-	int i;
-	for (i = 0; i < (*len); ++i){
-		if (!is_directory((*entries)[i])){
-			remove_string(entries, len, i);
-			i--;
-			n_removed++;
-		}
-	}
-	return n_removed;
-}
-
-static int add_string_to_array(char*** array, int* array_len, const char* str){
-	(*array_len)++;
-
-	*array = realloc(*array, *array_len * sizeof(*(*array)));
-	if (!(*array)){
-		log_enomem();
-		(*array_len)--;
-		return -1;
-	}
-
-	(*array)[*array_len - 1] = malloc(strlen(str) + 1);
-	if (!(*array)[*array_len - 1]){
-		log_enomem();
-		return -1;
-	}
-
-	strcpy((*array)[*array_len - 1], str);
-	return 0;
+	printf("\t-i, --cloud <mega|...>\n");
+	printf("\t-I, --upload_directory </dir1/dir2/...>\n");
+	printf("\t-o, --output </out/dir>\n");
+	printf("\t-p, --password <password>\n");
+	printf("\t-q, --quiet\n");
+	printf("\t-u, --username <username>");
+	printf("\t-x, --exclude </dir1 /dir2 /...>\n");
 }
 
 static int get_backup_directory(char** out){
@@ -166,15 +117,16 @@ static int get_backup_directory(char** out){
  *
  * returns -1 if out is NULL, 0 on success
  * index of bad argument on bad argument */
-int parse_options_cmdline(int argc, char** argv, struct options* out){
+int parse_options_cmdline(int argc, char** argv, struct options** output, enum OPERATION* out_op){
 	int i;
+	struct options* out = *output;
 
-	if (!out){
-		log_enull();
+	if ((out = get_default_options()) != 0){
+		log_debug("Failed to get default options");
 		return -1;
 	}
 
-	memset(out, 0, sizeof(*out));
+	*out_op = OP_INVALID;
 
 	for (i = 1; i < argc; ++i){
 		if (!strcmp(argv[i], "--version")){
@@ -187,61 +139,103 @@ int parse_options_cmdline(int argc, char** argv, struct options* out){
 			exit(0);
 		}
 		/* compression */
-		else if (!strcmp(argv[i], "-c")){
+		else if (!strcmp(argv[i], "-c") ||
+				!strcmp(argv[i], "--compressor")){
 			/* check next argument */
 			++i;
 			out->comp_algorithm = get_compressor_byname(argv[i]);
 		}
 		/* checksum */
-		else if (!strcmp(argv[i], "-C")){
+		else if (!strcmp(argv[i], "-C") ||
+				!strcmp(argv[i], "--checksum")){
 			/* check next argument */
 			++i;
 			OpenSSL_add_all_algorithms();
 			out->hash_algorithm = EVP_get_digestbyname(argv[i]);
 		}
 		/* encryption */
-		else if (!strcmp(argv[i], "-e")){
+		else if (!strcmp(argv[i], "-e") ||
+				!strcmp(argv[i], "--encryption")){
 			/* next argument */
 			++i;
 			OpenSSL_add_all_algorithms();
 			out->enc_algorithm = EVP_get_cipherbyname(argv[i]);
 		}
 		/* verbose */
-		else if (!strcmp(argv[i], "-v")){
-			out->flags |= FLAG_VERBOSE;
+		else if (!strcmp(argv[i], "-q") ||
+				!strcmp(argv[i], "--quiet")){
+			out->flag_verbose = 0;
 		}
 		/* outfile */
-		else if (!strcmp(argv[i], "-o")){
+		else if (!strcmp(argv[i], "-o") ||
+				!strcmp(argv[i], "--output")){
 			/* next argument */
 			++i;
+
+			if (out->output_directory){
+				free(out->output_directory);
+			}
 			/* must be able to call free() w/o errors */
 			out->output_directory = malloc(strlen(argv[i]) + 1);
 			strcpy(out->output_directory, argv[i]);
 		}
 		/* exclude */
-		else if (!strcmp(argv[i], "-x")){
+		else if (!strcmp(argv[i], "-x") ||
+				!strcmp(argv[i], "--exclude")){
 			while (++i < argc && argv[i][0] != '-'){
-				add_string_to_array(&(out->exclude), &(out->exclude_len), argv[i]);
-			}
-			--i;
-		}
-		/* exclude */
-		else if (!strcmp(argv[i], "-d")){
-			while (++i < argc && argv[i][0] != '-'){
-				add_string_to_array(&(out->directories), &(out->directories_len), argv[i]);
+				sa_add(out->exclude, argv[i]);
 			}
 			--i;
 		}
 		/* directories */
+		else if (!strcmp(argv[i], "-d") ||
+				!strcmp(argv[i], "--directories")){
+			while (++i < argc && argv[i][0] != '-'){
+				sa_add(out->directories, argv[i]);
+			}
+			--i;
+		}
+		/* username */
+		else if (!strcmp(argv[i], "-u") ||
+				!strcmp(argv[i], "--username")){
+			++i;
+			if (co_set_username(out->cloud_options, argv[i]) != 0){
+				log_debug("Failed to set cloud_options username");
+				return -1;
+			}
+		}
+		/* password */
+		else if (!strcmp(argv[i], "-p") ||
+				!strcmp(argv[i], "--password")){
+			++i;
+			if (co_set_password(out->cloud_options, argv[i]) != 0){
+				log_debug("Failed to set cloud_options password");
+				return -1;
+			}
+		}
+		else if (!strcmp(argv[i], "-i") ||
+				!strcmp(argv[i], "--cloud")){
+			++i;
+			out->cloud_options->cp = cloud_provider_from_string(argv[i]);
+		}
+		else if (!strcmp(argv[i], "-I") ||
+				!strcmp(argv[i], "--upload_directory")){
+			++i;
+			if (co_set_upload_directory(out->cloud_options, argv[i]) != 0){
+				log_debug("Failed to set cloud_options upload directory");
+				return -1;
+			}
+		}
+		/* operation */
 		else if (argv[i][0] != '-'){
 			if (!strcmp(argv[i], "backup")){
-				out->operation = OP_BACKUP;
+				*out_op = OP_BACKUP;
 			}
 			else if (!strcmp(argv[i], "restore")){
-				out->operation = OP_RESTORE;
+				*out_op = OP_RESTORE;
 			}
 			else if (!strcmp(argv[i], "configure")){
-				out->operation = OP_CONFIGURE;
+				*out_op = OP_CONFIGURE;
 			}
 			else{
 				return i;
@@ -252,132 +246,14 @@ int parse_options_cmdline(int argc, char** argv, struct options* out){
 		}
 	}
 
-	if (!out->directories){
-		out->directories = malloc(sizeof(char*));
-		out->directories[0] = malloc(sizeof("/"));
-		strcpy(out->directories[0], "/");
-		out->directories_len = 1;
+	if (out->directories->len == 0){
+		sa_add(out->directories, "/");
 	}
 	if (!out->output_directory && get_backup_directory(&out->output_directory) != 0){
 		log_error("Could not determine output directory");
 		return -1;
 	}
 	return 0;
-}
-
-/* this function causes memory leaks by design.
- * this is ncurses' fault, not mine */
-int display_menu(const char** options, int num_options, const char* title){
-	ITEM** my_items;
-	int c;
-	MENU* my_menu;
-	WINDOW* my_menu_window;
-	WINDOW* my_menu_subwindow;
-	ITEM* cur_item;
-	int i;
-	int row;
-	int col;
-	int ret;
-
-	if (!options || !title || num_options <= 0){
-		log_enull();
-		return -1;
-	}
-
-	/* initialize curses */
-	initscr();
-	/* disable line buffering for stdin, so our output
-	 * shows up immediately */
-	cbreak();
-	/* disable echoing of our characters */
-	noecho();
-	/* enable arrow keys */
-	keypad(stdscr, TRUE);
-
-	/* disable cursor blinking */
-	curs_set(0);
-	/* get coordinates of current terminal */
-	getmaxyx(stdscr, col, row);
-
-	/* create item list */
-	my_items = malloc((num_options + 1) * sizeof(ITEM*));
-	for (i = 0; i < num_options; ++i){
-		my_items[i] = new_item(options[i], NULL);
-	}
-	my_items[num_options] = NULL;
-
-	/* initialize menu and windows */
-	my_menu = new_menu(my_items);
-	my_menu_window = newwin(col - 4, row - 4, 2, 2);
-	my_menu_subwindow = derwin(my_menu_window, col - 12, row - 12, 3, 3);
-	keypad(my_menu_window, TRUE);
-
-	/* attach menu to our subwindow */
-	set_menu_win(my_menu, my_menu_window);
-	set_menu_sub(my_menu, my_menu_subwindow);
-
-	/* change selected menu item mark */
-	set_menu_mark(my_menu, "> ");
-
-	clear();
-	/* put a box around window */
-	box(my_menu_window, 0, 0);
-	/* display our title */
-	mvwprintw(my_menu_window, 1, (row - 6 - strlen(title)) / 2, title);
-	/* put another around the title */
-	mvwaddch(my_menu_window, 2, 0, ACS_LTEE);
-	mvwhline(my_menu_window, 2, 1, ACS_HLINE, row - 6);
-	mvwaddch(my_menu_window, 2, row - 5, ACS_RTEE);
-	refresh();
-
-	/* post the menu */
-	post_menu(my_menu);
-	wrefresh(my_menu_window);
-
-	/* while the user does not press enter */
-	while ((c = wgetch(my_menu_window)) != '\n'){
-		/* handle menu input */
-		switch(c){
-		case KEY_DOWN:
-			cur_item = current_item(my_menu);
-			ret = item_index(cur_item);
-			if (ret >= num_options - 1){
-				menu_driver(my_menu, REQ_FIRST_ITEM);
-			}
-			else{
-				menu_driver(my_menu, REQ_DOWN_ITEM);
-			}
-			break;
-		case KEY_UP:
-			cur_item = current_item(my_menu);
-			ret = item_index(cur_item);
-			if (ret <= 0){
-				menu_driver(my_menu, REQ_LAST_ITEM);
-			}
-			else{
-				menu_driver(my_menu, REQ_UP_ITEM);
-			}
-			break;
-		}
-	}
-
-	/* get chosen item index */
-	cur_item = current_item(my_menu);
-	ret = item_index(cur_item);
-
-	/* cleanup */
-	curs_set(1);
-	unpost_menu(my_menu);
-	free_menu(my_menu);
-	for (i = 0; i < num_options; ++i){
-		free_item(my_items[i]);
-	}
-	free(my_items);
-	delwin(my_menu_subwindow);
-	delwin(my_menu_window);
-	endwin();
-
-	return ret;
 }
 
 static int menu_compression_level(struct options* opt){
@@ -536,20 +412,20 @@ int menu_directories(struct options* opt){
 
 	/* TODO: refactor */
 	do{
-		int i;
+		size_t i;
 
-		options_initial = malloc((opt->directories_len + 2) * sizeof(*(opt->directories)));
+		options_initial = malloc((opt->directories->len + 2) * sizeof(*(opt->directories)));
 		if (!options_initial){
 			log_enomem();
 			return -1;
 		}
 		options_initial[0] = "Add a directory";
 		options_initial[1] = "Exit";
-		for (i = 2; i < opt->directories_len + 2; ++i){
-			options_initial[i] = opt->directories[i - 2];
+		for (i = 2; i < opt->directories->len + 2; ++i){
+			options_initial[i] = opt->directories->strings[i - 2];
 		}
 
-		res = display_menu(options_initial, opt->directories_len + 2, title);
+		res = display_menu(options_initial, opt->directories->len + 2, title);
 
 		switch (res){
 			char* str;
@@ -557,12 +433,12 @@ int menu_directories(struct options* opt){
 			char** options_confirm;
 		case 0:
 			str = readline("Enter directory:");
-			if (strcmp(str, "") != 0 && add_string_to_array(&(opt->directories), &(opt->directories_len), str) != 0){
+			if (strcmp(str, "") != 0 && sa_add(opt->directories, str) != 0){
 				log_debug("Failed to add string to directories list");
 				return -1;
 			}
 			free(str);
-			if ((res = sanitize_directories(&(opt->directories), &(opt->directories_len))) > 0){
+			if ((res = sa_sanitize_directories(opt->directories)) > 0){
 				title = "Directory specified was invalid";
 			}
 			else if (res < 0){
@@ -580,18 +456,18 @@ int menu_directories(struct options* opt){
 				log_enomem();
 				return -1;
 			}
-			options_confirm[0] = malloc(sizeof("Remove ") + strlen(opt->directories[res - 2]));
+			options_confirm[0] = malloc(sizeof("Remove ") + strlen(opt->directories->strings[res - 2]));
 			if (!options_confirm){
 				log_enomem();
 				return -1;
 			}
 			strcpy(options_confirm[0], "Remove ");
-			strcat(options_confirm[0], opt->directories[res - 2]);
+			strcat(options_confirm[0], opt->directories->strings[res - 2]);
 			options_confirm[1] = "Exit";
 			res_confirm = display_menu((const char**)options_confirm, 2, "Removing directory");
 
 			if (res_confirm == 0){
-				if (remove_string(&(opt->directories), &(opt->directories_len), res - 2) != 0){
+				if (sa_remove(opt->directories, res - 2) != 0){
 					log_debug("Failed to remove_directory()");
 					return -1;
 				}
@@ -612,20 +488,20 @@ int menu_exclude(struct options* opt){
 
 	/* TODO: refactor */
 	do{
-		int i;
+		size_t i;
 
-		options_initial = malloc((opt->exclude_len + 2) * sizeof(*(opt->exclude)));
+		options_initial = malloc((opt->exclude->len + 2) * sizeof(*(opt->exclude)));
 		if (!options_initial){
 			log_enomem();
 			return -1;
 		}
 		options_initial[0] = "Add an exclude path";
 		options_initial[1] = "Exit";
-		for (i = 2; i < opt->exclude_len + 2; ++i){
-			options_initial[i] = opt->exclude[i - 2];
+		for (i = 2; i < opt->exclude->len + 2; ++i){
+			options_initial[i] = opt->exclude->strings[i - 2];
 		}
 
-		res = display_menu(options_initial, opt->exclude_len + 2, title);
+		res = display_menu(options_initial, opt->exclude->len + 2, title);
 
 		switch (res){
 			char* str;
@@ -633,12 +509,12 @@ int menu_exclude(struct options* opt){
 			char** options_confirm;
 		case 0:
 			str = readline("Enter exclude path:");
-			if (strcmp(str, "") != 0 && add_string_to_array(&(opt->exclude), &(opt->exclude_len), str) != 0){
+			if (strcmp(str, "") != 0 && sa_add(opt->exclude, str) != 0){
 				log_debug("Failed to add string to exclude list");
 				return -1;
 			}
 			free(str);
-			if ((res = sanitize_directories(&(opt->exclude), &(opt->exclude_len))) > 0){
+			if ((res = sa_sanitize_directories(opt->exclude)) > 0){
 				title = "Exclude path specified was invalid";
 			}
 			else if (res < 0){
@@ -656,18 +532,18 @@ int menu_exclude(struct options* opt){
 				log_enomem();
 				return -1;
 			}
-			options_confirm[0] = malloc(sizeof("Remove ") + strlen(opt->exclude[res - 2]));
+			options_confirm[0] = malloc(sizeof("Remove ") + strlen(opt->exclude->strings[res - 2]));
 			if (!options_confirm){
 				log_enomem();
 				return -1;
 			}
 			strcpy(options_confirm[0], "Remove ");
-			strcat(options_confirm[0], opt->exclude[res - 2]);
+			strcat(options_confirm[0], opt->exclude->strings[res - 2]);
 			options_confirm[1] = "Exit";
 			res_confirm = display_menu((const char**)options_confirm, 2, "Removing exclude path");
 
 			if (res_confirm == 0){
-				if (remove_string(&(opt->exclude), &(opt->exclude_len), res - 2) != 0){
+				if (sa_remove(opt->exclude, res - 2) != 0){
 					log_debug("Failed to remove_string()");
 					return -1;
 				}
@@ -694,6 +570,105 @@ int menu_output_directory(struct options* opt){
 	else{
 		opt->output_directory = tmp;
 	}
+	return 0;
+}
+
+int menu_cloud_provider(struct options* opt){
+	int res;
+	const char* options_cp[] = {
+		"None",
+		"mega.nz",
+		"Exit"
+	};
+
+	res = display_menu(options_cp, ARRAY_SIZE(options_cp), "Choose a cloud provider");
+	switch (res){
+	case 0:
+		opt->cp = CLOUD_NONE;
+		break;
+	case 1:
+		opt->cp = CLOUD_MEGA;
+		break;
+	case 2:
+		return 0;
+	default:
+		log_error("Invalid option chosen. This should never happen.");
+		break;
+	}
+	return 0;
+}
+
+int menu_cloud_username(struct options* opt){
+	opt->username = readline("Enter username:");
+	if (strcmp(opt->username, "") == 0){
+		free(opt->username);
+		opt->username = NULL;
+	}
+	return 0;
+}
+
+int menu_cloud_password(struct options* opt){
+	int res;
+	char buf[1024];
+	printf("Enter nothing to clear\n");
+
+	while ((res = crypt_getpassword("Enter password:", "Verify password:", buf, sizeof(buf))) > 0){
+		printf("The passwords do not match");
+	}
+	if (res < 0){
+		log_error("Failed to read password");
+		return -1;
+	}
+
+	if (strcmp(buf, "") == 0){
+		opt->password ? crypt_scrub(opt->password, strlen(opt->password) + 1) : 0;
+		free(opt->password);
+		opt->password = NULL;
+		return 0;
+	}
+
+	if (opt->password){
+		opt->password ? crypt_scrub(opt->password, strlen(opt->password) + 1) : 0;
+		free(opt->password);
+	}
+
+	opt->password = malloc(strlen(buf) + 1);
+	if (!opt->password){
+		crypt_scrub(buf, strlen(buf) + 5 + crypt_randc() % 11);
+		log_enomem();
+		return -1;
+	}
+	strcpy(opt->password, buf);
+	crypt_scrub(buf, strlen(buf) + 5 + crypt_randc() % 11);
+	return 0;
+}
+
+int menu_cloud(struct options* opt){
+	int res;
+	const char* options_cloud_main_menu[] = {
+		"Cloud Provider",
+		"Username",
+		"Password",
+		"Exit"
+	};
+
+	do{
+		res = display_menu(options_cloud_main_menu, ARRAY_SIZE(options_cloud_main_menu), "Cloud Main Menu");
+		switch (res){
+		case 0:
+			menu_cloud_provider(opt);
+			break;
+		case 1:
+			menu_cloud_username(opt);
+			break;
+		case 2:
+			menu_cloud_password(opt);
+			break;
+		default:
+			break;
+		}
+	}while (res != 3);
+
 	return 0;
 }
 
@@ -745,23 +720,33 @@ int parse_options_menu(struct options* opt){
 	return 0;
 }
 
-int get_default_options(struct options* opt){
+struct options* get_default_options(void){
+	struct options* opt = malloc(sizeof(*opt));
+	if (!opt){
+		log_enomem();
+		return NULL;
+	}
 	opt->prev_backup = NULL;
 	opt->directories = NULL;
-	opt->directories_len = 0;
+	opt->directories->len = 0;
 	opt->exclude = NULL;
-	opt->exclude_len = 0;
+	opt->exclude->len = 0;
 	opt->hash_algorithm = EVP_sha1();
 	opt->enc_algorithm = EVP_aes_256_cbc();
 	opt->comp_algorithm = COMPRESSOR_GZIP;
 	opt->comp_level = 0;
 	if (get_backup_directory(&(opt->output_directory)) != 0){
 		log_debug("Failed to make backup directory");
-		return 1;
+		return NULL;
 	}
 	opt->operation = OP_INVALID;
+	opt->cp = CLOUD_NONE;
+	opt->username = NULL;
+	opt->password = NULL;
+	opt->upload_directory = NULL;
 	opt->flags = FLAG_VERBOSE;
-	return 0;
+
+	return opt;
 }
 
 static char* read_file_string(FILE* in){
@@ -790,9 +775,10 @@ static char* read_file_string(FILE* in){
 	return ret;
 }
 
-int parse_options_fromfile(const char* file, struct options* opt){
+int parse_options_fromfile(const char* file, struct options** output){
 	FILE* fp;
 	char* tmp;
+	struct options* opt = *output;
 
 	fp = fopen(file, "rb");
 	if (!fp){
@@ -800,18 +786,20 @@ int parse_options_fromfile(const char* file, struct options* opt){
 		return -1;
 	}
 
-	if (get_default_options(opt) != 0){
+	if ((opt = get_default_options()) != 0){
 		log_debug("Failed to get default options");
 		return -1;
 	}
 
 	fscanf(fp, "[Options]");
+
 	fscanf(fp, "\nPREV=");
 	opt->prev_backup = read_file_string(fp);
-	if (strcmp(opt->prev_backup, "none") == 0){
+	if (strcmp(opt->prev_backup, "") == 0){
 		free(opt->prev_backup);
 		opt->prev_backup = NULL;
 	}
+
 	fscanf(fp, "\nDIRECTORIES=");
 	do{
 		tmp = read_file_string(fp);
@@ -819,9 +807,9 @@ int parse_options_fromfile(const char* file, struct options* opt){
 			break;
 		}
 		if (tmp[0] != '\0'){
-			opt->directories_len++;
-			opt->directories = realloc(opt->directories, sizeof(char*) * opt->directories_len);
-			opt->directories[opt->directories_len - 1] = tmp;
+			opt->directories->len++;
+			opt->directories = realloc(opt->directories, sizeof(char*) * opt->directories->len);
+			opt->directories[opt->directories->len - 1] = tmp;
 		}
 		else{
 			free(tmp);
@@ -835,15 +823,16 @@ int parse_options_fromfile(const char* file, struct options* opt){
 			break;
 		}
 		if (tmp[0] != '\0'){
-			opt->exclude_len++;
-			opt->exclude = realloc(opt->exclude, sizeof(char*) * opt->exclude_len);
-			opt->exclude[opt->exclude_len - 1] = tmp;
+			opt->exclude->len++;
+			opt->exclude = realloc(opt->exclude, sizeof(char*) * opt->exclude->len);
+			opt->exclude[opt->exclude->len - 1] = tmp;
 		}
 		else{
 			free(tmp);
 			tmp = NULL;
 		}
 	}while (tmp && tmp[0] != '\0');
+
 	fscanf(fp, "\nCHECKSUM=");
 	tmp = read_file_string(fp);
 	if (!tmp){
@@ -853,6 +842,7 @@ int parse_options_fromfile(const char* file, struct options* opt){
 		opt->hash_algorithm = EVP_get_digestbyname(tmp);
 		free(tmp);
 	}
+
 	fscanf(fp, "\nENCRYPTION=");
 	tmp = read_file_string(fp);
 	if (!tmp){
@@ -862,8 +852,48 @@ int parse_options_fromfile(const char* file, struct options* opt){
 		opt->enc_algorithm = EVP_get_cipherbyname(tmp);
 		free(tmp);
 	}
-	fscanf(fp, "\nCOMPRESSION=%d", (int*)&(opt->comp_algorithm));
+
+	fscanf(fp, "\nENC_PASSWORD=");
+	opt->enc_password = read_file_string(fp);
+	if (strcmp(opt->enc_password, "") == 0){
+		free(opt->enc_password);
+		opt->enc_password = NULL;
+	}
+
+	fscanf(fp, "\nCOMPRESSION=%d", &(opt->comp_algorithm));
+
 	fscanf(fp, "\nCOMP_LEVEL=%d", &(opt->comp_level));
+
+	fscanf(fp, "\nOUTPUT_DIRECTORY=");
+	opt->output_directory = read_file_string(fp);
+	if (strcmp(opt->output_directory, "") == 0){
+		free(opt->output_directory);
+		opt->output_directory = NULL;
+	}
+
+	fscanf(fp, "\nCLOUD_PROVIDER=%d", &(opt->cp));
+
+	fscanf(fp, "\nCLOUD_USERNAME=");
+	opt->username = read_file_string(fp);
+	if (strcmp(opt->username, "") == 0){
+		free(opt->username);
+		opt->username = NULL;
+	}
+
+	fscanf(fp, "\nCLOUD_PASSWORD=");
+	opt->password = read_file_string(fp);
+	if (strcmp(opt->password, "") == 0){
+		free(opt->password);
+		opt->password = NULL;
+	}
+
+	fscanf(fp, "\nUPLOAD_DIRECTORY=");
+	opt->upload_directory = read_file_string(fp);
+	if (strcmp(opt->upload_directory, "") == 0){
+		free(opt->upload_directory);
+		opt->upload_directory = NULL;
+	}
+
 	fscanf(fp, "\nFLAGS=%u", &(opt->flags));
 
 	if (fclose(fp) != 0){
@@ -899,21 +929,28 @@ int write_options_tofile(const char* file, const struct options* opt){
 		return -1;
 	}
 	fprintf(fp, "[Options]");
-	fprintf(fp, "\nPREV=%s%c", opt->prev_backup ? opt->prev_backup : "none", '\0');
+	fprintf(fp, "\nVERSION=%s%c", PROG_VERSION, '\0');
+	fprintf(fp, "\nPREV=%s%c", opt->prev_backup ? opt->prev_backup : "", '\0');
 	fprintf(fp, "\nDIRECTORIES=");
-	for (i = 0; i < opt->directories_len; ++i){
+	for (i = 0; i < opt->directories->len; ++i){
 		fprintf(fp, "%s%c", opt->directories[i], '\0');
 	}
 	fputc('\0', fp);
 	fprintf(fp, "\nEXCLUDE=");
-	for (i = 0; i < opt->exclude_len; ++i){
+	for (i = 0; i < opt->exclude->len; ++i){
 		fprintf(fp, "%s%c", opt->exclude[i], '\0');
 	}
 	fputc('\0', fp);
 	fprintf(fp, "\nCHECKSUM=%s%c", EVP_MD_name(opt->hash_algorithm), '\0');
 	fprintf(fp, "\nENCRYPTION=%s%c", EVP_CIPHER_name(opt->enc_algorithm), '\0');
+	fprintf(fp, "\nENC_PASSWORD=%s%c", opt->enc_password ? opt->enc_password : "", '\0');
 	fprintf(fp, "\nCOMPRESSION=%d", opt->comp_algorithm);
 	fprintf(fp, "\nCOMP_LEVEL=%d", opt->comp_level);
+	fprintf(fp, "\nOUTPUT_DIRECTORY=%s%c", opt->output_directory ? opt->output_directory : "", '\0');
+	fprintf(fp, "\nCLOUD_PROVIDER=%d", opt->cp);
+	fprintf(fp, "\nCLOUD_USERNAME=%s%c", opt->username ? opt->username : "", '\0');
+	fprintf(fp, "\nCLOUD_PASSWORD=%s%c", opt->password ? opt->password : "", '\0');
+	fprintf(fp, "\nUPLOAD_DIRECTORY=%s%c", opt->upload_directory ? opt->upload_directory : "", '\0');
 	fprintf(fp, "\nFLAGS=%u", opt->flags);
 
 	if (fclose(fp) != 0){
@@ -928,14 +965,15 @@ void free_options(struct options* opt){
 
 	free(opt->prev_backup);
 	free(opt->output_directory);
-	for (i = 0; i < opt->exclude_len; ++i){
+	for (i = 0; i < opt->exclude->len; ++i){
 		free(opt->exclude[i]);
 	}
 	free(opt->exclude);
-	for (i = 0; i < opt->directories_len; ++i){
+	for (i = 0; i < opt->directories->len; ++i){
 		free(opt->directories[i]);
 	}
 	free(opt->directories);
+	free(opt);
 }
 
 static int does_file_exist(const char* file){
@@ -969,8 +1007,16 @@ int get_config_name(char** out){
 	return 0;
 }
 
-int read_config_file(struct options* opt){
+int read_config_file(struct options** opt, const char* path){
 	char* backup_conf;
+
+	if (path){
+		if (parse_options_fromfile(path, opt) != 0){
+			log_debug_ex("Failed to parse options from %s", path);
+			return -1;
+		}
+		return 0;
+	}
 
 	if (get_config_name(&backup_conf) != 0){
 		log_debug("get_config_name() failed");
@@ -992,7 +1038,6 @@ int read_config_file(struct options* opt){
 	free(backup_conf);
 	return 0;
 }
-
 
 int write_config_file(const struct options* opt, const char* path){
 	char* backup_conf = NULL;

@@ -8,11 +8,12 @@
 
 #include "backup.h"
 #include "readfile.h"
-#include "crypt.h"
+#include "crypt_easy.h"
 #include "fileiterator.h"
 #include "error.h"
 #include "checksum.h"
 #include "options.h"
+#include "coredumps.h"
 #include <string.h>
 #include <sys/resource.h>
 #include <errno.h>
@@ -29,51 +30,9 @@ struct backup_params{
 	struct options* opt;
 };
 
-int __coredumps(int enable){
-	static struct rlimit rl_prev;
-	static int previously_disabled = 0;
-	struct rlimit rl;
-	int ret = 0;
-	if (!enable){
-		if (getrlimit(RLIMIT_CORE, &rl_prev) != 0){
-			log_warning_ex("Failed to get previous core dump limits (%s)", strerror(errno));
-			ret = -1;
-		}
-		rl.rlim_cur = 0;
-		rl.rlim_max = 0;
-		if (setrlimit(RLIMIT_CORE, &rl) != 0){
-			log_warning_ex("Failed to disable core dumps (%s)", strerror(errno));
-			ret = -1;
-		}
-		previously_disabled = 1;
-	}
-	else{
-		if (!previously_disabled){
-			return 0;
-		}
-		if (setrlimit(RLIMIT_CORE, &rl_prev) != 0){
-			log_warning_ex("Failed to restore previous core dump limits (%s)", strerror(errno));
-			ret = -1;
-		}
-		previously_disabled = 0;
-	}
-	return ret;
-}
-
-int disable_core_dumps(void){
-	return __coredumps(0);
-}
-
-int enable_core_dumps(void){
-	return __coredumps(1);
-}
-
 int extract_prev_checksums(const char* in, const char* out, const EVP_CIPHER* enc_algorithm, int verbose){
-	char pwbuffer[1024];
 	char template_decrypt[] = "/var/tmp/decrypt_XXXXXX";
-	struct crypt_keys* fk;
 	FILE* fp_decrypt = NULL;
-	char prompt[128];
 	int ret = 0;
 
 	if (!in || !out || !enc_algorithm){
@@ -81,50 +40,14 @@ int extract_prev_checksums(const char* in, const char* out, const EVP_CIPHER* en
 		return -1;
 	}
 
-	if (disable_core_dumps() != 0){
-		log_debug("Did not disable core dumps");
-	}
-
-	if ((fk = crypt_new()) == NULL){
-		log_debug("Failed to initialize crypt_keys");
-		return -1;
-	}
-
-	if (crypt_set_encryption(enc_algorithm, fk) != 0){
-		log_debug("crypt_set_encryption() failed");
-		ret = -1;
-		goto cleanup;
-	}
-
-	if (crypt_extract_salt(in, fk) != 0){
-		log_debug("crypt_extract_salt() failed");
-		ret = -1;
-		goto cleanup;
-	}
-
-	sprintf(prompt, "Enter %s decryption password", EVP_CIPHER_name(enc_algorithm));
-	if ((crypt_getpassword(prompt, NULL, pwbuffer, sizeof(pwbuffer))) != 0){
-		log_debug("crypt_getpassword() failed");
-		ret = -1;
-		goto cleanup;
-	}
-
-	if ((crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, fk)) != 0){
-		crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-		log_debug("crypt_gen_keys() failed)");
-		ret = -1;
-		goto cleanup;
-	}
-	crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-
 	if ((fp_decrypt = temp_fopen(template_decrypt)) == NULL){
-		log_debug("temp_file() for file_decrypt failed");
+		log_debug("Failed to make template_decrypt");
 		ret = -1;
 		goto cleanup;
 	}
 
-	if ((crypt_decrypt_ex(in, fk, template_decrypt, verbose, "Decrypting file...")) != 0){
-		log_debug("crypt_decrypt() failed");
+	if (easy_decrypt(in, out, enc_algorithm, verbose) != 0){
+		log_debug("easy_decrypt() failed");
 		ret = -1;
 		goto cleanup;
 	}
@@ -136,85 +59,9 @@ int extract_prev_checksums(const char* in, const char* out, const EVP_CIPHER* en
 	}
 
 cleanup:
-	crypt_free(fk);
-
 	fp_decrypt ? fclose(fp_decrypt) : 0;
 	remove(template_decrypt);
-
-	if (enable_core_dumps() != 0){
-		log_debug("enable_core_dumps() failed");
-	}
 	return ret;
-}
-
-int encrypt_file(const char* in, const char* out, const EVP_CIPHER* enc_algorithm, int verbose){
-	char pwbuffer[1024];
-	struct crypt_keys* fk;
-	char prompt[128];
-	int ret;
-
-	/* disable core dumps if possible */
-	if (disable_core_dumps() != 0){
-		log_warning("Core dumps could not be disabled\n");
-	}
-
-	if ((fk = crypt_new()) == NULL){
-		log_debug("Failed to generate new struct crypt_keys");
-		return -1;
-	}
-
-	if (crypt_set_encryption(enc_algorithm, fk) != 0){
-		log_debug("Could not set encryption type");
-		ret = -1;
-		goto cleanup;
-	}
-
-	if (crypt_gen_salt(fk) != 0){
-		log_debug("Could not generate salt");
-		ret = -1;
-		goto cleanup;
-	}
-
-	sprintf(prompt, "Enter %s encryption password", EVP_CIPHER_name(enc_algorithm));
-	/* PASSWORD IN MEMORY */
-	while ((ret = crypt_getpassword(prompt,
-					"Verify encryption password",
-					pwbuffer,
-					sizeof(pwbuffer))) > 0){
-		printf("\nPasswords do not match\n");
-	}
-	if (ret < 0){
-		log_debug("crypt_getpassword() failed");
-		crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-		ret = -1;
-		goto cleanup;
-	}
-
-	if ((crypt_gen_keys((unsigned char*)pwbuffer, strlen(pwbuffer), NULL, 1, fk)) != 0){
-		crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-		log_debug("crypt_gen_keys() failed");
-		ret = -1;
-		goto cleanup;
-	}
-	/* don't need to scrub entire buffer, just where the password was
-	 * and a little more so attackers don't know how long the password was */
-	crypt_scrub((unsigned char*)pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-	/* PASSWORD OUT OF MEMORY */
-
-	if ((crypt_encrypt_ex(in, fk, out, verbose, "Encrypting file...")) != 0){
-		crypt_free(fk);
-		log_debug("crypt_encrypt() failed");
-		ret = -1;
-		goto cleanup;
-	}
-
-cleanup:
-	/* shreds keys as well */
-	crypt_free(fk);
-	if (enable_core_dumps() != 0){
-		log_debug("enable_core_dumps() failed");
-	}
-	return 0;
 }
 
 int rename_ex(const char* _old, const char* _new){
@@ -245,15 +92,14 @@ int rename_ex(const char* _old, const char* _new){
 		if (ferror(fp_new)){
 			fclose(fp_old);
 			fclose(fp_new);
-			log_efwrite(_new);
-			return -1;
+			log_efwrite(_new); return -1;
 		}
 	}
 
 	fclose(fp_old);
 
 	if (fclose(fp_new) != 0){
-		log_efclose(_old);
+		log_efclose(_new);
 		return -1;
 	}
 
@@ -397,25 +243,21 @@ int add_default_directories(struct options* opt){
 static int add_auxillary_files(TAR* tp, const char* file_hashes, const char* file_hashes_prev, const struct options* opt_prev, int verbose){
 	char template_sorted[] = "/var/tmp/removed_XXXXXX";
 	char template_removed[] = "/var/tmp/sorted_XXXXXX";
-	char template_config_prev[] = "/var/tmp/config_XXXXXX";
 	FILE* fp_removed = NULL;
 	FILE* fp_sorted = NULL;
-	FILE* fp_config_prev = NULL;
 	int ret = 0;
+	(void)opt_prev;
 
 	fp_removed = temp_fopen(template_sorted);
 	fp_sorted = temp_fopen(template_removed);
-	fp_config_prev = temp_fopen(template_config_prev);
 	if (!fp_removed ||
-			!fp_sorted ||
-			!fp_config_prev){
+			!fp_sorted){
 		log_error("Failed to make one or more temporary files");
 		ret = -1;
 		goto cleanup;
 	}
 	fclose(fp_removed);
 	fclose(fp_sorted);
-	fclose(fp_config_prev);
 
 	/* add sorted hashes */
 	if (sort_checksum_file(file_hashes, template_sorted) != 0 || fflush(fp_sorted) != 0){
@@ -435,17 +277,9 @@ static int add_auxillary_files(TAR* tp, const char* file_hashes, const char* fil
 		}
 	}
 
-	/* add previous config */
-	if (opt_prev &&
-			(write_config_file(opt_prev, template_config_prev) != 0 ||
-			 tar_add_file_ex(tp, template_config_prev, "/config", verbose, "Adding previous config...") != 0)){
-		log_warning("Failed to add previous config to file");
-	}
-
 cleanup:
 	remove(template_sorted);
 	remove(template_removed);
-	remove(template_config_prev);
 	return ret;
 }
 
@@ -456,6 +290,7 @@ int backup(struct options* opt, const struct options* opt_prev){
 	char template_hashes_prev[] = "/var/tmp/prev_XXXXXX";
 	FILE* fp_tar = NULL;
 	char* file_out = NULL;
+	char* config_out = NULL;
 	int ret = 0;
 	int i;
 
@@ -508,6 +343,15 @@ int backup(struct options* opt, const struct options* opt_prev){
 		goto cleanup;
 	}
 
+	config_out = malloc(strlen(file_out) + sizeof(".conf"));
+	if (!config_out){
+		log_enomem();
+		ret = -1;
+		goto cleanup;
+	}
+	strcpy(config_out, file_out);
+	strcat(config_out, ".conf");
+
 	/* create tar */
 	printf("Adding files to %s...\n", file_out);
 	bp.tp = tar_create(template_tar, bp.opt->comp_algorithm, bp.opt->comp_level);
@@ -542,7 +386,7 @@ int backup(struct options* opt, const struct options* opt_prev){
 
 	/* encrypt output */
 	if (bp.opt->enc_algorithm){
-		if (encrypt_file(template_tar, file_out, bp.opt->enc_algorithm, bp.opt->flags & FLAG_VERBOSE) != 0){
+		if (easy_encrypt(template_tar, file_out, bp.opt->enc_algorithm, bp.opt->flags & FLAG_VERBOSE) != 0){
 			log_warning("Failed to encrypt file");
 		}
 	}
@@ -552,6 +396,9 @@ int backup(struct options* opt, const struct options* opt_prev){
 		}
 	}
 
+	if (write_config_file(opt, config_out) != 0){
+		log_warning("Failed to write config file");
+	}
 	/* previous backup is now current backup */
 	bp.opt->prev_backup = file_out;
 
@@ -571,5 +418,6 @@ cleanup:
 	remove(template_tar);
 	remove(template_hashes);
 	remove(template_hashes_prev);
+	free(config_out);
 	return ret;
 }

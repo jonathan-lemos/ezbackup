@@ -8,6 +8,8 @@
 
 /* prototypes */
 #include "fileiterator.h"
+
+#include "error.h"
 /* enumerates files in directory */
 #include <dirent.h>
 /* holds file permissions and checks if file is actually a directory */
@@ -49,6 +51,10 @@ void enum_files(
 		/* generate path to directory */
 		/* +3: +1 for each '\0', +1 for '/' */
 		path = malloc(strlen(dir) + strlen(dnt->d_name) + 3);
+		if (!path){
+			log_enomem();
+			return;
+		}
 		strcpy(path, dir);
 		/* append filename */
 		if (path[strlen(path) - 1] != '/'){
