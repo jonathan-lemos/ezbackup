@@ -1,3 +1,11 @@
+/* cli.c -- cli dialog/menu
+ *
+ * Copyright (c) 2018 Jonathan Lemos
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file for details.
+ */
+
 #include "error.h"
 #include <ncurses.h>
 #include <menu.h>
@@ -235,14 +243,14 @@ int display_menu(const char* const* options, int num_options, const char* title)
 
 cleanup:
 	curs_set(1);
-	unpost_menu(my_menu);
-	free_menu(my_menu);
-	for (i = 0; i < num_options; ++i){
+	my_menu ? unpost_menu(my_menu) : 0;
+	my_menu ? free_menu(my_menu) : 0;
+	for (i = 0; my_items && i < num_options; ++i){
 		free_item(my_items[i]);
 	}
 	free(my_items);
-	delwin(my_menu_subwindow);
-	delwin(my_menu_window);
+	my_menu_subwindow ? delwin(my_menu_subwindow) : 0;
+	my_menu_window ? delwin(my_menu_window) : 0;
 	endwin();
 
 	return ret;

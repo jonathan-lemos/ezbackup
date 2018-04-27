@@ -35,8 +35,16 @@ int extract_prev_checksums(const char* in, const char* out, const EVP_CIPHER* en
 	FILE* fp_decrypt = NULL;
 	int ret = 0;
 
-	if (!in || !out || !enc_algorithm){
-		log_enull();
+	if (!in){
+		log_enull(in);
+		return -1;
+	}
+	if (!out){
+		log_enull(out);
+		return -1;
+	}
+	if (!enc_algorithm){
+		log_enull(enc_algorithm);
 		return -1;
 	}
 
@@ -109,9 +117,8 @@ int rename_ex(const char* _old, const char* _new){
 
 int func(const char* file, const char* dir, struct stat* st, void* params){
 	struct backup_params* bparams = (struct backup_params*)params;
-	char* path_in_tar;
 	int err;
-	int i;
+	size_t i;
 	UNUSED(st);
 
 	/* exclude lost+found */
@@ -120,16 +127,16 @@ int func(const char* file, const char* dir, struct stat* st, void* params){
 		return 0;
 	}
 	/* exclude in exclude list */
-	for (i = 0; i < bparams->opt->exclude_len; ++i){
+	for (i = 0; i < bparams->opt->exclude->len; ++i){
 		/* stop iterating through this directory */
-		if (!strcmp(dir, bparams->opt->exclude[i])){
+		if (!strcmp(dir, bparams->opt->exclude->strings[i])){
 			return 0;
 		}
 	}
 
 	err = add_checksum_to_file(file, bparams->opt->hash_algorithm, bparams->fp_hashes, bparams->fp_hashes_prev);
 	if (err == 1){
-		if (bparams->opt->flags & FLAG_VERBOSE){
+		if (bparams->opt->flag_verbose){
 			printf("Skipping unchanged (%s)\n", file);
 		}
 		return 1;
@@ -138,18 +145,9 @@ int func(const char* file, const char* dir, struct stat* st, void* params){
 		log_debug("add_checksum_to_file() failed");
 	}
 
-	path_in_tar = malloc(strlen(file) + sizeof("/files"));
-	if (!path_in_tar){
-		log_enomem();
-		return 0;
-	}
-	strcpy(path_in_tar, "/files");
-	strcat(path_in_tar, file);
-
-	if (tar_add_file_ex(bparams->tp, file, path_in_tar, bparams->opt->flags & FLAG_VERBOSE, file) != 0){
+	if (tar_add_file_ex(bparams->tp, file, file, bparams->opt->flag_verbose, file) != 0){
 		log_debug("Failed to add file to tar");
 	}
-	free(path_in_tar);
 
 	return 1;
 }
@@ -202,95 +200,14 @@ int get_default_backup_name(struct options* opt, char** out){
 	return 0;
 }
 
-int add_default_directories(struct options* opt){
-	struct passwd* pw;
-	const char* homedir;
-
-	if (!(homedir = getenv("HOME"))){
-		pw = getpwuid(getuid());
-		if (!pw){
-			log_error("Failed to get home directory");
-			return -1;
-		}
-		homedir = pw->pw_dir;
-	}
-
-	if (opt->directories){
-		int i;
-		for (i = 0; i < opt->directories_len; ++i){
-			free(opt->directories[i]);
-		}
-		free(opt->directories);
-	}
-
-	opt->directories_len = 1;
-	opt->directories = malloc(sizeof(*(opt->directories)));
-	if (!opt->directories){
-		log_enomem();
-		return -1;
-	}
-	opt->directories[0] = malloc(strlen(homedir) + 1);
-	if (!opt->directories[0]){
-		log_enomem();
-		free(opt->directories);
-		return -1;
-	}
-
-	strcpy(opt->directories[0], homedir);
-	return 0;
-}
-
-static int add_auxillary_files(TAR* tp, const char* file_hashes, const char* file_hashes_prev, const struct options* opt_prev, int verbose){
-	char template_sorted[] = "/var/tmp/removed_XXXXXX";
-	char template_removed[] = "/var/tmp/sorted_XXXXXX";
-	FILE* fp_removed = NULL;
-	FILE* fp_sorted = NULL;
-	int ret = 0;
-	(void)opt_prev;
-
-	fp_removed = temp_fopen(template_sorted);
-	fp_sorted = temp_fopen(template_removed);
-	if (!fp_removed ||
-			!fp_sorted){
-		log_error("Failed to make one or more temporary files");
-		ret = -1;
-		goto cleanup;
-	}
-	fclose(fp_removed);
-	fclose(fp_sorted);
-
-	/* add sorted hashes */
-	if (sort_checksum_file(file_hashes, template_sorted) != 0 || fflush(fp_sorted) != 0){
-		log_warning("Failed to sort checksum list");
-	}
-	else if (tar_add_file_ex(tp, template_sorted, "/checksums", verbose, "Adding checksum list...") != 0){
-		log_warning("Failed to write checksums to file");
-	}
-
-	/* removed file list */
-	if (file_hashes_prev){
-		if (create_removed_list(file_hashes_prev, template_removed) != 0){
-			log_debug("Failed to create removed list");
-		}
-		else if (tar_add_file_ex(tp, template_removed, "/removed", verbose, "Adding removed list...") != 0){
-			log_warning("Failed to add removed list to backup");
-		}
-	}
-
-cleanup:
-	remove(template_sorted);
-	remove(template_removed);
-	return ret;
-}
-
-int backup(struct options* opt, const struct options* opt_prev){
+int backup(struct options* opt, const char* file_hashes_prev){
 	struct backup_params bp;
 	char template_tar[] = "/var/tmp/tar_XXXXXX";
-	char template_hashes[] = "/var/tmp/hashes_XXXXXX";
-	char template_hashes_prev[] = "/var/tmp/prev_XXXXXX";
 	FILE* fp_tar = NULL;
 	char* file_out = NULL;
 	char* config_out = NULL;
+	char* hashes_out = NULL;
+	char* removed_out = NULL;
 	int ret = 0;
 	int i;
 
@@ -300,40 +217,10 @@ int backup(struct options* opt, const struct options* opt_prev){
 
 	/* create temp files */
 	fp_tar = temp_fopen(template_tar);
-	bp.fp_hashes = temp_fopen(template_hashes);
-	bp.fp_hashes_prev = temp_fopen(template_hashes_prev);
-	if (!fp_tar ||
-			!(bp.fp_hashes) ||
-			!(bp.fp_hashes_prev)){
+	if (!fp_tar){
 		log_debug("Failed to create temp file");
 		ret = -1;
 		goto cleanup;
-	}
-
-	if ((!opt->directories || opt->directories_len <= 0) &&
-			add_default_directories(opt) != 0){
-		log_error("Failed to determine directories");
-		return -1;
-	}
-
-	/* load bp.tfp_hashes_prev if there's a previous backup */
-	if (opt->prev_backup){
-		if (extract_prev_checksums(opt->prev_backup, template_hashes_prev, opt_prev->enc_algorithm, opt->flags & FLAG_VERBOSE) != 0){
-			log_debug("Failed to extract previous checksums");
-			fclose(bp.fp_hashes_prev);
-			bp.fp_hashes_prev = NULL;
-		}
-		else{
-			fclose(bp.fp_hashes_prev);
-			bp.fp_hashes_prev = fopen(template_hashes_prev, "rb");
-			if (!bp.fp_hashes_prev){
-				log_efopen(template_hashes_prev);
-			}
-		}
-	}
-	else{
-		fclose(bp.fp_hashes_prev);
-		bp.fp_hashes_prev = NULL;
 	}
 
 	/* determine backup name */

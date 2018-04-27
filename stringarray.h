@@ -17,7 +17,7 @@ struct string_array{
 };
 
 int sa_add(struct string_array* array, const char* str);
-int sa_remove(struct string_array* array, int index);
+int sa_remove(struct string_array* array, size_t index);
 int is_directory(const char* path);
 size_t sa_sanitize_directories(struct string_array* array);
 void sa_sort(struct string_array* array);

@@ -32,7 +32,7 @@ struct crypt_keys* crypt_new(void);
 int crypt_scrub(void* data, int len);
 unsigned char crypt_randc(void);
 int crypt_secure_memcmp(const void* p1, const void* p2, int len);
-int crypt_getpassword(const char* prompt, const char* verify_prompt, char* out, int out_len);
+int crypt_getpassword(const char* prompt, const char* verify_prompt, char** out);
 const EVP_CIPHER* crypt_get_cipher(const char* encryption_name);
 int crypt_set_encryption(const EVP_CIPHER* encryption, struct crypt_keys* fk);
 int crypt_gen_salt(struct crypt_keys* fk);

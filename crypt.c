@@ -179,7 +179,8 @@ int crypt_secure_memcmp(const void* p1, const void* p2, int len){
 	return 0;
 }
 
-int crypt_getpassword(const char* prompt, const char* verify_prompt, char* out, int out_len){
+int crypt_getpassword(const char* prompt, const char* verify_prompt, char** out){
+	char buf[1024];
 	struct termios old, new;
 	unsigned char* hash1 = NULL, *hash2 = NULL;
 	unsigned char* salt = NULL;
@@ -200,36 +201,46 @@ int crypt_getpassword(const char* prompt, const char* verify_prompt, char* out, 
 
 	/* get password */
 	printf("%s:", prompt);
-	fgets(out, out_len - 15, stdin);
+	fgets(buf, sizeof(buf), stdin);
+	if (strcspn(buf, "\r\n") >= sizeof(buf) - 1){
+		log_warning_ex("Password truncated to %d chars", sizeof(buf) - 1);
+	}
 	printf("\n");
 	/* remove \n */
-	out[strcspn(out, "\r\n")] = '\0';
+	buf[strcspn(buf, "\r\n")] = '\0';
 	/* if no verify prompt is specified, we can just return now */
 	if (!verify_prompt){
-		log_debug("Returning now since no verify_prompt specified");
+		log_info("Returning now since no verify_prompt specified");
+		*out = malloc(strlen(buf) + 1);
+		if (!(*out)){
+			log_enomem();
+		}
+		else{
+			strcpy(*out, buf);
+		}
 		ret = 0;
 		goto cleanup;
 	}
 	/* it's bad to store the password itself in memory,
 	 * so we store a hash instead. */
-	if ((ret = crypt_hashpassword((unsigned char*)out, strlen(out), &salt, &salt_len, &hash1, &hash_len)) != 0){
+	if ((ret = crypt_hashpassword((unsigned char*)buf, strlen(buf), &salt, &salt_len, &hash1, &hash_len)) != 0){
 		log_error("Failed to hash password input");
 		ret = -1;
 		goto cleanup;
 	}
 	/* scrub the old password out of memory, so it can't be
 	 * captured anymore by an attacker */
-	crypt_scrub(out, strlen(out) + 5 + crypt_randc() % 11);
+	crypt_scrub(buf, strlen(buf));
 	log_info("Password should be out of memory now");
 
 	/* verify the password */
 	printf("%s:", verify_prompt);
-	fgets(out, out_len - 15, stdin);
+	fgets(buf, sizeof(buf), stdin);
 	printf("\n");
 	/* remove \n */
-	out[strcspn(out, "\r\n")] = '\0';
+	buf[strcspn(buf, "\r\n")] = '\0';
 	/* same old deal */
-	if ((ret = crypt_hashpassword((unsigned char*)out, strlen(out), &salt, &salt_len, &hash2, &hash_len)) != 0){
+	if ((ret = crypt_hashpassword((unsigned char*)buf, strlen(buf), &salt, &salt_len, &hash2, &hash_len)) != 0){
 		log_error("Failed to hash verify password input");
 		ret = -1;
 		goto cleanup;
@@ -237,13 +248,20 @@ int crypt_getpassword(const char* prompt, const char* verify_prompt, char* out, 
 	/* verify that the hashes match */
 	if (crypt_secure_memcmp(hash1, hash2, hash_len) != 0){
 		log_info("The password hashes do not match");
-		/* scrub the password if they don't */
-		crypt_scrub(out, out_len);
 		ret = 1;
 		goto cleanup;
 	}
 
+	*out = malloc(strlen(buf) + 1);
+	if (!(*out)){
+		log_enomem();
+		ret = -1;
+		goto cleanup;
+	}
+	strcpy(*out, buf);
+
 cleanup:
+	crypt_scrub(buf, strlen(buf));
 	free(salt);
 	free(hash1);
 	free(hash2);

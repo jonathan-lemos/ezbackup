@@ -173,8 +173,8 @@ static void rmdir_recursive(const char* path){
 }
 
 void test_backup(void){
-	struct options opt;
-	struct options opt_prev;
+	struct options* opt;
+	struct options* opt_prev;
 	char files_dir1[10][64];
 	char files_dir2[10][64];
 	char files_ex1[10][64];
@@ -183,7 +183,7 @@ void test_backup(void){
 	printf_blue("Testing backup()\n");
 
 	printf_yellow("Building initial environment()\n");
-	massert(get_default_options(&opt) == 0);
+	massert((opt = get_default_options() == NULL));
 
 	opt.directories = malloc(sizeof(*(opt.directories)) * 3);
 	massert(opt.directories);

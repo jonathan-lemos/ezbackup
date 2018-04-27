@@ -405,10 +405,44 @@ static int menu_encryption(struct options* opt){
 	return 0;
 }
 
+int menu_enc_password(struct options* opt){
+	int res;
+	char buf[1024];
+	printf("Enter nothing to clear\n");
+
+	while ((res = crypt_getpassword("Enter password:", "Verify password:", buf, sizeof(buf))) > 0){
+		printf("The passwords do not match");
+	}
+
+	if (res < 0){
+		log_error("Failed to read password");
+		return -1;
+	}
+
+	if (strcmp(buf, "") == 0){
+		if (opt->enc_password){
+			free(opt->enc_password);
+		}
+		opt->enc_password = NULL;
+		return 0;
+	}
+	else{
+		if (opt->enc_password){
+			free(opt->enc_password);
+		}
+		opt->enc_password = malloc(strlen(buf) + 1);
+	}
+
+	crypt_scrub(buf, strlen(buf));
+	return 0;
+}
+
 int menu_directories(struct options* opt){
 	int res;
 	const char** options_initial = NULL;
-	const char* title = "Directories";
+	const char* options_dialog[] = {
+		"OK"
+	};
 
 	/* TODO: refactor */
 	do{
@@ -425,7 +459,7 @@ int menu_directories(struct options* opt){
 			options_initial[i] = opt->directories->strings[i - 2];
 		}
 
-		res = display_menu(options_initial, opt->directories->len + 2, title);
+		res = display_menu(options_initial, opt->directories->len + 2, "Directories");
 
 		switch (res){
 			char* str;
@@ -434,18 +468,15 @@ int menu_directories(struct options* opt){
 		case 0:
 			str = readline("Enter directory:");
 			if (strcmp(str, "") != 0 && sa_add(opt->directories, str) != 0){
-				log_debug("Failed to add string to directories list");
+				display_dialog(options_dialog, ARRAY_SIZE(options_dialog), "Failed to add string to directory list");
 				return -1;
 			}
 			free(str);
 			if ((res = sa_sanitize_directories(opt->directories)) > 0){
-				title = "Directory specified was invalid";
+				display_dialog(options_dialog, ARRAY_SIZE(options_dialog), "Directory specified was invalid");
 			}
 			else if (res < 0){
-				log_warning("Failed to sanitize directory list");
-			}
-			else{
-				title = "Directories";
+				display_dialog(options_dialog, ARRAY_SIZE(options_dialog), "Warning: Failed to sanitize directory list");
 			}
 			break;
 		case 1:
@@ -584,10 +615,10 @@ int menu_cloud_provider(struct options* opt){
 	res = display_menu(options_cp, ARRAY_SIZE(options_cp), "Choose a cloud provider");
 	switch (res){
 	case 0:
-		opt->cp = CLOUD_NONE;
+		opt->cloud_options->cp = CLOUD_NONE;
 		break;
 	case 1:
-		opt->cp = CLOUD_MEGA;
+		opt->cloud_options->cp = CLOUD_MEGA;
 		break;
 	case 2:
 		return 0;
@@ -599,10 +630,10 @@ int menu_cloud_provider(struct options* opt){
 }
 
 int menu_cloud_username(struct options* opt){
-	opt->username = readline("Enter username:");
-	if (strcmp(opt->username, "") == 0){
-		free(opt->username);
-		opt->username = NULL;
+	char* tmp = readline("Enter username:");
+	if (strcmp(tmp, "") == 0){
+		free(tmp);
+		co_set_username(opt->cloud_options, NULL);
 	}
 	return 0;
 }
@@ -621,25 +652,15 @@ int menu_cloud_password(struct options* opt){
 	}
 
 	if (strcmp(buf, "") == 0){
-		opt->password ? crypt_scrub(opt->password, strlen(opt->password) + 1) : 0;
-		free(opt->password);
-		opt->password = NULL;
+		co_set_password(opt->cloud_options, NULL);
 		return 0;
 	}
-
-	if (opt->password){
-		opt->password ? crypt_scrub(opt->password, strlen(opt->password) + 1) : 0;
-		free(opt->password);
-	}
-
-	opt->password = malloc(strlen(buf) + 1);
-	if (!opt->password){
-		crypt_scrub(buf, strlen(buf) + 5 + crypt_randc() % 11);
-		log_enomem();
+	else if (co_set_password(opt->cloud_options, buf) != 0){
+		log_debug("Failed to set password");
 		return -1;
 	}
-	strcpy(opt->password, buf);
-	crypt_scrub(buf, strlen(buf) + 5 + crypt_randc() % 11);
+
+	crypt_scrub(buf, strlen(buf));
 	return 0;
 }
 
@@ -651,6 +672,11 @@ int menu_cloud(struct options* opt){
 		"Password",
 		"Exit"
 	};
+
+	if (!opt->cloud_options && (opt->cloud_options = co_new()) == NULL){
+		log_debug("co_new() failed");
+		return -1;
+	}
 
 	do{
 		res = display_menu(options_cloud_main_menu, ARRAY_SIZE(options_cloud_main_menu), "Cloud Main Menu");
@@ -678,6 +704,8 @@ int parse_options_new(struct options* opt){
 	menu_encryption(opt);
 	menu_directories(opt);
 	menu_exclude(opt);
+	menu_output_directory(opt);
+	menu_cloud(opt);
 	return 0;
 }
 
@@ -727,10 +755,8 @@ struct options* get_default_options(void){
 		return NULL;
 	}
 	opt->prev_backup = NULL;
-	opt->directories = NULL;
-	opt->directories->len = 0;
-	opt->exclude = NULL;
-	opt->exclude->len = 0;
+	opt->directories = sa_new();
+	opt->exclude = sa_new();
 	opt->hash_algorithm = EVP_sha1();
 	opt->enc_algorithm = EVP_aes_256_cbc();
 	opt->comp_algorithm = COMPRESSOR_GZIP;
@@ -739,12 +765,8 @@ struct options* get_default_options(void){
 		log_debug("Failed to make backup directory");
 		return NULL;
 	}
-	opt->operation = OP_INVALID;
-	opt->cp = CLOUD_NONE;
-	opt->username = NULL;
-	opt->password = NULL;
-	opt->upload_directory = NULL;
-	opt->flags = FLAG_VERBOSE;
+	opt->cloud_options = co_new();
+	opt->flag_verbose = 1;
 
 	return opt;
 }
@@ -807,15 +829,14 @@ int parse_options_fromfile(const char* file, struct options** output){
 			break;
 		}
 		if (tmp[0] != '\0'){
-			opt->directories->len++;
-			opt->directories = realloc(opt->directories, sizeof(char*) * opt->directories->len);
-			opt->directories[opt->directories->len - 1] = tmp;
+			sa_add(opt->directories, tmp);
+			free(tmp);
 		}
 		else{
 			free(tmp);
 			tmp = NULL;
 		}
-	}while (tmp && tmp[0] != '\0');
+	}while (tmp);
 	fscanf(fp, "\nEXCLUDE=");
 	do{
 		tmp = read_file_string(fp);
@@ -823,15 +844,14 @@ int parse_options_fromfile(const char* file, struct options** output){
 			break;
 		}
 		if (tmp[0] != '\0'){
-			opt->exclude->len++;
-			opt->exclude = realloc(opt->exclude, sizeof(char*) * opt->exclude->len);
-			opt->exclude[opt->exclude->len - 1] = tmp;
+			sa_add(opt->exclude, tmp);
+			free(tmp);
 		}
 		else{
 			free(tmp);
 			tmp = NULL;
 		}
-	}while (tmp && tmp[0] != '\0');
+	}while (tmp);
 
 	fscanf(fp, "\nCHECKSUM=");
 	tmp = read_file_string(fp);
