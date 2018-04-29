@@ -6,8 +6,8 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#ifndef __CRYPT_H
-#define __CRYPT_H
+#ifndef __CRYPT_CRYPT_H
+#define __CRYPT_CRYPT_H
 
 /* list of encryption algorithms */
 #include <openssl/evp.h>
@@ -25,14 +25,16 @@ struct crypt_keys{
 	const EVP_CIPHER* encryption;
 	/* tells if functions were called in the right order
 	 * otherwise we'll get cryptic hard-to-debug sigsegv's */
-	int flags;
+	unsigned flag_encryption_set: 1;
+	unsigned flag_keys_set: 1;
+	unsigned flag_salt_extracted: 1;
 };
 
 struct crypt_keys* crypt_new(void);
 int crypt_scrub(void* data, int len);
+/* crypt_scrub() is really just a csrand generator */
+#define gen_csrand(data, len) ((crypt_scrub(data, len)))
 unsigned char crypt_randc(void);
-int crypt_secure_memcmp(const void* p1, const void* p2, int len);
-int crypt_getpassword(const char* prompt, const char* verify_prompt, char** out);
 const EVP_CIPHER* crypt_get_cipher(const char* encryption_name);
 int crypt_set_encryption(const EVP_CIPHER* encryption, struct crypt_keys* fk);
 int crypt_gen_salt(struct crypt_keys* fk);
@@ -44,10 +46,5 @@ int crypt_decrypt(const char* in, struct crypt_keys* fk, const char* out);
 int crypt_decrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int verbose, const char* progress_msg);
 int crypt_extract_salt(const char* in, struct crypt_keys* fk);
 int crypt_free(struct crypt_keys* fk);
-
-#ifdef __UNIT_TESTING__
-int crypt_hashpassword(unsigned char* data, int data_len, unsigned char** salt, int* salt_len, unsigned char** hash, int* hash_len);
-unsigned char crypt_randc(void);
-#endif
 
 #endif

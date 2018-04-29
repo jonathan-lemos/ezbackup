@@ -35,18 +35,9 @@ int extract_prev_checksums(const char* in, const char* out, const EVP_CIPHER* en
 	FILE* fp_decrypt = NULL;
 	int ret = 0;
 
-	if (!in){
-		log_enull(in);
-		return -1;
-	}
-	if (!out){
-		log_enull(out);
-		return -1;
-	}
-	if (!enc_algorithm){
-		log_enull(enc_algorithm);
-		return -1;
-	}
+	return_ifnull(in, -1);
+	return_ifnull(out, -1);
+	return_ifnull(enc_algorithm, -1);
 
 	if ((fp_decrypt = temp_fopen(template_decrypt)) == NULL){
 		log_debug("Failed to make template_decrypt");
@@ -77,6 +68,9 @@ int rename_ex(const char* _old, const char* _new){
 	FILE* fp_new;
 	unsigned char buffer[BUFFER_LEN];
 	int len;
+
+	return_ifnull(_old, -1);
+	return_ifnull(_new, -1);
 
 	if (rename(_old, _new) == 0){
 		return 0;

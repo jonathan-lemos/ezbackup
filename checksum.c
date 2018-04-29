@@ -30,11 +30,8 @@
 /* debugging purposes */
 #include <assert.h>
 
-/* 16mb */
-#define MAX_RUN_SIZE (1 << 24)
-
 const EVP_MD* get_evp_md(const char* hash_name){
-	return EVP_get_digestbyname(hash_name);
+	return hash_name ? EVP_get_digestbyname(hash_name) : EVP_md_null();
 }
 
 int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out){
@@ -47,9 +44,8 @@ int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out){
 		'8', '9', 'A', 'B',
 		'C', 'D', 'E', 'F'};
 
-	if (!out || !bytes){
-		log_enull();
-	}
+	return_ifnull(bytes, -1);
+	return_ifnull(out, -1);
 
 	/* 2 hex chars = 1 byte */
 	/* +1 for null terminator */
@@ -80,20 +76,20 @@ int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out){
    unsigned ptr;
    unsigned hexptr;
    unsigned c;
-// 2 hex digits = 1 byte //
-out = malloc(len / 2);
-if (!out){
-return ERR_OUT_OF_MEMORY;
-}
+   / 2 hex digits = 1 byte /
+   out = malloc(len / 2);
+   if (!out){
+   return ERR_OUT_OF_MEMORY;
+   }
 
-for (ptr = 0, hexptr = 0; hexptr < len; ptr++, hexptr += 2){
-sscanf(&(hex[hexptr]), "%2x", &c);
-(*out)[ptr] = c;
-}
+   for (ptr = 0, hexptr = 0; hexptr < len; ptr++, hexptr += 2){
+   sscanf(&(hex[hexptr]), "%2x", &c);
+   (*out)[ptr] = c;
+   }
 
-return 0;
-}
-*/
+   return 0;
+   }
+   */
 
 /* computes a hash
  * returns 0 on success or err on failure */
@@ -103,6 +99,10 @@ int checksum(const char* file, const EVP_MD* algorithm, unsigned char** out, uns
 	unsigned char buffer[BUFFER_LEN];
 	int length;
 	int ret = 0;
+
+	return_ifnull(file, -1);
+	return_ifnull(out, -1);
+	return_ifnull(len, -1);
 
 	fp = fopen(file, "rb");
 	if (!fp){
@@ -128,12 +128,6 @@ int checksum(const char* file, const EVP_MD* algorithm, unsigned char** out, uns
 		goto cleanup;
 	}
 
-	/* both of these must point to valid locations */
-	if (!len || !out){
-		log_enull();
-		ret = -1;
-		goto cleanup;
-	}
 	*len = EVP_MD_size(algorithm);
 	if (!(*out = malloc(EVP_MD_size(algorithm)))){
 		log_enomem();
@@ -168,15 +162,14 @@ cleanup:
 	return ret;
 }
 
-int file_to_element(const char* file, const EVP_MD* algorithm, element** out){
+
+int file_to_element(const char* file, const EVP_MD* algorithm, struct element** out){
 	unsigned char* buffer = NULL;
 	unsigned len = 0;
 	int ret = 0;
 
-	if (!file || !out){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(file, -1);
+	return_ifnull(out, -1);
 
 	*out = malloc(sizeof(**out));
 	if (!out){
@@ -232,14 +225,12 @@ cleanup:
  *
  * returns 0 on success or err on error */
 int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, FILE* prev_checksums){
-	element* e;
+	struct element* e;
 	char* checksum = NULL;
 	int ret;
 
-	if (!file ||  !out){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(file, -1);
+	return_ifnull(out, -1);
 
 	if (!file_opened_for_writing(out)){
 		log_emode();
@@ -284,11 +275,8 @@ int sort_checksum_file(const char* in, const char* out){
 	size_t i;
 	int ret = 0;
 
-	if (!in || !out){
-		log_enull();
-		ret = -1;
-		goto cleanup;
-	}
+	return_ifnull(in, -1);
+	return_ifnull(out, -1);
 
 	fp_in = fopen(in, "rb");
 	if (!fp_in){
@@ -324,10 +312,9 @@ cleanup:
 }
 
 int search_for_checksum(FILE* fp_checksums, const char* key, char** checksum){
-	if (!fp_checksums || !key || !checksum){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(fp_checksums, -1);
+	return_ifnull(key, -1);
+	return_ifnull(checksum, -1);
 
 	if (!file_opened_for_reading(fp_checksums)){
 		log_emode();
@@ -339,6 +326,8 @@ int search_for_checksum(FILE* fp_checksums, const char* key, char** checksum){
 
 int check_file_exists(const char* file){
 	struct stat st;
+
+	return_ifnull(file, -1);
 
 	if (lstat(file, &st) == 0){
 		return 1;
@@ -356,9 +345,12 @@ int check_file_exists(const char* file){
 int create_removed_list(const char* checksum_file, const char* out_file){
 	FILE* fp_checksum = NULL;
 	FILE* fp_out = NULL;
-	element* tmp;
+	struct element* tmp;
 	int err;
 	int ret = 0;
+
+	return_ifnull(checksum_file, -1);
+	return_ifnull(out_file, -1);
 
 	fp_checksum = fopen(checksum_file, "rb");
 	if (!fp_checksum){
@@ -405,10 +397,7 @@ char* get_next_removed(FILE* fp){
 	size_t len_file;
 	char* ret = NULL;
 
-	if (!fp){
-		log_enull();
-		return NULL;
-	}
+	return_ifnull(fp, NULL);
 
 	pos_origin = ftell(fp);
 

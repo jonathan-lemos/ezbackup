@@ -27,13 +27,13 @@
 
 #define MAX_RUN_SIZE (1 << 24)
 
-void free_element(element* e){
+void free_element(struct element* e){
 	free(e->file);
 	free(e->checksum);
 	free(e);
 }
 
-static int compare_elements(element* e1, element* e2){
+static int compare_elements(struct element* e1, struct element* e2){
 	/* send NULL's to bottom of heap */
 	if  (!e1){
 		return 1;
@@ -46,11 +46,11 @@ static int compare_elements(element* e1, element* e2){
 }
 
 /* format: <file>\0<checksum>\n */
-int write_element_to_file(FILE* fp, element* e){
-	if (!fp || !e || !e->file || !e->checksum){
-		log_enull();
-		return -1;
-	}
+int write_element_to_file(FILE* fp, struct element* e){
+	return_ifnull(fp, -1);
+	return_ifnull(e, -1);
+	return_ifnull(e->file, -1);
+	return_ifnull(e->checksum, -1);
 
 	if (!file_opened_for_writing(fp)){
 		log_emode();
@@ -65,19 +65,16 @@ int write_element_to_file(FILE* fp, element* e){
 	return 0;
 }
 
-element* get_next_checksum_element(FILE* fp){
+struct element* get_next_checksum_element(FILE* fp){
 	long pos_origin;
 	long pos_file;
 	long pos_checksum;
 	int c;
 	size_t len_file;
 	size_t len_checksum;
-	element* e;
+	struct element* e;
 
-	if (!fp){
-		log_enull();
-		return NULL;
-	}
+	return_ifnull(fp, NULL);
 
 	if (!file_opened_for_reading(fp)){
 		log_emode();
@@ -156,8 +153,8 @@ element* get_next_checksum_element(FILE* fp){
 	return e;
 }
 
-static void swap(element** e1, element** e2){
-	element* buf = *e1;
+static void swap(struct element** e1, struct element** e2){
+	struct element* buf = *e1;
 	*e1 = *e2;
 	*e2 = buf;
 }
@@ -172,7 +169,7 @@ static void swap_mhn(minheapnode* mhn1, minheapnode* mhn2){
  * and the middle element.
  *
  * this makes choosing a bad pivot much less likely */
-int median_of_three(element** elements, int low, int high){
+int median_of_three(struct element** elements, int low, int high){
 	int left = low;
 	int mid = (high - low) / 2;
 	int right = high;
@@ -209,8 +206,8 @@ int median_of_three(element** elements, int low, int high){
  * correct side of the pivot
  *
  * pivot must be the high element */
-static int partition(element** elements, int low, int high){
-	element* pivot = elements[high];
+static int partition(struct element** elements, int low, int high){
+	struct element* pivot = elements[high];
 	int i;
 	int j;
 
@@ -226,14 +223,14 @@ static int partition(element** elements, int low, int high){
 
 /* swaps the median of three element with the top element,
  * so it works with the above function */
-static int partition_m3(element** elements, int low, int high){
+static int partition_m3(struct element** elements, int low, int high){
 	int m3 = median_of_three(elements, low, high);
 	swap(&elements[m3], &elements[high]);
 	return partition(elements, low, high);
 }
 
 /* main quicksort function for sorting the elements */
-void quicksort_elements(element** elements, int low, int high){
+void quicksort_elements(struct element** elements, int low, int high){
 	if (low < high){
 		int pivot = partition_m3(elements, low, high);
 		quicksort_elements(elements, low, pivot - 1);
@@ -241,7 +238,7 @@ void quicksort_elements(element** elements, int low, int high){
 	}
 }
 
-void free_element_array(element** elements, size_t size){
+void free_element_array(struct element** elements, size_t size){
 	size_t i;
 	for (i = 0; i < size; ++i){
 		free_element(elements[i]);
@@ -302,18 +299,17 @@ static int set_file_limit(int num){
 /* reads MAX_RUN_SIZE bytes worth of elements into ram,
  * sorts them, and writes them to one or more files */
 int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
-	element** elems = NULL;
-	element* tmp = NULL;
+	struct element** elems = NULL;
+	struct element* tmp = NULL;
 	int elems_len = 0;
 	int total_len = 0;
 	int end_of_file = 0;
 	int lim;
 
 	/* check null arguments */
-	if (!fp_in || !out || !n_files){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(fp_in, -1);
+	return_ifnull(out, -1);
+	return_ifnull(n_files, -1);
 
 	if (!file_opened_for_reading(fp_in)){
 		log_emode();
@@ -443,10 +439,8 @@ int merge_files(FILE** in, size_t n_files, FILE* fp_out){
 	int j;
 
 	/* verify that arguments are not null */
-	if (!in || !fp_out){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(in, -1);
+	return_ifnull(fp_out, -1);
 
 	if (!file_opened_for_writing(fp_out)){
 		log_emode();
@@ -501,7 +495,7 @@ int merge_files(FILE** in, size_t n_files, FILE* fp_out){
 }
 
 int search_file(FILE* fp, const char* key, char** checksum){
-	element* tmp;
+	struct element* tmp;
 	int c;
 	int res;
 	__off_t size;
@@ -510,10 +504,9 @@ int search_file(FILE* fp, const char* key, char** checksum){
 	const int end_bsearch_threshold = 128;
 
 	/* check null arguments */
-	if (!fp || !key || !checksum){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(fp, -1);
+	return_ifnull(key, -1);
+	return_ifnull(checksum, -1);
 
 	/* start at half of file */
 	size = get_file_size(fp);

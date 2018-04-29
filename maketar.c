@@ -36,8 +36,10 @@
 TAR* tar_create(const char* filename, enum COMPRESSOR comp, int compression_level){
 	TAR* tp = archive_write_new();
 
-	if (!filename){
-		log_enull();
+	return_ifnull(filename, NULL);
+
+	if (compression_level < 0){
+		log_einval(compression_level);
 		return NULL;
 	}
 
@@ -85,10 +87,9 @@ int tar_add_fp_ex(TAR* tp, FILE* fp, const char* path_in_tar, int verbose, const
 	/* verbose */
 	struct progress* p;
 
-	if (!tp || !fp || !path_in_tar){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(tp, -1);
+	return_ifnull(fp, -1);
+	return_ifnull(path_in_tar, -1);
 
 	rewind(fp);
 
@@ -149,6 +150,10 @@ int tar_add_file_ex(TAR* tp, const char* filename, const char* path_in_tar, int 
 	FILE* fp;
 	int err;
 
+	return_ifnull(tp, -1);
+	return_ifnull(filename, -1);
+	return_ifnull(path_in_tar, -1);
+
 	fp = fopen(filename, "rb");
 	if (!fp){
 		log_efopen(filename);
@@ -171,10 +176,7 @@ int tar_add_file(TAR* tp, const char* filename){
 }
 
 int tar_close(TAR* tp){
-	if (!tp){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(tp, -1);
 
 	archive_write_close(tp);
 	archive_write_free(tp);
@@ -189,6 +191,8 @@ static int strcmp_nocase(const char* str1, const char* str2){
 	int ret;
 
 	if (!c1 || !c2){
+		free(c1);
+		free(c2);
 		log_enomem();
 		return -1;
 	}
@@ -268,6 +272,9 @@ int tar_extract(const char* tarchive, const char* outdir){
 		ARCHIVE_EXTRACT_FFLAGS |
 		ARCHIVE_EXTRACT_OWNER;
 	int ret = 0;
+
+	return_ifnull(tarchive, -1);
+	return_ifnull(outdir, -1);
 
 	/* open tar for reading */
 	tp = archive_read_new();
@@ -436,6 +443,10 @@ int tar_extract_file(const char* tarchive, const char* file_intar, const char* f
 		ARCHIVE_EXTRACT_OWNER;
 	int ret = 0;
 
+	return_ifnull(tarchive, -1);
+	return_ifnull(file_intar, -1);
+	return_ifnull(file_out, -1);
+
 	/* open tar for reading */
 	tp = archive_read_new();
 	archive_read_support_filter_all(tp);
@@ -552,6 +563,8 @@ cleanup:
 }
 
 enum COMPRESSOR get_compressor_byname(const char* compressor){
+	return_ifnull(compressor, -1);
+
 	if (!strcmp_nocase(compressor, "none") ||
 			!strcmp_nocase(compressor, "off")){
 		return COMPRESSOR_NONE;

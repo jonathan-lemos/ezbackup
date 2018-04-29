@@ -12,23 +12,23 @@
 #include <stdio.h>
 #include "readfile.h"
 
-typedef struct element{
+struct element{
 	char* file;
 	char* checksum;
-}element;
+};
 
 typedef struct minheapnode{
-	element* e;
+	struct element* e;
 	int i;
 }minheapnode;
 
-int write_element_to_file(FILE* fp, element* e);
-element* get_next_checksum_element(FILE* fp);
-element* get_checksum_element_index(FILE* fp, int index);
-int median_of_three(element** elements, int low, int high);
-void quicksort_elements(element** elements, int low, int high);
-void free_element(element* e);
-void free_element_array(element** elements, size_t size);
+int write_element_to_file(FILE* fp, struct element* e);
+struct element* get_next_checksum_element(FILE* fp);
+struct element* get_checksum_element_index(FILE* fp, int index);
+int median_of_three(struct element** elements, int low, int high);
+void quicksort_elements(struct element** elements, int low, int high);
+void free_element(struct element* e);
+void free_element_array(struct element** elements, size_t size);
 void free_filearray(FILE** elements, size_t size);
 int create_initial_runs(FILE* in_file, FILE*** out, size_t* n_files);
 int merge_files(FILE** in, size_t n_files, FILE* out_file);

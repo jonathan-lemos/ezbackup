@@ -9,13 +9,13 @@
 /* prototypes */
 #include "crypt.h"
 /* read_file() */
-#include "readfile.h"
+#include "../readfile.h"
 /* handling errors */
-#include "error.h"
+#include "../error.h"
 #include <errno.h>
 #include <openssl/err.h>
 /* progress bar */
-#include "progressbar.h"
+#include "../progressbar.h"
 /* swiggity swass get pass */
 #include <termios.h>
 /* file size */
@@ -31,11 +31,6 @@
 #include <unistd.h>
 /* memcmp */
 #include <string.h>
-
-#define FLAG_UNINITIALIZED (0x0)
-#define FLAG_ENCRYPTION_SET (0x1)
-#define FLAG_KEYS_SET (0x2)
-#define FLAG_SALT_EXTRACTED (0x4)
 
 struct crypt_keys* crypt_new(void){
 	struct crypt_keys* ret;
@@ -57,10 +52,7 @@ int crypt_scrub(void* data, int len){
 	int res;
 
 	/* checking if data is not NULL */
-	if (!data){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(data, -1);
 
 	res = RAND_bytes(data, len);
 	if (res != 1){
@@ -89,8 +81,6 @@ int crypt_scrub(void* data, int len){
 	}
 	return 0;
 }
-/* crypt_scrub() is really just a csrand generator */
-#define gen_csrand(data, len) ((crypt_scrub(data, len)))
 
 unsigned char crypt_randc(void){
 	unsigned char ret;
@@ -109,176 +99,10 @@ unsigned char crypt_randc(void){
 	return ret;
 }
 
-int crypt_hashpassword(unsigned char* data, int data_len, unsigned char** salt, int* salt_len, unsigned char** hash, int* hash_len){
-	/* we're not actually using this to encrypt anything,
-	 * we're just using it as a parameter to EVP_BytesToKey
-	 * so we can generate our keypair which is irreversable
-	 *
-	 * AES-256-XTS has a 512-bit key vs. others which only
-	 * have 256 bits. This results in a longer hash
-	 * */
-	const EVP_CIPHER*(*keytype)(void) = EVP_aes_256_xts;
-	/* this is not the hash algorithm we are using
-	 * this is just a parameter to EVP_BytesToKey
-	 * which uses something like PBKDF2 to generate
-	 * the keypair
-	 *
-	 * SHA-512 may be a little overkill, but ehh
-	 * */
-	const EVP_MD*(*hashtype)(void) = EVP_sha512;
-	int key_len;
-	int iv_len;
-	int ret;
-
-	if (!salt_len || !salt || !data || !hash || !hash_len){
-		log_enull();
-		return -1;
-	}
-	/* generate salt if it is NULL */
-	if (!(*salt)){
-		*salt_len = 64;
-		*salt = malloc(*salt_len);
-		if (!salt){
-			log_enomem();
-			return -1;
-		}
-		if ((ret = gen_csrand(*salt, *salt_len)) != 0){
-			log_debug("Failed to generate salt with gen_csrand()");
-			return ret;
-		}
-	}
-
-	key_len = EVP_CIPHER_key_length(keytype());
-	iv_len = EVP_CIPHER_iv_length(keytype());
-	*hash_len = key_len + iv_len;
-
-	*hash = malloc(*hash_len);
-	if (!(*hash)){
-		log_enomem();
-		return -1;
-	}
-
-	if (!EVP_BytesToKey(keytype(), hashtype(), *salt, data, data_len, 25000, *hash, *hash + key_len)){
-		log_error("Failed to generate keys from data");
-		ERR_print_errors_fp(stderr);
-		return -1;
-	}
-
-	return 0;
-}
-
-int crypt_secure_memcmp(const void* p1, const void* p2, int len){
-	volatile const unsigned char* ptr1 = p1;
-	volatile const unsigned char* ptr2 = p2;
-	int i;
-	for (i = 0; i < len; ++i){
-		if (ptr1[i] != ptr2[i]){
-			return ptr1[i] - ptr2[i];
-		}
-	}
-	return 0;
-}
-
-int crypt_getpassword(const char* prompt, const char* verify_prompt, char** out){
-	char buf[1024];
-	struct termios old, new;
-	unsigned char* hash1 = NULL, *hash2 = NULL;
-	unsigned char* salt = NULL;
-	int hash_len, salt_len;
-	int ret = 0;
-
-	/* store old terminal information */
-	if (tcgetattr(fileno(stdin), &old) != 0){
-		log_warning("Failed to store current terminal settings");
-	}
-
-	/* turn off echo on terminal */
-	new = old;
-	new.c_lflag &= ~ECHO;
-	if (tcsetattr(fileno(stdin), TCSAFLUSH, &new) != 0){
-		log_warning("Failed to turn off terminal echo");
-	}
-
-	/* get password */
-	printf("%s:", prompt);
-	fgets(buf, sizeof(buf), stdin);
-	if (strcspn(buf, "\r\n") >= sizeof(buf) - 1){
-		log_warning_ex("Password truncated to %d chars", sizeof(buf) - 1);
-	}
-	printf("\n");
-	/* remove \n */
-	buf[strcspn(buf, "\r\n")] = '\0';
-	/* if no verify prompt is specified, we can just return now */
-	if (!verify_prompt){
-		log_info("Returning now since no verify_prompt specified");
-		*out = malloc(strlen(buf) + 1);
-		if (!(*out)){
-			log_enomem();
-		}
-		else{
-			strcpy(*out, buf);
-		}
-		ret = 0;
-		goto cleanup;
-	}
-	/* it's bad to store the password itself in memory,
-	 * so we store a hash instead. */
-	if ((ret = crypt_hashpassword((unsigned char*)buf, strlen(buf), &salt, &salt_len, &hash1, &hash_len)) != 0){
-		log_error("Failed to hash password input");
-		ret = -1;
-		goto cleanup;
-	}
-	/* scrub the old password out of memory, so it can't be
-	 * captured anymore by an attacker */
-	crypt_scrub(buf, strlen(buf));
-	log_info("Password should be out of memory now");
-
-	/* verify the password */
-	printf("%s:", verify_prompt);
-	fgets(buf, sizeof(buf), stdin);
-	printf("\n");
-	/* remove \n */
-	buf[strcspn(buf, "\r\n")] = '\0';
-	/* same old deal */
-	if ((ret = crypt_hashpassword((unsigned char*)buf, strlen(buf), &salt, &salt_len, &hash2, &hash_len)) != 0){
-		log_error("Failed to hash verify password input");
-		ret = -1;
-		goto cleanup;
-	}
-	/* verify that the hashes match */
-	if (crypt_secure_memcmp(hash1, hash2, hash_len) != 0){
-		log_info("The password hashes do not match");
-		ret = 1;
-		goto cleanup;
-	}
-
-	*out = malloc(strlen(buf) + 1);
-	if (!(*out)){
-		log_enomem();
-		ret = -1;
-		goto cleanup;
-	}
-	strcpy(*out, buf);
-
-cleanup:
-	crypt_scrub(buf, strlen(buf));
-	free(salt);
-	free(hash1);
-	free(hash2);
-	/* restore echo on terminal */
-	if (tcsetattr(fileno(stdin), TCSAFLUSH, &old) != 0){
-		log_warning("Failed to restore terminal echo");
-	}
-	return ret;
-}
-
 /* generates a random salt
  * returns 0 if salt is csrand, err if not */
 int crypt_gen_salt(struct crypt_keys* fk){
-	if (!fk){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(fk, -1);
 	return gen_csrand(fk->salt, sizeof(fk->salt));
 }
 
@@ -287,10 +111,7 @@ int crypt_gen_salt(struct crypt_keys* fk){
 int crypt_set_salt(const unsigned char salt[8], struct crypt_keys* fk){
 	unsigned i;
 
-	if (!fk){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(fk, -1);
 
 	if (salt){
 		/* memcpy leaves data in memory
@@ -309,19 +130,16 @@ int crypt_set_salt(const unsigned char salt[8], struct crypt_keys* fk){
 }
 
 const EVP_CIPHER* crypt_get_cipher(const char* encryption_name){
-	return EVP_get_cipherbyname(encryption_name);
+	return encryption_name ? EVP_get_cipherbyname(encryption_name) : EVP_enc_null();
 }
 
 /* sets encryption type, this must be the first function called
  * returns 0 on success or 1 if cipher is not recognized */
 int crypt_set_encryption(const EVP_CIPHER* encryption, struct crypt_keys* fk){
-	if (!fk){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(fk, -1);
 
-	if (fk->flags != 0){
-		log_error("crypt_keys structure must be made through crypt_new()");
+	if (fk->flag_encryption_set != 0){
+		log_error("crypt_set_encryption() must be called after crypt_new()");
 		return -1;
 	}
 
@@ -332,18 +150,15 @@ int crypt_set_encryption(const EVP_CIPHER* encryption, struct crypt_keys* fk){
 		fk->encryption = EVP_enc_null();
 	}
 
-	fk->flags = FLAG_ENCRYPTION_SET;
+	fk->flag_encryption_set = 1;
 	return 0;
 }
 
 /* generates a key and iv based on data
  * returns 0 on success or err on error */
 int crypt_gen_keys(const unsigned char* data, int data_len, const EVP_MD* md, int iterations, struct crypt_keys* fk){
-
-	if (!fk || !data){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(data, -1);
+	return_ifnull(fk, -1);
 
 	/* if md is NULL, default to sha256 */
 	if (!md){
@@ -351,7 +166,7 @@ int crypt_gen_keys(const unsigned char* data, int data_len, const EVP_MD* md, in
 	}
 
 	/* checking if encryption is set */
-	if (!(fk->flags & FLAG_ENCRYPTION_SET)){
+	if (fk->flag_encryption_set == 0){
 		log_error("Encryption type was not set (call crypt_set_encryption())");
 		return -1;
 	}
@@ -375,20 +190,17 @@ int crypt_gen_keys(const unsigned char* data, int data_len, const EVP_MD* md, in
 		return -1;
 	}
 
-	fk->flags |= FLAG_KEYS_SET;
+	fk->flag_keys_set = 1;
 	return 0;
 }
 
 /* frees memory malloc'd by crypt_gen_keys()
  * returns 0 if fk is not NULL */
 int crypt_free(struct crypt_keys* fk){
-	if (!fk){
-		log_debug("crypt_free() arg was NULL");
-		return -1;
-	}
+	return_ifnull(fk, -1);
 
 	/* scrub keys so they can't be retrieved from memory */
-	if (fk->flags & FLAG_KEYS_SET){
+	if (fk->flag_keys_set){
 		crypt_scrub(fk->key, fk->key_length);
 		crypt_scrub(fk->iv, fk->iv_length);
 		free(fk->key);
@@ -416,10 +228,9 @@ int crypt_encrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int
 	struct progress* p = NULL;
 
 	/* checking null arguments */
-	if (!in || !fk || !out){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(in, -1);
+	return_ifnull(fk, -1);
+	return_ifnull(out, -1);
 
 	fp_in = fopen(in, "rb");
 	if (!fp_in){
@@ -436,7 +247,7 @@ int crypt_encrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int
 	}
 
 	/* checking if keys were actually generated */
-	if (!(fk->flags & FLAG_KEYS_SET)){
+	if (fk->flag_keys_set == 0){
 		log_error("Encryption keys were not generated (call crypt_gen_keys())");
 		ret = -1;
 		goto cleanup;
@@ -547,10 +358,8 @@ int crypt_extract_salt(const char* in, struct crypt_keys* fk){
 	unsigned i;
 
 	/* checking null arguments */
-	if (!in || !fk){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(in, -1);
+	return_ifnull(fk, -1);
 
 	fp_in = fopen(in, "rb");
 	if (!fp_in){
@@ -580,7 +389,7 @@ int crypt_extract_salt(const char* in, struct crypt_keys* fk){
 		fk->salt[i] = buffer[i];
 	}
 
-	fk->flags |= FLAG_SALT_EXTRACTED;
+	fk->flag_salt_extracted = 1;
 	fclose(fp_in);
 	return 0;
 }
@@ -600,10 +409,9 @@ int crypt_decrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int
 	struct progress* p = NULL;
 
 	/* checking null arguments */
-	if (!in || !fk || !out){
-		log_enull();
-		return -1;
-	}
+	return_ifnull(in, -1);
+	return_ifnull(fk, -1);
+	return_ifnull(out, -1);
 
 	fp_in = fopen(in, "rb");
 	if (!fp_in){
@@ -620,14 +428,14 @@ int crypt_decrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int
 	}
 
 	/* checking if keys were actually generated */
-	if (!(fk->flags & FLAG_KEYS_SET)){
+	if (fk->flag_keys_set == 0){
 		log_error("Decryption keys were not generated (call crypt_gen_keys())");
 		ret = -1;
 		goto cleanup;
 	}
 
 	/* checking if salt was extracted */
-	if (!(fk->flags & FLAG_SALT_EXTRACTED)){
+	if (fk->flag_salt_extracted == 0){
 		log_error("Salt was not extracted from the file (call crypt_extract_salt())");
 		ret = -1;
 		goto cleanup;

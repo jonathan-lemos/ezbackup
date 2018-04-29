@@ -23,7 +23,6 @@ int create_removed_list(const char* checksum_file, const char* out_file);
 char* get_next_removed(FILE* fp);
 
 #ifdef __UNIT_TESTING__
-int file_to_element(const char* file, const EVP_MD* algorithm, element** out);
 int check_file_exists(const char* file);
 #endif
 

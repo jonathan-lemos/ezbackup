@@ -9,8 +9,14 @@
 #include "test_base.h"
 #include "../error.h"
 
+int test_return_ifnull(char* arg){
+	return_ifnull(arg, -1);
+	return 0;
+}
+
 int main(void){
 	enum LOG_LEVEL level;
+	char* tmp = "hello";
 
 	set_signal_handler();
 
@@ -23,6 +29,10 @@ int main(void){
 		log_fatal("fatal");
 		printf("\n");
 	}
+
+	massert(test_return_ifnull(tmp) == 0);
+	tmp = NULL;
+	massert(test_return_ifnull(tmp) == -1);
 
 	return 0;
 }

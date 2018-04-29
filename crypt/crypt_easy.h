@@ -6,8 +6,8 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#ifndef __CRYPT_EASY_H
-#define __CRYPT_EASY_H
+#ifndef __CRYPT_CRYPT_EASY_H
+#define __CRYPT_CRYPT_EASY_H
 
 #include <openssl/evp.h>
 
