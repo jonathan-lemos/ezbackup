@@ -9,7 +9,7 @@
 /* prototypes */
 #include "maketar.h"
 /* read_file() */
-#include "readfile.h"
+#include "filehelper.h"
 /* progressbar stuff */
 #include "progressbar.h"
 /* errors */

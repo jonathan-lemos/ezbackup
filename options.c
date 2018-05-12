@@ -12,9 +12,15 @@
 #include "error.h"
 #include <errno.h>
 
-#include "crypt.h"
+#include "crypt/crypt.h"
+
+#include "crypt/crypt_getpassword.h"
 
 #include "cli.h"
+
+#include "filehelper.h"
+
+#include "stringhelper.h"
 /* printf */
 #include <stdio.h>
 /* strcmp */
@@ -56,6 +62,17 @@ void version(void){
 	const char* year         = "2018";
 	const char* name         = "Jonathan Lemos";
 	const char* license      = "This software may be modified and distributed under the terms of the MIT license.";
+
+	if (!program_name){
+		log_fatal("PROG_NAME not specified");
+		exit(1);
+	}
+
+	if (!version){
+		log_fatal("PROG_VERSION not specified");
+		exit(1);
+	}
+
 	printf("%s %s\n", program_name, version);
 	printf("Copyright (c) %s %s\n", year, name);
 	printf("%s\n", license);
@@ -82,6 +99,8 @@ static int get_backup_directory(char** out){
 	struct passwd* pw;
 	const char* homedir;
 	struct stat st;
+
+	return_ifnull(out, ((int(*)(void))abort)());
 
 	/* get home directory */
 	if (!(homedir = getenv("HOME"))){
@@ -164,7 +183,7 @@ int parse_options_cmdline(int argc, char** argv, struct options** output, enum O
 		/* verbose */
 		else if (!strcmp(argv[i], "-q") ||
 				!strcmp(argv[i], "--quiet")){
-			out->flag_verbose = 0;
+			out->flags.bits.flag_verbose = 0;
 		}
 		/* outfile */
 		else if (!strcmp(argv[i], "-o") ||
@@ -407,10 +426,10 @@ static int menu_encryption(struct options* opt){
 
 int menu_enc_password(struct options* opt){
 	int res;
-	char buf[1024];
+	char* pw;
 	printf("Enter nothing to clear\n");
 
-	while ((res = crypt_getpassword("Enter password:", "Verify password:", buf, sizeof(buf))) > 0){
+	while ((res = crypt_getpassword("Enter password:", "Verify password:", &pw)) > 0){
 		printf("The passwords do not match");
 	}
 
@@ -419,7 +438,7 @@ int menu_enc_password(struct options* opt){
 		return -1;
 	}
 
-	if (strcmp(buf, "") == 0){
+	if (strcmp(pw, "") == 0){
 		if (opt->enc_password){
 			free(opt->enc_password);
 		}
@@ -430,10 +449,10 @@ int menu_enc_password(struct options* opt){
 		if (opt->enc_password){
 			free(opt->enc_password);
 		}
-		opt->enc_password = malloc(strlen(buf) + 1);
+		opt->enc_password = sh_dup(pw);
 	}
 
-	crypt_scrub(buf, strlen(buf));
+	crypt_scrub(pw, strlen(pw));
 	return 0;
 }
 
@@ -766,7 +785,7 @@ struct options* get_default_options(void){
 		return NULL;
 	}
 	opt->cloud_options = co_new();
-	opt->flag_verbose = 1;
+	opt->flags.bits.flag_verbose = 1;
 
 	return opt;
 }
@@ -798,23 +817,26 @@ static char* read_file_string(FILE* in){
 }
 
 int parse_options_fromfile(const char* file, struct options** output){
-	FILE* fp;
+	FILE* fp = NULL;
 	char* tmp;
 	struct options* opt = *output;
+	int ret = 0;
 
 	fp = fopen(file, "rb");
 	if (!fp){
 		log_efopen(file);
-		return -1;
+		ret = -1;
+		goto cleanup;
 	}
 
 	if ((opt = get_default_options()) != 0){
 		log_debug("Failed to get default options");
-		return -1;
+		ret = -1;
+		goto cleanup;
 	}
 
 	fscanf(fp, "[Options]");
-
+	fscanf(fp, "\nVERSION=%*s");
 	fscanf(fp, "\nPREV=");
 	opt->prev_backup = read_file_string(fp);
 	if (strcmp(opt->prev_backup, "") == 0){
@@ -891,35 +913,36 @@ int parse_options_fromfile(const char* file, struct options** output){
 		opt->output_directory = NULL;
 	}
 
-	fscanf(fp, "\nCLOUD_PROVIDER=%d", &(opt->cp));
+	fscanf(fp, "\nCLOUD_PROVIDER=%d", &(opt->cloud_options->cp));
 
 	fscanf(fp, "\nCLOUD_USERNAME=");
-	opt->username = read_file_string(fp);
-	if (strcmp(opt->username, "") == 0){
-		free(opt->username);
-		opt->username = NULL;
+	opt->cloud_options->username = read_file_string(fp);
+	if (strcmp(opt->cloud_options->username, "") == 0){
+		free(opt->cloud_options->username);
+		opt->cloud_options->username = NULL;
 	}
 
 	fscanf(fp, "\nCLOUD_PASSWORD=");
-	opt->password = read_file_string(fp);
-	if (strcmp(opt->password, "") == 0){
-		free(opt->password);
-		opt->password = NULL;
+	opt->cloud_options->password = read_file_string(fp);
+	if (strcmp(opt->cloud_options->password, "") == 0){
+		free(opt->cloud_options->password);
+		opt->cloud_options->password = NULL;
 	}
 
-	fscanf(fp, "\nUPLOAD_DIRECTORY=");
-	opt->upload_directory = read_file_string(fp);
-	if (strcmp(opt->upload_directory, "") == 0){
-		free(opt->upload_directory);
-		opt->upload_directory = NULL;
+	fscanf(fp, "\nCLOUD_DIRECTORY=");
+	opt->cloud_options->upload_directory = read_file_string(fp);
+	if (strcmp(opt->cloud_options->upload_directory, "") == 0){
+		free(opt->cloud_options->upload_directory);
+		opt->cloud_options->upload_directory = NULL;
 	}
 
-	fscanf(fp, "\nFLAGS=%u", &(opt->flags));
+	fscanf(fp, "\nFLAGS=%u", &(opt->flags.dword));
 
+cleanup:
 	if (fclose(fp) != 0){
 		log_efclose(file);
 	}
-	return 0;
+	return ret;
 }
 
 /* File format:
@@ -936,7 +959,7 @@ int parse_options_fromfile(const char* file, struct options** output){
  */
 int write_options_tofile(const char* file, const struct options* opt){
 	FILE* fp;
-	int i;
+	size_t i;
 
 	if (!file || !opt){
 		log_enull();
@@ -946,6 +969,7 @@ int write_options_tofile(const char* file, const struct options* opt){
 	fp = fopen(file, "wb");
 	if (!fp){
 		log_efopen(file);
+		fclose(fp);
 		return -1;
 	}
 	fprintf(fp, "[Options]");
@@ -953,12 +977,12 @@ int write_options_tofile(const char* file, const struct options* opt){
 	fprintf(fp, "\nPREV=%s%c", opt->prev_backup ? opt->prev_backup : "", '\0');
 	fprintf(fp, "\nDIRECTORIES=");
 	for (i = 0; i < opt->directories->len; ++i){
-		fprintf(fp, "%s%c", opt->directories[i], '\0');
+		fprintf(fp, "%s%c", opt->directories->strings[i], '\0');
 	}
 	fputc('\0', fp);
 	fprintf(fp, "\nEXCLUDE=");
 	for (i = 0; i < opt->exclude->len; ++i){
-		fprintf(fp, "%s%c", opt->exclude[i], '\0');
+		fprintf(fp, "%s%c", opt->exclude->strings[i], '\0');
 	}
 	fputc('\0', fp);
 	fprintf(fp, "\nCHECKSUM=%s%c", EVP_MD_name(opt->hash_algorithm), '\0');
@@ -967,11 +991,11 @@ int write_options_tofile(const char* file, const struct options* opt){
 	fprintf(fp, "\nCOMPRESSION=%d", opt->comp_algorithm);
 	fprintf(fp, "\nCOMP_LEVEL=%d", opt->comp_level);
 	fprintf(fp, "\nOUTPUT_DIRECTORY=%s%c", opt->output_directory ? opt->output_directory : "", '\0');
-	fprintf(fp, "\nCLOUD_PROVIDER=%d", opt->cp);
-	fprintf(fp, "\nCLOUD_USERNAME=%s%c", opt->username ? opt->username : "", '\0');
-	fprintf(fp, "\nCLOUD_PASSWORD=%s%c", opt->password ? opt->password : "", '\0');
-	fprintf(fp, "\nUPLOAD_DIRECTORY=%s%c", opt->upload_directory ? opt->upload_directory : "", '\0');
-	fprintf(fp, "\nFLAGS=%u", opt->flags);
+	fprintf(fp, "\nCLOUD_PROVIDER=%d", opt->cloud_options->cp);
+	fprintf(fp, "\nCLOUD_USERNAME=%s%c", opt->cloud_options->username ? opt->cloud_options->username : "", '\0');
+	fprintf(fp, "\nCLOUD_PASSWORD=%s%c", opt->cloud_options->password ? opt->cloud_options->password : "", '\0');
+	fprintf(fp, "\nCLOUD_DIRECTORY=%s%c", opt->cloud_options->upload_directory ? opt->cloud_options->upload_directory : "", '\0');
+	fprintf(fp, "\nFLAGS=%u", opt->flags.dword);
 
 	if (fclose(fp) != 0){
 		log_efclose(file);
@@ -980,19 +1004,12 @@ int write_options_tofile(const char* file, const struct options* opt){
 }
 
 void free_options(struct options* opt){
-	int i;
-	/* freeing a nullptr is ok */
-
 	free(opt->prev_backup);
+	sa_free(directories);
+	sa_free(exclude);
+	free(opt->enc_password);
 	free(opt->output_directory);
-	for (i = 0; i < opt->exclude->len; ++i){
-		free(opt->exclude[i]);
-	}
-	free(opt->exclude);
-	for (i = 0; i < opt->directories->len; ++i){
-		free(opt->directories[i]);
-	}
-	free(opt->directories);
+	co_free(cloud_options);
 	free(opt);
 }
 
@@ -1002,7 +1019,7 @@ static int does_file_exist(const char* file){
 	return stat(file, &st) == 0;
 }
 
-int get_config_name(char** out){
+int get_home_conf_file(char** out){
 	struct passwd* pw;
 	char* homedir;
 
@@ -1027,59 +1044,75 @@ int get_config_name(char** out){
 	return 0;
 }
 
-int read_config_file(struct options** opt, const char* path){
-	char* backup_conf;
+int set_home_conf_dir(const char* dir){
+	char* home_conf = NULL;
+	FILE* fp_conf = NULL;
+	int ret = 0;
 
-	if (path){
-		if (parse_options_fromfile(path, opt) != 0){
-			log_debug_ex("Failed to parse options from %s", path);
-			return -1;
-		}
-		return 0;
+	if (get_home_conf_file(&home_conf) != 0){
+		log_debug("Failed to determine home directory");
+		ret = -1;
+		goto cleanup;
 	}
 
-	if (get_config_name(&backup_conf) != 0){
-		log_debug("get_config_name() failed");
-		return -1;
+	fp_conf = fopen(home_conf, "wb");
+	if (!fp_conf){
+		log_efopen(home_conf);
+		ret = -1;
+		goto cleanup;
 	}
 
-	if (!does_file_exist(backup_conf)){
-		log_info("Backup file does not exist");
-		free(backup_conf);
-		return 1;
+	fwrite(dir, 1, strlen(dir), fp_conf);
+	if (ferror(fp_conf) != 0){
+		log_efwrite(home_conf);
+		ret = -1;
+		goto cleanup;
 	}
 
-	if (parse_options_fromfile(backup_conf, opt) != 0){
-		log_debug("Failed to parse options from file");
-		free(backup_conf);
-		return -1;
+cleanup:
+	if (fp_conf && fclose(fp_conf) != 0){
+		log_efclose(home_conf);
 	}
-
-	free(backup_conf);
-	return 0;
+	free(home_conf);
+	return ret;
 }
 
-int write_config_file(const struct options* opt, const char* path){
-	char* backup_conf = NULL;
+int get_home_conf_dir(char** out){
+	char buf[BUFFER_LEN];
+	int len;
+	char* home_conf = NULL;
+	FILE* fp_conf = NULL;
+	int ret = 0;
 
-	if (path){
-		if (write_options_tofile(path, opt) != 0){
-			log_warning("Failed to write settings to file");
-			return -1;
-		}
-		return 0;
+	if (get_home_conf_file(&home_conf) != 0){
+		log_debug("Failed to determine home directory");
+		ret = -1;
+		goto cleanup;
 	}
-	if ((get_config_name(&backup_conf)) != 0){
-		log_warning("Failed to get backup name for incremental backup settings.");
-		return -1;
+
+	fp_conf = fopen(home_conf, "wb");
+	if (!fp_conf){
+		log_efopen(home_conf);
+		ret = -1;
+		goto cleanup;
 	}
-	else{
-		if ((write_options_tofile(backup_conf, opt)) != 0){
-			log_warning("Failed to write settings for incremental backup.");
-			free(backup_conf);
-			return -1;
-		}
+
+	buf[len] = '\0';
+	*out = sh_new();
+	while ((len = read_file(fp_conf, buf, sizeof(buf) - 1)) > 0){
+		*out = sh_concat(*out, buf);
 	}
-	free(backup_conf);
-	return 0;
+
+	if (!(*out)){
+		log_debug("Failed to write to output string");
+		ret = -1;
+		goto cleanup;
+	}
+
+cleanup:
+	if (fp_conf && fclose(fp_conf) != 0){
+		log_efclose(home_conf);
+	}
+	free(home_conf);
+	return ret;
 }

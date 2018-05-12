@@ -15,8 +15,6 @@
 #include "stringarray.h"
 #include <openssl/evp.h>
 
-#define FLAG_VERBOSE (0x1)
-
 enum OPERATION{
 	OP_INVALID = 0,
 	OP_BACKUP  = 1,
@@ -36,7 +34,12 @@ struct options{
 	int                   comp_level;
 	char*                 output_directory;
 	struct cloud_options* cloud_options;
-	unsigned              flag_verbose: 1;
+	union tagflags{
+		struct tagbits{
+			unsigned      flag_verbose: 1;
+		}bits;
+		unsigned          dword;
+	}flags;
 };
 
 void version(void);
@@ -46,12 +49,13 @@ int parse_options_cmdline(int argc, char** argv, struct options** out, enum OPER
 int parse_options_menu(struct options* opt);
 void free_options(struct options* o);
 struct options* get_default_options(void);
-int read_config_file(struct options** opt, const char* path);
-int write_config_file(const struct options* opt, const char* path);
-
-#ifdef __UNIT_TESTING__
 int parse_options_fromfile(const char* file, struct options** output);
 int write_options_tofile(const char* file, const struct options* opt);
+int set_home_conf_dir(const char* dir);
+int get_home_conf_dir(char** out);
+
+#ifdef __UNIT_TESTING__
+int get_home_conf_file(char** out);
 #endif
 
 #endif

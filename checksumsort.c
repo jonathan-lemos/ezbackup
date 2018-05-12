@@ -12,7 +12,7 @@
 #include "error.h"
 #include <errno.h>
 /* reading them files */
-#include "readfile.h"
+#include "filehelper.h"
 /* strcmp */
 #include <string.h>
 /* malloc */
@@ -274,19 +274,6 @@ void free_filearray(FILE** elements, size_t size){
 	free(elements);
 }
 
-static __off_t get_file_size(FILE* fp){
-	int fd;
-	struct stat st;
-
-	fd = fileno(fp);
-
-	if (fstat(fd, &st) != 0){
-		log_estat("file");
-		return -1;
-	}
-	return st.st_size;
-}
-
 static int set_file_limit(int num){
 	struct rlimit rl;
 	rl.rlim_cur = num + 1;
@@ -498,9 +485,9 @@ int search_file(FILE* fp, const char* key, char** checksum){
 	struct element* tmp;
 	int c;
 	int res;
-	__off_t size;
-	__off_t low;
-	__off_t high;
+	off_t size;
+	off_t low;
+	off_t high;
 	const int end_bsearch_threshold = 128;
 
 	/* check null arguments */

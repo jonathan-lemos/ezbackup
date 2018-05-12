@@ -10,6 +10,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+char* sh_new(void){
+	return calloc(1, 1);
+}
+
 char* sh_dup(const char* in){
 	char* ret;
 

@@ -1,4 +1,4 @@
-/* readfile.c -- buffered file reader and temporary file creator
+/* filehelper.c -- helper functions for files
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -7,9 +7,7 @@
  */
 
 /* prototypes */
-#include "readfile.h"
-/* seeding the prng */
-#include "crypt.h"
+#include "filehelper.h"
 /* error handling */
 #include "error.h"
 #include <errno.h>
@@ -85,4 +83,93 @@ int file_opened_for_writing(FILE* fp){
 	fd = fileno(fp);
 	flags = fcntl(fd, F_GETFL);
 	return (flags & O_RDWR) || O_WRONLY == 0 ? !(flags & O_RDONLY) : flags & O_WRONLY;
+}
+
+off_t get_file_size_fp(FILE* fp){
+	int fd;
+	struct stat st;
+
+	fd = fileno(fp);
+
+	if (fstat(fd, &st) != 0){
+		log_estat("file");
+		return -1;
+	}
+	return st.st_size;
+}
+
+off_t get_file_size(const char* file){
+	struct stat st;
+
+	if (stat(file, &st) != 0){
+		log_estat(file);
+		return -1;
+	}
+	return st.st_size;
+}
+
+int copy_file(const char* _old, const char* _new){
+	FILE* fp_old;
+	FILE* fp_new;
+	unsigned char buffer[BUFFER_LEN];
+	int len;
+
+	return_ifnull(_old, -1);
+	return_ifnull(_new, -1);
+
+	if (strcmp(_old, _new) == 0){
+		return 0;
+	}
+
+	fp_old = fopen(_old, "rb");
+	if (!fp_old){
+		log_efopen(_old);
+		return -1;
+	}
+
+	fp_new = fopen(_new, "wb");
+	if (!fp_new){
+		log_efopen(_new);
+		fclose(fp_old);
+		return -1;
+	}
+
+	while ((len = read_file(fp_old, buffer, sizeof(buffer))) > 0){
+		fwrite(buffer, 1, len, fp_new);
+		if (ferror(fp_new)){
+			fclose(fp_old);
+			fclose(fp_new);
+			log_efwrite(_new);
+			return -1;
+		}
+	}
+
+	fclose(fp_old);
+
+	if (fclose(fp_new) != 0){
+		log_efclose(_new);
+		return -1;
+	}
+
+	return 0;
+}
+
+int rename_file(const char* _old, const char* _new){
+	int res = 0;
+
+	return_ifnull(_old, -1);
+	return_ifnull(_new, -1);
+
+	if (strcmp(_old, _new) == 0){
+		return 0;
+	}
+
+	if (rename(_old, _new) == 0){
+		return 0;
+	}
+
+	res = copy_file(_old, _new);
+	remove(_old);
+
+	return res;
 }

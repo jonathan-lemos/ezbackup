@@ -1,4 +1,4 @@
-/* readfile.h -- buffered file reader and temporary file creator
+/* filehelper.h -- helper functions for files
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -10,6 +10,8 @@
 #define __READFILE_H
 
 #include <stdio.h>
+#include <stddef.h>
+#include <sys/types.h>
 
 #ifndef BUFFER_LEN
 #define BUFFER_LEN (1 << 16)
@@ -19,5 +21,9 @@ int read_file(FILE* fp, unsigned char* dest, size_t length);
 FILE* temp_fopen(char* __template);
 int file_opened_for_reading(FILE* fp);
 int file_opened_for_writing(FILE* fp);
+off_t get_file_size_fp(FILE* fp);
+off_t get_file_size(const char* file);
+int copy_file(const char* _old, const char* _new);
+int rename_file(const char* _old, const char* _new);
 
 #endif

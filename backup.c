@@ -7,13 +7,13 @@
  */
 
 #include "backup.h"
-#include "readfile.h"
-#include "crypt_easy.h"
+#include "filehelper.h"
+#include "crypt/crypt_easy.h"
 #include "fileiterator.h"
 #include "error.h"
 #include "checksum.h"
 #include "options.h"
-#include "coredumps.h"
+#include "stringhelper.h"
 #include <string.h>
 #include <sys/resource.h>
 #include <errno.h>
@@ -24,90 +24,11 @@
 #define UNUSED(x) ((void)x)
 
 struct backup_params{
-	TAR*            tp;
-	FILE*           fp_hashes;
-	FILE*           fp_hashes_prev;
-	struct options* opt;
+	TAR*                  tp;
+	FILE*                 fp_hashes;
+	FILE*                 fp_hashes_prev;
+	const struct options* opt;
 };
-
-int extract_prev_checksums(const char* in, const char* out, const EVP_CIPHER* enc_algorithm, int verbose){
-	char template_decrypt[] = "/var/tmp/decrypt_XXXXXX";
-	FILE* fp_decrypt = NULL;
-	int ret = 0;
-
-	return_ifnull(in, -1);
-	return_ifnull(out, -1);
-	return_ifnull(enc_algorithm, -1);
-
-	if ((fp_decrypt = temp_fopen(template_decrypt)) == NULL){
-		log_debug("Failed to make template_decrypt");
-		ret = -1;
-		goto cleanup;
-	}
-
-	if (easy_decrypt(in, out, enc_algorithm, verbose) != 0){
-		log_debug("easy_decrypt() failed");
-		ret = -1;
-		goto cleanup;
-	}
-
-	if (tar_extract_file(template_decrypt, "/checksums", out) != 0){
-		log_debug("tar_extract_file() failed");
-		ret = -1;
-		goto cleanup;
-	}
-
-cleanup:
-	fp_decrypt ? fclose(fp_decrypt) : 0;
-	remove(template_decrypt);
-	return ret;
-}
-
-int rename_ex(const char* _old, const char* _new){
-	FILE* fp_old;
-	FILE* fp_new;
-	unsigned char buffer[BUFFER_LEN];
-	int len;
-
-	return_ifnull(_old, -1);
-	return_ifnull(_new, -1);
-
-	if (rename(_old, _new) == 0){
-		return 0;
-	}
-
-	fp_old = fopen(_old, "rb");
-	if (!fp_old){
-		log_efopen(_old);
-		return -1;
-	}
-
-	fp_new = fopen(_new, "wb");
-	if (!fp_new){
-		log_efopen(_new);
-		fclose(fp_old);
-		return -1;
-	}
-
-	while ((len = read_file(fp_old, buffer, sizeof(buffer))) > 0){
-		fwrite(buffer, 1, len, fp_new);
-		if (ferror(fp_new)){
-			fclose(fp_old);
-			fclose(fp_new);
-			log_efwrite(_new); return -1;
-		}
-	}
-
-	fclose(fp_old);
-
-	if (fclose(fp_new) != 0){
-		log_efclose(_new);
-		return -1;
-	}
-
-	remove(_old);
-	return 0;
-}
 
 int func(const char* file, const char* dir, struct stat* st, void* params){
 	struct backup_params* bparams = (struct backup_params*)params;
@@ -130,7 +51,7 @@ int func(const char* file, const char* dir, struct stat* st, void* params){
 
 	err = add_checksum_to_file(file, bparams->opt->hash_algorithm, bparams->fp_hashes, bparams->fp_hashes_prev);
 	if (err == 1){
-		if (bparams->opt->flag_verbose){
+		if (bparams->opt->flags.bits.flag_verbose){
 			printf("Skipping unchanged (%s)\n", file);
 		}
 		return 1;
@@ -139,7 +60,7 @@ int func(const char* file, const char* dir, struct stat* st, void* params){
 		log_debug("add_checksum_to_file() failed");
 	}
 
-	if (tar_add_file_ex(bparams->tp, file, file, bparams->opt->flag_verbose, file) != 0){
+	if (tar_add_file_ex(bparams->tp, file, file, bparams->opt->flags.bits.flag_verbose, file) != 0){
 		log_debug("Failed to add file to tar");
 	}
 
@@ -153,89 +74,198 @@ int error(const char* file, int __errno, void* params){
 	return 1;
 }
 
-int get_default_backup_name(struct options* opt, char** out){
-	char file[128];
-
-	/* /home/<user>/Backups/backup-<unixtime>.tar(.bz2)(.crypt) */
-	*out = malloc(strlen(opt->output_directory) + sizeof(file));
-	if (!(out)){
-		log_enomem();
-		return -1;
-	}
-
-	/* get unix time and concatenate it to the filename */
-	sprintf(file, "/backup-%ld", (long)time(NULL));
-	strcpy(*out, opt->output_directory);
-	strcat(*out, file);
-
-	/* concatenate extensions */
-	strcat(*out, ".tar");
-	switch (opt->comp_algorithm){
-	case COMPRESSOR_GZIP:
-		strcat(*out, ".gz");
-		break;
-	case COMPRESSOR_BZIP2:
-		strcat(*out, ".bz2");
-		break;
-	case COMPRESSOR_XZ:
-		strcat(*out, ".xz");
-		break;
-	case COMPRESSOR_LZ4:
-		strcat(*out, ".lz4");
-		break;
-	default:
-		;
-	}
-	if (opt->enc_algorithm){
-		char enc_algo_str[64];
-		sprintf(enc_algo_str, ".%s", EVP_CIPHER_name(opt->enc_algorithm));
-		strcat(*out, enc_algo_str);
-	}
-	return 0;
+const char* get_archive_extension(void){
+	return ".tar";
 }
 
-int backup(struct options* opt, const char* file_hashes_prev){
-	struct backup_params bp;
-	char template_tar[] = "/var/tmp/tar_XXXXXX";
-	FILE* fp_tar = NULL;
-	char* file_out = NULL;
-	char* config_out = NULL;
-	char* hashes_out = NULL;
-	char* removed_out = NULL;
+const char* get_compression_extension(enum COMPRESSOR comp){
+	switch (comp){
+		case COMPRESSOR_GZIP:
+			return ".gz";
+		case COMPRESSOR_BZIP2:
+			return ".bz2";
+		case COMPRESSOR_XZ:
+			return ".xz";
+		case COMPRESSOR_LZ4:
+			return ".lz4";
+		case COMPRESSOR_NONE:
+			return "";
+		default:
+			log_einval(comp);
+			return NULL;
+	}
+}
+
+char* get_default_backup_base(const char* dir){
+	char file[64];
+	char* ret;
+
+	ret = sh_dup(dir);
+	if (!ret){
+		log_enomem();
+		return NULL;
+	}
+	if (ret[strlen(ret) - 1] == '/'){
+		ret[strlen(ret) - 1] = '\0';
+	}
+
+	sprintf(file, "/backup-%ld", (long)time(NULL));
+	ret = sh_concat(ret, file);
+	return ret;
+}
+
+char* add_backup_extension(char* base, const struct options* opt){
+	base = sh_concat(base, get_archive_extension());
+	if (opt->comp_algorithm != COMPRESSOR_NONE){
+		base = sh_concat(base, get_compression_extension(opt->comp_algorithm));
+	}
+	if (opt->enc_algorithm){
+		base = sh_concat(base, ".");
+		base = sh_concat(base, EVP_CIPHER_name(opt->enc_algorithm));
+	}
+
+	return base;
+}
+
+FILE* extract_prev_checksums(const char* in, char* _template){
+	FILE* fp = NULL;
+
+	fp = temp_fopen(_template);
+	if (!fp){
+		log_efopen(_template);
+		goto cleanup;
+	}
+	if (fclose(fp) != 0){
+		log_efclose(in);
+	}
+
+	if (tar_extract_file(in, "/checksums", _template) != 0){
+		fp = NULL;
+		goto cleanup;
+	}
+
+	fp = fopen(_template, "rb");
+	if (!fp){
+		log_efopen(_template);
+	}
+
+cleanup:
+	return fp;
+}
+
+int add_auxillary_files(TAR* in, const char* hashes, const char* hashes_prev, const struct options* opt, int verbose){
+	char template_removed[] = "/var/tmp/removed_XXXXXX";
+	char template_config[] = "/var/tmp/config_XXXXXX";
+	FILE* fp_removed = NULL;
+	FILE* fp_config = NULL;
 	int ret = 0;
-	int i;
+
+	if (tar_add_file_ex(in, hashes, "/checksums", verbose, "Adding checksum list...") != 0){
+		log_warning("Failed to add checksum list");
+		ret = -1;
+	}
+
+	if (hashes_prev){
+		fp_removed = temp_fopen(template_removed);
+		if (!fp_removed){
+			log_efopen(template_removed);
+			ret = -1;
+		}
+		fclose(fp_removed);
+		fp_removed = NULL;
+
+		if (create_removed_list(hashes_prev, template_removed) != 0){
+			log_warning("Failed to create removed list");
+			ret = -1;
+		}
+
+		if (tar_add_file_ex(in, template_removed, "/removed", verbose, "Adding removed list...") != 0){
+			log_warning("Failed to add removed list");
+			ret = -1;
+		}
+	}
+
+	fp_config = temp_fopen(template_config);
+	if (!fp_config){
+		log_efopen(template_config);
+		ret = -1;
+	}
+	fclose(fp_config);
+	fp_config = NULL;
+
+	if (write_options_tofile(template_config, opt) != 0){
+		log_warning("Failed to write current config to file");
+		ret = -1;
+	}
+
+	if (tar_add_file_ex(in, template_config, "/config", verbose, "Adding config file...") != 0){
+		log_warning("Failed to add config list");
+		ret = -1;
+	}
+
+	fp_removed ? fclose(fp_removed) : 0;
+	fp_config ? fclose(fp_config) : 0;
+	remove(template_removed);
+	remove(template_config);
+
+	return ret;
+}
+
+int backup(const struct options* opt){
+	struct backup_params bp;
+	TAR* tp_final = NULL;
+	char template_tar_files[] = "/var/tmp/tar_XXXXXX";
+	char template_tar_complete[] = "/var/tmp/complete_XXXXXX";
+	char template_hashes[] = "/var/tmp/hashes_XXXXXX";
+	char template_hashes_prev[] = "/var/tmp/prev_XXXXXX";
+	FILE* fp_tar_files = NULL;
+	FILE* fp_tar_complete = NULL;
+	char* file_out = NULL;
+	char* backup_intar = NULL;
+
+	int ret = 0;
+	size_t i;
 
 	/* load bp.opt */
 	memset(&bp, 0, sizeof(bp));
 	bp.opt = opt;
 
 	/* create temp files */
-	fp_tar = temp_fopen(template_tar);
-	if (!fp_tar){
+	fp_tar_files = temp_fopen(template_tar_files);
+	fp_tar_complete = temp_fopen(template_tar_complete);
+	bp.fp_hashes = temp_fopen(template_hashes);
+	if (!fp_tar_files ||
+			!fp_tar_complete ||
+			!bp.fp_hashes){
 		log_debug("Failed to create temp file");
 		ret = -1;
 		goto cleanup;
 	}
+	fclose(fp_tar_files);
+	fp_tar_files = NULL;
+	fclose(fp_tar_complete);
+	fp_tar_complete = NULL;
 
-	/* determine backup name */
-	if (get_default_backup_name(opt, &file_out) != 0){
-		log_debug("Failed to generate backup name");
+	if (opt->prev_backup){
+		if ((bp.fp_hashes_prev = extract_prev_checksums(opt->prev_backup, template_hashes_prev)) == NULL){
+			log_debug("Failed to extract prev checksums");
+			ret = -1;
+			goto cleanup;
+		}
+	}
+
+	/* prepare output paths */
+	file_out = sh_concat(get_default_backup_base(opt->output_directory), get_archive_extension());
+	backup_intar = add_backup_extension(sh_dup("/files"), opt);
+	if (!file_out || !backup_intar){
+		log_error("Failed to determine backup name");
 		ret = -1;
 		goto cleanup;
 	}
-
-	config_out = malloc(strlen(file_out) + sizeof(".conf"));
-	if (!config_out){
-		log_enomem();
-		ret = -1;
-		goto cleanup;
-	}
-	strcpy(config_out, file_out);
-	strcat(config_out, ".conf");
 
 	/* create tar */
 	printf("Adding files to %s...\n", file_out);
-	bp.tp = tar_create(template_tar, bp.opt->comp_algorithm, bp.opt->comp_level);
+	bp.tp = tar_create(template_tar_files, bp.opt->comp_algorithm, bp.opt->comp_level);
 	if (!bp.tp){
 		log_debug("Failed to create tar");
 		ret = -1;
@@ -243,8 +273,8 @@ int backup(struct options* opt, const char* file_hashes_prev){
 	}
 
 	/* add files to tar */
-	for (i = 0; i < bp.opt->directories_len; ++i){
-		enum_files(bp.opt->directories[i], func, &bp, error, NULL);
+	for (i = 0; i < bp.opt->directories->len; ++i){
+		enum_files(bp.opt->directories->strings[i], func, &bp, error, NULL);
 	}
 	if (fclose(bp.fp_hashes) != 0){
 		log_efclose(template_hashes);
@@ -254,51 +284,61 @@ int backup(struct options* opt, const char* file_hashes_prev){
 		log_efclose(template_hashes_prev);
 	}
 	bp.fp_hashes_prev = NULL;
-
-	/* add /checksums /config /removed */
-	if (add_auxillary_files(bp.tp, template_hashes, template_hashes_prev, opt_prev, bp.opt->flags & FLAG_VERBOSE) != 0){
-		log_debug("Failed to add one or more auxillary files");
-	}
-
 	if (tar_close(bp.tp) != 0){
 		log_warning("Failed to close tar. Data corruption possible");
 	}
 	bp.tp = NULL;
 
+	/* create final tar */
+	tp_final = tar_create(file_out, COMPRESSOR_NONE, 0);
+	if (!tp_final){
+		log_error("Failed to create final tar");
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (tar_add_file_ex(tp_final, template_tar_files, backup_intar, bp.opt->flags.bits.flag_verbose, file_out)){
+		log_error("Failed to add files to final output");
+		ret = -1;
+		goto cleanup;
+	}
+
+	/* add /checksums /config /removed */
+	if (add_auxillary_files(tp_final, template_hashes, opt->prev_backup ? template_hashes_prev : NULL, bp.opt, bp.opt->flags.bits.flag_verbose) != 0){
+		log_debug("Failed to add one or more auxillary files");
+	}
+
+	if (tar_close(tp_final) != 0){
+		log_warning("Failed to close final output. Data corruption possible");
+	}
+
 	/* encrypt output */
 	if (bp.opt->enc_algorithm){
-		if (easy_encrypt(template_tar, file_out, bp.opt->enc_algorithm, bp.opt->flags & FLAG_VERBOSE) != 0){
+		if (easy_encrypt_inplace(file_out, bp.opt->enc_algorithm, bp.opt->flags.bits.flag_verbose) != 0){
 			log_warning("Failed to encrypt file");
 		}
 	}
-	else{
-		if (rename_ex(template_tar, file_out) != 0){
-			log_warning("Failed to create destination file");
-		}
-	}
 
-	if (write_config_file(opt, config_out) != 0){
-		log_warning("Failed to write config file");
-	}
 	/* previous backup is now current backup */
-	bp.opt->prev_backup = file_out;
+	set_home_conf_dir(file_out);
 
 cleanup:
-	if (fp_tar && fclose(fp_tar) != 0){
-		log_efclose(template_tar);
+	if (fp_tar_files && fclose(fp_tar_files) != 0){
+		log_efclose(template_tar_files);
+	}
+	if (fp_tar_complete && fclose(fp_tar_complete) != 0){
+		log_efclose(template_tar_complete);
 	}
 	if (bp.tp && tar_close(bp.tp) != 0){
 		log_warning("Failed to close tar. Data corruption possible");
 	}
-	if (bp.fp_hashes && fclose(bp.fp_hashes) != 0){
-		log_efclose(template_hashes);
+	if (tp_final && tar_close(tp_final) != 0){
+		log_warning("Failed to close final tar. Data corruption possible");
 	}
-	if (bp.fp_hashes_prev && fclose(bp.fp_hashes_prev) != 0){
-		log_efclose(template_hashes_prev);
-	}
-	remove(template_tar);
+	remove(template_tar_files);
+	remove(template_tar_complete);
 	remove(template_hashes);
 	remove(template_hashes_prev);
-	free(config_out);
+	free(file_out);
 	return ret;
 }

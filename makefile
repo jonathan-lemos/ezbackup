@@ -16,7 +16,7 @@ DBGFLAGS=-g -rdynamic
 CXXDBGFLAGS=-g -rdynamic
 RELEASEFLAGS=-O3
 CXXRELEASEFLAGS=-O3
-DIRECTORIES=. cloud
+DIRECTORIES=. cloud crypt
 # HEADERS=fileiterator maketar crypt readfile error checksum progressbar options checksumsort
 HEADERS=$(foreach directory,$(DIRECTORIES),$(shell ls $(directory) | grep .*\\.c$$ | sed 's|\(.*\)\.c$$|$(directory)/\1|g;s|.*main||g'))
 CXXHEADERS=$(foreach directory,$(DIRECTORIES),$(shell ls $(directory) | grep .*\\.cpp$$ | sed 's|\(.*\)\.cpp$$|$(directory)/\1|g'))
@@ -65,8 +65,8 @@ clean:
 
 .PHONY: linecount
 linecount:
-	wc -l *.c *.h makefile readme.txt cloud/*.cpp cloud/*.h cloud/*.c tests/*.h tests/*.c
+	wc -l makefile readme.txt $(foreach dir,$(DIRECTORIES),$(dir)/*.c $(dir)/*.cpp) tests/*.c tests/*.cpp
 
 .PHONY: linecount_notests
 linecount_notests:
-	wc -l *.c *.h makefile readme.txt cloud/*.cpp cloud/*.h cloud/*.c
+	wc -l makefile readme.txt $(foreach dir,$(DIRECTORIES),$(dir)/*.c $(dir)/*.cpp)
