@@ -50,6 +50,10 @@ char* get_stdin_secure(const char* prompt){
 	printf("%s", prompt);
 
 	str = calloc(1, 1);
+	if (!str){
+		log_enomem();
+		return NULL;
+	}
 
 	do{
 		char* tmp;
@@ -176,6 +180,11 @@ int crypt_getpassword(const char* prompt, const char* verify_prompt, char** out)
 
 	/* get password */
 	*out = get_stdin_secure(prompt);
+	if (!(*out)){
+		log_error("Failed to get password from stdin");
+		ret = -1;
+		goto cleanup;
+	}
 
 	if (!verify_prompt){
 		log_info("verify_prompt is NULL so returning now");
@@ -198,6 +207,11 @@ int crypt_getpassword(const char* prompt, const char* verify_prompt, char** out)
 
 	/* verify the password */
 	*out = get_stdin_secure(verify_prompt);
+	if (!(*out)){
+		log_error("Failed to get password from stdin");
+		ret = -1;
+		goto cleanup;
+	}
 
 	/* same old deal */
 	if ((ret = crypt_hashpassword((unsigned char*)*out, strlen(*out), &salt, &salt_len, &hash2, &hash_len)) != 0){
@@ -223,5 +237,24 @@ cleanup:
 	if (terminal_set_echo(1) != 0){
 		log_warning("Failed to re-enable terminal echo");
 	}
+
+	if (ret != 0){
+		if (*out){
+			crypt_scrub(*out, strlen(*out));
+		}
+		free(*out);
+		*out = NULL;
+	}
+
 	return ret;
+}
+
+void crypt_erasepassword(char* password){
+	if (!password){
+		log_debug("password was NULL");
+		return;
+	}
+
+	crypt_scrub(password, strlen(password));
+	free(password);
 }

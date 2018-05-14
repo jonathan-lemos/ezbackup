@@ -10,6 +10,7 @@
 #define __CRYPT_CRYPT_GETPASSWORD_H
 
 int crypt_getpassword(const char* prompt, const char* verify_prompt, char** out);
+int crypt_erasepassword(char* password);
 
 #ifdef __UNIT_TESTING__
 int terminal_set_echo(int enable);

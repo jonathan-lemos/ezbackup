@@ -48,14 +48,14 @@ int display_menu(const char** options, int num_options, const char* title);
 int parse_options_cmdline(int argc, char** argv, struct options** out, enum OPERATION* op_out);
 int parse_options_menu(struct options* opt);
 void free_options(struct options* o);
-struct options* get_default_options(void);
+struct options* options_new(void);
 int parse_options_fromfile(const char* file, struct options** output);
 int write_options_tofile(const char* file, const struct options* opt);
-int set_home_conf_dir(const char* dir);
-int get_home_conf_dir(char** out);
+int set_last_backup_dir(const char* dir);
+int get_last_backup_dir(char** out);
 
 #ifdef __UNIT_TESTING__
-int get_home_conf_file(char** out);
+int get_last_backup_file(char** out);
 #endif
 
 #endif

@@ -104,7 +104,10 @@ void sa_sort(struct string_array* array){
 void sa_free(struct string_array* array){
 	size_t i;
 
-	return_ifnull(array, ;);
+	if (!array){
+		log_debug("array was NULL");
+		return;
+	}
 
 	for (i = 0; i < array->len; ++i){
 		free(array->strings[i]);

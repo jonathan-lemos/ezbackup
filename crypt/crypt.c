@@ -9,13 +9,15 @@
 /* prototypes */
 #include "crypt.h"
 /* read_file() */
-#include "../readfile.h"
+#include "../filehelper.h"
 /* handling errors */
 #include "../error.h"
 #include <errno.h>
 #include <openssl/err.h>
 /* progress bar */
 #include "../progressbar.h"
+
+#include "../stringhelper.h"
 /* swiggity swass get pass */
 #include <termios.h>
 /* file size */
@@ -31,6 +33,12 @@
 #include <unistd.h>
 /* memcmp */
 #include <string.h>
+
+#include <stdint.h>
+
+#if (CHAR_BIT != 8)
+#error "CHAR_BIT must be 8"
+#endif
 
 struct crypt_keys* crypt_new(void){
 	struct crypt_keys* ret;

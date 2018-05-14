@@ -13,7 +13,7 @@
 #include <errno.h>
 #include <openssl/err.h>
 /* read_file() */
-#include "readfile.h"
+#include "filehelper.h"
 /* sorting the file */
 #include "checksumsort.h"
 /* FILE* */
@@ -29,6 +29,10 @@
 
 /* debugging purposes */
 #include <assert.h>
+
+#if (CHAR_BIT != 8)
+#error "CHAR_BIT must be 8"
+#endif
 
 const EVP_MD* get_evp_md(const char* hash_name){
 	return hash_name ? EVP_get_digestbyname(hash_name) : EVP_md_null();
