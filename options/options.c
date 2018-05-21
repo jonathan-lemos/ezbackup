@@ -14,6 +14,8 @@
 
 #include "filehelper.h"
 
+#include "crypt/base64.h"
+
 #include "stringhelper.h"
 /* printf */
 #include <stdio.h>
@@ -396,7 +398,8 @@ int parse_options_fromfile(const char* file, struct options** output){
 	}
 
 	fscanf(fp, "\nENC_PASSWORD=");
-	opt->enc_password = read_file_string(fp);
+	tmp = read_file_string(fp);
+	opt->enc_password = (char*)from_base64((unsigned char*)tmp, strlen(tmp), NULL);
 	if (strcmp(opt->enc_password, "") == 0){
 		free(opt->enc_password);
 		opt->enc_password = NULL;

@@ -43,6 +43,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
 #define log_efclose(file) log_msg(__FILE__, __LINE__, LEVEL_WARNING, "Error closing %s. Data corruption possible.", file)
 #define log_emode() log_msg(__FILE__, __LINE__, LEVEL_ERROR, "A file pointer is opened in the incorrect mode")
 #define log_estat(file) log_msg(__FILE__, __LINE__, LEVEL_ERROR, "Failed to stat %s (%s)", file, strerror(errno))
+#define log_etmpfopen() log_msg(__FILE__, __LINE__, LEVEL_ERROR, "Failed to create temporary file")
 
 #define return_ifnull(arg, ret) if (!arg){ log_enull(arg); return ret; }
 

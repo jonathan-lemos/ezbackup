@@ -16,26 +16,9 @@
 /* uintptr_t */
 #include <stdint.h>
 
-/* Enumerates through all files starting at dir
- *
- * Parameters:
- *     dir          - Directory in which to start iterating files
- *
- *     func         - Function pointer to receive info on file
- *					  Return 0 to stop iterating.
- *
- *     func_params  - Data for func
- *
- *     error        - Function pointer to handle errors.
- *				      Returns 0 to stop iterating.
- *
- */
-void enum_files(
-		const char* dir,
-		int(*func)(const char* file, const char* dir, struct stat* st, void* params),
-		void* func_params,
-		int(*error)(const char* file, int __errno, void* params),
-		void* error_params
-		);
+int fi_start(const char* dir);
+char* fi_get_next(void);
+int fi_skip_current_dir(void);
+void fi_end(void);
 
 #endif

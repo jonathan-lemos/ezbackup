@@ -9,7 +9,7 @@
 #ifndef __BACKUP_H
 #define __BACKUP_H
 
-#include "options.h"
+#include "options/options.h"
 
 int backup(const struct options* opt);
 

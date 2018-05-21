@@ -10,9 +10,9 @@
 #define __OPTIONS_H
 
 /* compressor */
-#include "maketar.h"
-#include "cloud/include.h"
-#include "stringarray.h"
+#include "../maketar.h"
+#include "../cloud/include.h"
+#include "../strings/stringarray.h"
 #include <openssl/evp.h>
 
 enum OPERATION{

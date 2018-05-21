@@ -272,7 +272,7 @@ int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, F
 }
 
 int sort_checksum_file(const char* in, const char* out){
-	FILE** tmp_files = NULL;
+	struct TMPFILE** tmp_files = NULL;
 	size_t n_files = 0;
 	FILE* fp_in = NULL;
 	FILE* fp_out = NULL;
@@ -308,7 +308,7 @@ int sort_checksum_file(const char* in, const char* out){
 
 cleanup:
 	for (i = 0; i < n_files; ++i){
-		fclose(tmp_files[i]);
+		temp_fclose(tmp_files[i]);
 	}
 	fp_in ? fclose(fp_in) : 0;
 	fp_out ? fclose(fp_out) : 0;

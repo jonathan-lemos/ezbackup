@@ -274,24 +274,16 @@ void free_filearray(FILE** elements, size_t size){
 	free(elements);
 }
 
-static int set_file_limit(int num){
-	struct rlimit rl;
-	rl.rlim_cur = num + 1;
-	rl.rlim_max = num + 1;
-	return setrlimit(RLIMIT_NOFILE, &rl);
-}
-
 /* you know this is going to be good when there's a triple pointer */
 
 /* reads MAX_RUN_SIZE bytes worth of elements into ram,
  * sorts them, and writes them to one or more files */
-int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
+int create_initial_runs(FILE* fp_in, struct TMPFILE*** out, size_t* n_files){
 	struct element** elems = NULL;
 	struct element* tmp = NULL;
 	int elems_len = 0;
 	int total_len = 0;
 	int end_of_file = 0;
-	int lim;
 
 	/* check null arguments */
 	return_ifnull(fp_in, -1);
@@ -304,19 +296,11 @@ int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
 	}
 	rewind(fp_in);
 
-	lim = get_file_size(fp_in) / MAX_RUN_SIZE + 1024;
-
-	if (set_file_limit(lim) != 0){
-		log_msg(__FILE__, __LINE__, LEVEL_WARNING, "Could not set max file limit (%s)", strerror(errno));
-	}
-
 	*out = NULL;
 	*n_files = 0;
 
 	while (!end_of_file){
-		/* /var/tmp is mounted to disk, not RAM */
-		FILE* fp;
-		char template_merge[] = "/var/tmp/merge_XXXXXX";
+		struct TMPFILE* tfp;
 		int i;
 
 		/* make a new temp file */
@@ -327,18 +311,13 @@ int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
 			log_enomem();
 			return -1;
 		}
-		if ((fp = temp_fopen(template_merge)) == NULL){
+		if ((tfp = temp_fopen()) == NULL){
 			log_error("Failed to create temporary merge file");
 			(*n_files)--;
 			*out = realloc(*out, *n_files * sizeof(**out));
 			return -1;
 		}
-		(*out)[*n_files - 1] = fp;
-
-		/* auto remove merge file when fp closes */
-		if (unlink(template_merge) != 0){
-			log_msg(__FILE__, __LINE__, LEVEL_WARNING, "Failed to unlink %s (%s)", template_merge, strerror(errno));
-		}
+		(*out)[*n_files - 1] = tfp;
 
 		/* read enough elements to fill MAX_RUN_SIZE */
 		/* TODO: this reads one element above MAX_RUN_SIZE
@@ -358,7 +337,7 @@ int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
 		/* if we didn't read any elements */
 		if (!elems_len){
 			/* we're at the end of the file */
-			fclose(fp);
+			temp_fclose(tfp);
 			(*n_files)--;
 			*out = realloc(*out, *n_files * sizeof(**out));
 			if (!(*out)){
@@ -372,11 +351,11 @@ int create_initial_runs(FILE* fp_in, FILE*** out, size_t* n_files){
 		quicksort_elements(elems, 0, elems_len - 1);
 		/* write them to the file */
 		for (i = 0; i < elems_len; ++i){
-			if (write_element_to_file(fp, elems[i]) != 0){
+			if (write_element_to_file(tfp->fp, elems[i]) != 0){
 				log_debug("Failed to write element to file");
 			}
 		}
-		if (fflush(fp) != 0){
+		if (fflush(tfp->fp) != 0){
 			log_warning("Failed to flush merge file");
 		}
 		/* cleanup */
@@ -419,7 +398,7 @@ void minheapify(minheapnode* elements, int elements_len, int index){
 }
 
 /* merges the initial runs into one big file */
-int merge_files(FILE** in, size_t n_files, FILE* fp_out){
+int merge_files(struct TMPFILE** in, size_t n_files, FILE* fp_out){
 	minheapnode* mhn = NULL;
 	size_t count = 0;
 	size_t i;
@@ -436,7 +415,7 @@ int merge_files(FILE** in, size_t n_files, FILE* fp_out){
 
 	/* rewind input files so they can be used for reading */
 	for (i = 0; i < n_files; ++i){
-		rewind(in[i]);
+		rewind(in[i]->fp);
 	}
 
 	/* make space for the min heap nodes */
@@ -447,7 +426,7 @@ int merge_files(FILE** in, size_t n_files, FILE* fp_out){
 	}
 	/* get the first element from each file */
 	for (i = 0; i < n_files; ++i){
-		mhn[i].e = get_next_checksum_element(in[i]);
+		mhn[i].e = get_next_checksum_element(in[i]->fp);
 		mhn[i].i = i;
 	}
 	/* balance our heap */
@@ -463,7 +442,7 @@ int merge_files(FILE** in, size_t n_files, FILE* fp_out){
 		free_element(mhn[0].e);
 
 		/* replace root element with next from that file */
-		mhn[0].e = get_next_checksum_element(in[mhn[0].i]);
+		mhn[0].e = get_next_checksum_element(in[mhn[0].i]->fp);
 		/* if file is empty */
 		if (!mhn[0].e){
 			/* raise the counter */
@@ -496,7 +475,7 @@ int search_file(FILE* fp, const char* key, char** checksum){
 	return_ifnull(checksum, -1);
 
 	/* start at half of file */
-	size = get_file_size(fp);
+	size = get_file_size_fp(fp);
 	low = 0;
 	high = size - 1;
 
@@ -506,7 +485,7 @@ int search_file(FILE* fp, const char* key, char** checksum){
 	 * it's more efficient just to linearly search
 	 * at that point */
 	while ((high - low) >= end_bsearch_threshold){
-		__off_t mid = (high + low) >> 1;
+		off_t mid = (high + low) >> 1;
 		/* go to pivot */
 		fseek(fp, mid, SEEK_SET);
 		fgetc(fp);

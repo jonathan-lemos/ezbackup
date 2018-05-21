@@ -6,17 +6,17 @@
 # of the MIT license.  See the LICENSE file for details.
 
 NAME=ezbackup
-VERSION=0.2\ beta
+VERSION=0.3\ beta
 CC=gcc
 CXX=g++
 CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 CXXFLAGS=-Wall -Wextra -pedantic -std=c++11 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega -lstdc++ -ledit
-DBGFLAGS=-g -rdynamic
-CXXDBGFLAGS=-g -rdynamic
+DBGFLAGS=-g -rdynamic -D_FORTIFY_SOURCE=1 -O1
+CXXDBGFLAGS=-g -rdynamic -D_FORTIFY_SOURCE=1 -01
 RELEASEFLAGS=-O3
 CXXRELEASEFLAGS=-O3
-DIRECTORIES=. cloud crypt
+DIRECTORIES=. cloud crypt options strings
 # HEADERS=fileiterator maketar crypt readfile error checksum progressbar options checksumsort
 HEADERS=$(foreach directory,$(DIRECTORIES),$(shell ls $(directory) | grep .*\\.c$$ | sed 's|\(.*\)\.c$$|$(directory)/\1|g;s|.*main||g'))
 CXXHEADERS=$(foreach directory,$(DIRECTORIES),$(shell ls $(directory) | grep .*\\.cpp$$ | sed 's|\(.*\)\.cpp$$|$(directory)/\1|g'))

@@ -64,3 +64,18 @@ const char* sh_file_name(const char* in){
 	}
 	return in;
 }
+
+int sh_starts_with(const char* haystack, const char* needle){
+	size_t i;
+
+	if (strlen(haystack) < strlen(needle)){
+		return 0;
+	}
+
+	for (i = 0; i < strlen(needle); ++i){
+		if (haystack[i] != needle[i]){
+			return 0;
+		}
+	}
+	return 1;
+}

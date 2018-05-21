@@ -6,23 +6,30 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#ifndef __READFILE_H
-#define __READFILE_H
+#ifndef __FILEHELPER_H
+#define __FILEHELPER_H
 
 #include <stdio.h>
 #include <stddef.h>
-#include <sys/types.h>
+#include <stdint.h>
 
 #ifndef BUFFER_LEN
 #define BUFFER_LEN (1 << 16)
 #endif
 
+struct TMPFILE{
+	FILE* fp;
+	char* name;
+};
+
 int read_file(FILE* fp, unsigned char* dest, size_t length);
-FILE* temp_fopen(char* __template);
+struct TMPFILE* temp_fopen(void);
+int temp_fflush(struct TMPFILE* tfp);
+void temp_fclose(struct TMPFILE* tfp);
 int file_opened_for_reading(FILE* fp);
 int file_opened_for_writing(FILE* fp);
-off_t get_file_size_fp(FILE* fp);
-off_t get_file_size(const char* file);
+uint64_t get_file_size_fp(FILE* fp);
+uint64_t get_file_size(const char* file);
 int copy_file(const char* _old, const char* _new);
 int rename_file(const char* _old, const char* _new);
 
