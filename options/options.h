@@ -16,7 +16,7 @@
 #include <openssl/evp.h>
 
 enum OPERATION{
-	OP_INVALID = 0,
+	OP_INVALID = -1,
 	OP_BACKUP  = 1,
 	OP_RESTORE = 2,
 	OP_CONFIGURE = 3,
@@ -44,9 +44,8 @@ struct options{
 
 void version(void);
 void usage(const char* progname);
-int display_menu(const char** options, int num_options, const char* title);
 int parse_options_cmdline(int argc, char** argv, struct options** out, enum OPERATION* op_out);
-int parse_options_menu(struct options* opt);
+enum OPERATION parse_options_menu(struct options** opt);
 void free_options(struct options* o);
 struct options* options_new(void);
 int parse_options_fromfile(const char* file, struct options** output);

@@ -7,11 +7,11 @@
  */
 
 #include "options.h"
-#include "cli.h"
-#include "crypt/crypt.h"
-#include "crypt/crypt_getpassword.h"
-#include "error.h"
-#include "stringhelper.h"
+#include "../cli.h"
+#include "../crypt/crypt.h"
+#include "../crypt/crypt_getpassword.h"
+#include "../log.h"
+#include "../strings/stringhelper.h"
 #include <string.h>
 #if defined(__linux__)
 #include <editline/readline.h>
@@ -208,7 +208,7 @@ int menu_enc_password(struct options* opt){
 			free(opt->enc_password);
 		}
 		opt->enc_password = NULL;
-		crypt_erasepassword(pw);
+		crypt_freepassword(pw);
 		return 0;
 	}
 	else{
@@ -216,7 +216,7 @@ int menu_enc_password(struct options* opt){
 			free(opt->enc_password);
 		}
 		opt->enc_password = sh_dup(pw);
-		crypt_erasepassword(pw);
+		crypt_freepassword(pw);
 	}
 
 	return 0;
@@ -433,22 +433,22 @@ int menu_cloud_password(struct options* opt){
 	}
 	if (res < 0){
 		log_error("Failed to read password");
-		crypt_erasepassword(buf);
+		crypt_freepassword(buf);
 		return -1;
 	}
 
 	if (strcmp(buf, "") == 0){
 		co_set_password(opt->cloud_options, NULL);
-		crypt_erasepassword(buf);
+		crypt_freepassword(buf);
 		return 0;
 	}
 	else if (co_set_password(opt->cloud_options, buf) != 0){
 		log_debug("Failed to set password");
-		crypt_erasepassword(buf);
+		crypt_freepassword(buf);
 		return -1;
 	}
 
-	crypt_erasepassword(buf);
+	crypt_freepassword(buf);
 	return 0;
 }
 
@@ -544,6 +544,7 @@ int menu_directories_main(struct options* opt){
 			break;
 		}
 	}while (res != 3);
+	return 0;
 }
 
 int menu_encryption_main(struct options* opt){
@@ -557,24 +558,24 @@ int menu_encryption_main(struct options* opt){
 	do{
 		res = display_menu(options_encryption_main, ARRAY_SIZE(options_encryption_main), "Encryption Options");
 		switch (res){
-			case 0:
-				menu_encryption(opt);
-				break;
-			case 1:
-				menu_enc_password(opt);
-				break;
-			case 2:
-				break;
-			default:
-				invalid_option(res, ARRAY_SIZE(options_encryption_main));
-				break;
+		case 0:
+			menu_encryption(opt);
+			break;
+		case 1:
+			menu_enc_password(opt);
+			break;
+		case 2:
+			break;
+		default:
+			invalid_option(res, ARRAY_SIZE(options_encryption_main));
+			break;
 		}
 	}while (res != 2);
 
 	return 0;
 }
 
-int parse_options_menu(struct options* opt){
+int menu_main_configure(struct options* opt){
 	int res;
 	const char* options_main_menu[] = {
 		"Cloud",
@@ -599,9 +600,6 @@ int parse_options_menu(struct options* opt){
 			menu_exclude(opt);
 			break;
 		case 4:
-			menu_output_directory(opt);
-			break;
-		case 5:
 			break;
 		default:
 			invalid_option(res, ARRAY_SIZE(options_main_menu));
@@ -610,4 +608,37 @@ int parse_options_menu(struct options* opt){
 		}
 	}while (res != 5);
 	return 0;
+}
+
+enum OPERATION menu_main(struct options* opt){
+	int res;
+	const char* options_operation[] = {
+		"Backup",
+		"Restore",
+		"Configure",
+		"Exit"
+	};
+
+	do{
+		res = display_menu(options_operation, ARRAY_SIZE(options_operation), "Main Menu");
+		switch (res){
+		case 0:
+			return OP_BACKUP;
+			break;
+		case 1:
+			return OP_RESTORE;
+			break;
+		case 2:
+			menu_main_configure(opt);
+			break;
+		case 3:
+			return OP_EXIT;
+			break;
+		default:
+			invalid_option(res, ARRAY_SIZE(options_operation));
+			return OP_INVALID;
+		}
+	}while (res == 2);
+
+	return OP_INVALID;
 }

@@ -8,15 +8,17 @@
 
 /* prototypes */
 #include "options.h"
+
+#include "options_menu.h"
 /* errors */
-#include "error.h"
+#include "../log.h"
 #include <errno.h>
 
-#include "filehelper.h"
+#include "../crypt/base16.h"
 
-#include "crypt/base64.h"
+#include "../filehelper.h"
 
-#include "stringhelper.h"
+#include "../strings/stringhelper.h"
 /* printf */
 #include <stdio.h>
 /* strcmp */
@@ -27,13 +29,7 @@
 /* char* to EVP_MD(*)(void) */
 #include <openssl/evp.h>
 /* command-line tab completion */
-#if defined(__linux__)
-#include <editline/readline.h>
-#elif defined(__APPLE__)
-#include <readline/readline.h>
-#else
-#error "This operating system is not supported"
-#endif
+#include "../readline_include.h"
 /* is_directory() */
 #include <sys/stat.h>
 /* get home directory */
@@ -73,6 +69,8 @@ void version(void){
 }
 
 void usage(const char* progname){
+	return_ifnull(progname, ;);
+
 	printf("Usage: %s (backup|restore|configure) [options]\n", progname);
 	printf("Options:\n");
 	printf("\t-c, --compressor <gz|bz2|...>\n");
@@ -94,7 +92,7 @@ static int get_backup_directory(char** out){
 	const char* homedir;
 	struct stat st;
 
-	return_ifnull(out, ((int(*)(void))abort)());
+	return_ifnull(out, -1);
 
 	/* get home directory */
 	if (!(homedir = getenv("HOME"))){
@@ -321,6 +319,7 @@ static char* read_file_string(FILE* in){
 int parse_options_fromfile(const char* file, struct options** output){
 	FILE* fp = NULL;
 	char* tmp;
+	unsigned tmp_len;
 	struct options* opt = *output;
 	int ret = 0;
 
@@ -399,11 +398,26 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	fscanf(fp, "\nENC_PASSWORD=");
 	tmp = read_file_string(fp);
-	opt->enc_password = (char*)from_base64((unsigned char*)tmp, strlen(tmp), NULL);
-	if (strcmp(opt->enc_password, "") == 0){
+	if (!tmp || strcmp(tmp, "") == 0){
 		free(opt->enc_password);
 		opt->enc_password = NULL;
 	}
+	else if (from_base16(tmp, strlen(tmp), (unsigned char**)&(opt->enc_password), &tmp_len) != 0){
+		log_warning("Failed to convert password from base16");
+		free(opt->enc_password);
+		opt->enc_password = NULL;
+	}
+	else{
+		opt->enc_password = malloc(tmp_len + 1);
+		if (!opt->enc_password){
+			log_enomem();
+			ret = -1;
+			goto cleanup;
+		}
+		memcpy(opt->enc_password, tmp, tmp_len);
+		opt->enc_password[tmp_len] = '\0';
+	}
+	free(tmp);
 
 	fscanf(fp, "\nCOMPRESSION=%d", &(opt->comp_algorithm));
 
@@ -426,11 +440,27 @@ int parse_options_fromfile(const char* file, struct options** output){
 	}
 
 	fscanf(fp, "\nCLOUD_PASSWORD=");
-	opt->cloud_options->password = read_file_string(fp);
-	if (strcmp(opt->cloud_options->password, "") == 0){
+	tmp = read_file_string(fp);
+	if (!tmp || strcmp(tmp, "") == 0){
 		free(opt->cloud_options->password);
 		opt->cloud_options->password = NULL;
 	}
+	else if (from_base16(tmp, strlen(tmp), (unsigned char**)&(opt->cloud_options->password), &tmp_len) != 0){
+		log_warning("Failed to convert password from base16");
+		free(opt->cloud_options->password);
+		opt->cloud_options->password = NULL;
+	}
+	else{
+		opt->cloud_options->password = malloc(tmp_len + 1);
+		if (!opt->cloud_options->password){
+			log_enomem();
+			ret = -1;
+			goto cleanup;
+		}
+		memcpy(opt->cloud_options->password, tmp, tmp_len);
+		opt->cloud_options->password[tmp_len] = '\0';
+	}
+	free(tmp);
 
 	fscanf(fp, "\nCLOUD_DIRECTORY=");
 	opt->cloud_options->upload_directory = read_file_string(fp);
@@ -445,6 +475,7 @@ cleanup:
 	if (fclose(fp) != 0){
 		log_efclose(file);
 	}
+	free(tmp);
 	return ret;
 }
 
@@ -461,7 +492,8 @@ cleanup:
  *
  */
 int write_options_tofile(const char* file, const struct options* opt){
-	FILE* fp;
+	FILE* fp = NULL;
+	char* tmp = NULL;
 	size_t i;
 
 	if (!file || !opt){
@@ -490,13 +522,25 @@ int write_options_tofile(const char* file, const struct options* opt){
 	fputc('\0', fp);
 	fprintf(fp, "\nCHECKSUM=%s%c", EVP_MD_name(opt->hash_algorithm), '\0');
 	fprintf(fp, "\nENCRYPTION=%s%c", EVP_CIPHER_name(opt->enc_algorithm), '\0');
-	fprintf(fp, "\nENC_PASSWORD=%s%c", opt->enc_password ? opt->enc_password : "", '\0');
+	if (opt->enc_password && to_base16((const unsigned char*)opt->enc_password, strlen(opt->enc_password), &tmp) != 0){
+		log_warning("Failed to convert password to base 16");
+		free(tmp);
+		tmp = NULL;
+	}
+	fprintf(fp, "\nENC_PASSWORD=%s%c", tmp ? tmp : "", '\0');
+	free(tmp);
 	fprintf(fp, "\nCOMPRESSION=%d", opt->comp_algorithm);
 	fprintf(fp, "\nCOMP_LEVEL=%d", opt->comp_level);
 	fprintf(fp, "\nOUTPUT_DIRECTORY=%s%c", opt->output_directory ? opt->output_directory : "", '\0');
 	fprintf(fp, "\nCLOUD_PROVIDER=%d", opt->cloud_options->cp);
 	fprintf(fp, "\nCLOUD_USERNAME=%s%c", opt->cloud_options->username ? opt->cloud_options->username : "", '\0');
-	fprintf(fp, "\nCLOUD_PASSWORD=%s%c", opt->cloud_options->password ? opt->cloud_options->password : "", '\0');
+	if (opt->cloud_options->password && to_base16((const unsigned char*)opt->cloud_options->password, strlen(opt->cloud_options->password), &tmp) != 0){
+		log_warning("Failed to convert password to base 16");
+		free(tmp);
+		tmp = NULL;
+	}
+	fprintf(fp, "\nCLOUD_PASSWORD=%s%c", tmp ? tmp : "", '\0');
+	free(tmp);
 	fprintf(fp, "\nCLOUD_DIRECTORY=%s%c", opt->cloud_options->upload_directory ? opt->cloud_options->upload_directory : "", '\0');
 	fprintf(fp, "\nFLAGS=%u", opt->flags.dword);
 
@@ -600,9 +644,9 @@ int get_last_backup_dir(char** out){
 		goto cleanup;
 	}
 
-	buf[len] = '\0';
 	*out = sh_new();
 	while ((len = read_file(fp_conf, (unsigned char*)buf, sizeof(buf) - 1)) > 0){
+		buf[len] = '\0';
 		*out = sh_concat(*out, buf);
 	}
 
@@ -618,4 +662,13 @@ cleanup:
 	}
 	free(home_conf);
 	return ret;
+}
+
+enum OPERATION parse_options_menu(struct options** opt){
+	*opt = options_new();
+	if (!(*opt)){
+		log_error("Failed to create new options structure");
+		return OP_INVALID;
+	}
+	return menu_main(*opt);
 }

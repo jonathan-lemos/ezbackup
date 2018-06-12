@@ -11,9 +11,10 @@
 
 #include "options.h"
 
-int parse_options_menu(struct options* opt);
+enum OPERATION menu_main(struct options* opt);
 
 #ifdef __UNIT_TESTING__
+int menu_main_configure(struct options* opt);
 int menu_compression_level(struct options* opt);
 int menu_compressor(struct options* opt);
 int menu_checksum(struct options* opt);

@@ -8,8 +8,7 @@
 
 #include "mega.h"
 extern "C"{
-#include "../error.h"
-#include "../crypt.h"
+#include "../log.h"
 #include "../progressbar.h"
 }
 #include "mega_sdk/include/megaapi.h"
@@ -139,22 +138,8 @@ int MEGAlogin(const char* email, const char* password, MEGAhandle** out){
 
 	mega_api = new mega::MegaApi(API_KEY, (const char*)NULL, "ezbackup");
 
-	if (!password){
-		prompt = "Enter password for ";
-		prompt += email;
+	mega_api->login(email, password, &listener);
 
-		if (crypt_getpassword(prompt.c_str(), NULL, pwbuffer, sizeof(pwbuffer)) != 0){
-			log_error("MEGA: Failed to read password from terminal.");
-			crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-			delete mega_api;
-			return -1;
-		}
-		mega_api->login(email, pwbuffer, &listener);
-		crypt_scrub(pwbuffer, strlen(pwbuffer) + 5 + crypt_randc() % 11);
-	}
-	else{
-		mega_api->login(email, password, &listener);
-	}
 	if (listener.trywait(MEGA_WAIT_MS) != 0){
 		std::cerr << "Connection timed out" << std::endl;
 		return 1;

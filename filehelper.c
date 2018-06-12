@@ -11,7 +11,7 @@
 
 #include "strings/stringhelper.h"
 /* error handling */
-#include "error.h"
+#include "log.h"
 #include <errno.h>
 #include <string.h>
 /* FILE* */

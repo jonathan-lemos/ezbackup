@@ -7,7 +7,7 @@
  */
 
 #include "crypt.h"
-#include "../error.h"
+#include "../log.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -249,11 +249,8 @@ cleanup:
 	return ret;
 }
 
-void crypt_erasepassword(char* password){
-	if (!password){
-		log_debug("password was NULL");
-		return;
-	}
+void crypt_freepassword(char* password){
+	return_ifnull(password, ;);
 
 	crypt_scrub(password, strlen(password));
 	free(password);

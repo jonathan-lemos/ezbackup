@@ -11,7 +11,7 @@
 #include "filehelper.h"
 #include "crypt/crypt_easy.h"
 #include "fileiterator.h"
-#include "error.h"
+#include "log.h"
 #include "checksum.h"
 #include "options/options.h"
 #include "strings/stringhelper.h"

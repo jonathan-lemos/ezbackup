@@ -9,7 +9,7 @@
 /* prototypes */
 #include "progressbar.h"
 /* error handling */
-#include "error.h"
+#include "log.h"
 /* terminal width */
 #include <sys/ioctl.h>
 /* STDOUT_FILENO */

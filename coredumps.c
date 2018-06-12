@@ -7,7 +7,7 @@
  */
 
 #include "coredumps.h"
-#include "error.h"
+#include "log.h"
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>

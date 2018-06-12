@@ -11,13 +11,13 @@
 /* read_file() */
 #include "../filehelper.h"
 /* handling errors */
-#include "../error.h"
+#include "../log.h"
 #include <errno.h>
 #include <openssl/err.h>
 /* progress bar */
 #include "../progressbar.h"
 
-#include "../stringhelper.h"
+#include "../strings/stringhelper.h"
 /* swiggity swass get pass */
 #include <termios.h>
 /* file size */

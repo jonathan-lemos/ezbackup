@@ -1,5 +1,5 @@
-#ifndef __ERROR_H
-#define __ERROR_H
+#ifndef __LOG_H
+#define __LOG_H
 
 #include <stdarg.h>
 

@@ -8,8 +8,10 @@
 
 /* prototypes */
 #include "checksum.h"
+
+#include "crypt/base16.h"
 /* error handling */
-#include "error.h"
+#include "log.h"
 #include <errno.h>
 #include <openssl/err.h>
 /* read_file() */
@@ -39,6 +41,8 @@ const EVP_MD* get_evp_md(const char* hash_name){
 }
 
 int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out){
+	return to_base16(bytes, len, out);
+	/*
 	unsigned i;
 	unsigned outptr;
 	unsigned outlen;
@@ -51,8 +55,8 @@ int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out){
 	return_ifnull(bytes, -1);
 	return_ifnull(out, -1);
 
-	/* 2 hex chars = 1 byte */
-	/* +1 for null terminator */
+	/ 2 hex chars = 1 byte /
+	/ +1 for null terminator /
 	outlen = len * 2 + 1;
 	*out = malloc(outlen);
 	if (!out){
@@ -61,18 +65,19 @@ int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out){
 	}
 
 	for (i = 0, outptr = 0; i < len; ++i, outptr += 2){
-		/* NOTE TO SELF:
-		 * (*out)[x] != *out[x] */
+		/ NOTE TO SELF:
+		  (*out)[x] != *out[x] /
 
-		/* converts top 4 bits to a hex digit */
+		/ converts top 4 bits to a hex digit /
 		(*out)[outptr] = hexmap[(bytes[i] & 0xF0) >> 4];
-		/* converts bottom 4 bits */
+		/ converts bottom 4 bits /
 		(*out)[outptr + 1] = hexmap[(bytes[i] & 0x0F)];
 	}
-	/* since '\0' is not a valid hex char, we can null-terminate */
+	/ since '\0' is not a valid hex char, we can null-terminate /
 	(*out)[outlen - 1] = '\0';
 
 	return 0;
+	*/
 }
 
 /*

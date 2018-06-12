@@ -9,7 +9,7 @@
 /* prototypes */
 #include "checksumsort.h"
 /* errors */
-#include "error.h"
+#include "log.h"
 #include <errno.h>
 /* reading them files */
 #include "filehelper.h"

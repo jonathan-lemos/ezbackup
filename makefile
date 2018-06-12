@@ -61,7 +61,7 @@ test: $(TESTEXECS) $(TESTOBJECTS) $(DBGOBJECTS) $(CXXDBGOBJECTS) tests/test_base
 
 .PHONY: clean
 clean:
-	rm -f *.o $(NAME) $(CLEANOBJECTS) $(CLEANCXXOBJECTS) main.c.* vgcore.* $(TESTOBJECTS) $(TESTCXXOBJECTS) tests/*.o cloud/*.o $(TESTEXECS)
+	rm -f *.o $(NAME) $(CLEANOBJECTS) $(CLEANCXXOBJECTS) main.c.* vgcore.* $(TESTOBJECTS) $(TESTCXXOBJECTS) tests/*.o cloud/*.o $(TESTEXECS) $(DBGOBJECTS) $(OBJECTS)
 
 .PHONY: linecount
 linecount:

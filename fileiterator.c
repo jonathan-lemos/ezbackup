@@ -9,7 +9,7 @@
 /* prototypes */
 #include "fileiterator.h"
 
-#include "error.h"
+#include "log.h"
 
 #include "strings/stringhelper.h"
 /* enumerates files in directory */
@@ -90,7 +90,7 @@ static int directory_push(const char* dir){
 	return 0;
 }
 
-static struct directory* directory_get_top(void){
+static struct directory* directory_peek(void){
 	if (!dir_stack){
 		return NULL;
 	}
@@ -116,7 +116,7 @@ char* fi_get_next(void){
 	struct directory* dir = NULL;
 	struct stat st;
 
-	dir = directory_get_top();
+	dir = directory_peek();
 	if (!dir){
 		log_info("Directory stack is empty");
 		return NULL;

@@ -9,7 +9,7 @@
 #ifndef __RESTORE_H
 #define __RESTORE_H
 
-#include "options.h"
+#include "options/options.h"
 
 int restore_local_menu(const struct options* opt, char** out_file, char** out_config);
 int restore_cloud(const struct options* opt, char** out_file, char** out_config);

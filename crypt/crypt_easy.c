@@ -9,7 +9,7 @@
 #include "crypt_easy.h"
 #include "crypt.h"
 #include "crypt_getpassword.h"
-#include "../error.h"
+#include "../log.h"
 #include "../coredumps.h"
 #include "../filehelper.h"
 #include <string.h>
@@ -144,8 +144,7 @@ int easy_encrypt_inplace(const char* in_out, const EVP_CIPHER* enc_algorithm, in
 	struct crypt_keys* fk = NULL;
 	char prompt[128];
 	char* passwd = NULL;
-	char template_tmp[] = "/var/tmp/crypt_XXXXXX";
-	FILE* fp_tmp = NULL;
+	struct TMPFILE* tfp_tmp = NULL;
 	int ret = 0;
 
 	/* disable core dumps if possible */
@@ -194,30 +193,33 @@ int easy_encrypt_inplace(const char* in_out, const EVP_CIPHER* enc_algorithm, in
 	/* don't need to scrub entire buffer, just where the password was */
 	crypt_scrub(passwd, strlen(passwd));
 
-	fp_tmp = temp_fopen(template_tmp);
-	if (!fp_tmp){
+	tfp_tmp = temp_fopen();
+	if (!tfp_tmp){
 		log_error("Failed to make temporary file");
 		ret = -1;
 		goto cleanup;
 	}
-	fclose(fp_tmp);
-	fp_tmp = NULL;
-	if (rename_file(in_out, template_tmp) != 0){
+
+	if (rename_file(in_out, tfp_tmp->name) != 0){
 		log_error("Failed to move file to temporary location");
 		ret = -1;
 		goto cleanup;
 	}
 
-	if ((crypt_encrypt_ex(template_tmp, fk, in_out, verbose, "Encrypting file...")) != 0){
-		rename_file(template_tmp, in_out);
+	temp_fflush(tfp_tmp);
+
+	if ((crypt_encrypt_ex(tfp_tmp->name, fk, in_out, verbose, "Encrypting file...")) != 0){
+		rename_file(tfp_tmp->name, in_out);
 		log_debug("crypt_encrypt() failed");
 		ret = -1;
 		goto cleanup;
 	}
 
 cleanup:
-	fp_tmp ? fclose(fp_tmp) : 0;
-	remove(template_tmp);
+	tfp_tmp ? remove(tfp_tmp->name) : 0;
+	if (tfp_tmp){
+		temp_fclose(tfp_tmp);
+	}
 	/* shreds keys as well */
 	fk ? crypt_free(fk) : 0;
 	free(passwd);
@@ -231,8 +233,7 @@ int easy_decrypt_inplace(const char* in_out, const EVP_CIPHER* enc_algorithm, in
 	struct crypt_keys* fk = NULL;
 	char prompt[128];
 	char* passwd = NULL;
-	char template_tmp[] = "/var/tmp/crypt_XXXXXX";
-	FILE* fp_tmp = NULL;
+	struct TMPFILE* tfp_tmp = NULL;
 	int ret = 0;
 
 	if (disable_core_dumps() != 0){
@@ -273,29 +274,33 @@ int easy_decrypt_inplace(const char* in_out, const EVP_CIPHER* enc_algorithm, in
 
 	crypt_scrub(passwd, strlen(passwd));
 
-	fp_tmp = temp_fopen(template_tmp);
-	if (!fp_tmp){
+	tfp_tmp = temp_fopen();
+	if (!tfp_tmp){
 		log_error("Failed to generate temporary file");
 		ret = -1;
 		goto cleanup;
 	}
-	fclose(fp_tmp);
-	if (rename_file(in_out, template_tmp) != 0){
+
+	if (rename_file(in_out, tfp_tmp->name) != 0){
 		log_error("Failed to move file to temporary location");
 		ret = -1;
 		goto cleanup;
 	}
 
-	if ((crypt_decrypt_ex(template_tmp, fk, in_out, verbose, "Decrypting file...")) != 0){
-		rename_file(template_tmp, in_out);
+	temp_fflush(tfp_tmp);
+
+	if ((crypt_decrypt_ex(tfp_tmp->name, fk, in_out, verbose, "Decrypting file...")) != 0){
+		rename_file(tfp_tmp->name, in_out);
 		log_debug("crypt_decrypt() failed");
 		ret = -1;
 		goto cleanup;
 	}
 
 cleanup:
-	fp_tmp ? fclose(fp_tmp) : 0;
-	remove(template_tmp);
+	tfp_tmp ? remove(tfp_tmp->name) : 0;
+	if (tfp_tmp){
+		temp_fclose(tfp_tmp);
+	}
 	fk ? crypt_free(fk) : 0;
 	free(passwd);
 	if (enable_core_dumps() != 0){

@@ -6,7 +6,7 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "error.h"
+#include "log.h"
 #include <ncurses.h>
 #include <menu.h>
 #include <stdlib.h>

@@ -1,5 +1,5 @@
 /* prototypes and #defines */
-#include "error.h"
+#include "log.h"
 #include <stdio.h>
 
 const char* const COLOR_NORMAL  = "\033[0m";

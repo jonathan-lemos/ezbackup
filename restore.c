@@ -6,13 +6,14 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "options.h"
-#include "error.h"
+#include "options/options.h"
+#include "log.h"
 #include "cloud/include.h"
 #include "maketar.h"
 #include "coredumps.h"
-#include "crypt_easy.h"
-#include "readfile.h"
+#include "crypt/crypt_easy.h"
+#include "filehelper.h"
+#include "strings/stringhelper.h"
 #include <stdio.h>
 #include <dirent.h>
 #include <string.h>
@@ -59,12 +60,12 @@ char* getcwd_malloc(void){
 	return cwd;
 }
 
-int restore_local_menu(const struct options* opt, char** out_file, char** out_config){
+int restore_local_menu(const struct options* opt, char** out_file){
 	int res;
 	struct file_node** nodes = NULL;
 	size_t nodes_size = 0;
-	DIR* directory;
-	struct dirent* entry;
+	DIR* directory = NULL;
+	struct dirent* entry = NULL;
 	int ret = 0;
 
 	directory = opendir(opt->output_directory);
@@ -117,131 +118,116 @@ int restore_local_menu(const struct options* opt, char** out_file, char** out_co
 	}
 	*out_file = nodes[res]->name;
 	nodes[res]->name = NULL;
-	*out_config = malloc(strlen(*out_file) + sizeof(".conf"));
-	if (!(*out_config)){
-		log_enomem();
-		ret = -1;
-		goto cleanup;
-	}
-	strcpy(*out_config, *out_file);
-	strcat(*out_config, ".conf");
+
 cleanup:
+	directory ? closedir(directory) : 0;
 	free_file_nodes(nodes, nodes_size);
 	return ret;
 }
 
-int restore_cloud(const struct options* opt, char** out_file, char** out_config){
-	char* uname = NULL;
-	if (!opt->username){
-		uname = readline("Enter username:");
-	}
-	if (cloud_download(opt->upload_dir, NULL, uname ? uname : opt->username, opt->password, opt->cp, out_file, out_config) != 0){
-		log_debug("Failed to download file from cloud");
-		if (uname){
-			free(uname);
-		}
-		return -1;
-	}
-	if (uname){
-		free(uname);
-	}
-	return 0;
-}
-
-int restore_choose_directory(char** out_dir){
-	printf("Current directory: %s\n", *out_dir ? *out_dir : "default");
-	*out_dir = readline("Enter output directory:");
-	if (strcmp(*out_dir, "") == 0){
-		free(*out_dir);
-		*out_dir = NULL;
-	}
-	return 0;
-}
-
-int restore_main_menu(const struct options* opt, char** out_file, char** out_config){
-	int res;
-	int ret = 0;
-	const char* options_main[] = {
-		"Restore locally",
-		"Restore from cloud",
-		"Choose restore directory (cloud)",
-		"Exit"
-	};
-	char* out_dir = NULL;
-
-	do{
-		res = display_menu(options_main, sizeof(options_main) / sizeof(options_main[0]), "Restore from where?");
-		switch (res){
-		case 0:
-			ret = restore_local_menu(opt, out_file, out_config);
-			break;
-		case 1:
-			ret = restore_cloud(opt, out_file, out_config);
-			break;
-		case 2:
-			restore_choose_directory(&out_dir);
-			break;
-		case 3:
-			return 0;
-		default:
-			log_error("Invalid option chosen. This should never happen.");
-		}
-	}while (res == 2);
-
-	return 0;
-}
-
-int restore_extract(const char* file, const char* config_file){
+int restore_cloud(const struct options* opt, char** out_file){
+	struct cloud_options* co = opt->cloud_options;
 	char* cwd = NULL;
-	struct options opt;
-	char template_decrypt[] = "/var/tmp/decrypt_XXXXXX";
-	FILE* fp_decrypt = NULL;
 	int ret = 0;
-
-	memset(&opt, '\0', sizeof(opt));
 
 	cwd = getcwd_malloc();
 	if (!cwd){
-		log_debug("Failed to determine current working directory");
 		ret = -1;
 		goto cleanup;
 	}
 
-	if (read_config_file(&opt, config_file) != 0){
-		log_debug("Failed to read config file for extracting");
-		ret = -1;
-		goto cleanup;
-	}
-
-	if (opt.enc_algorithm){
-		fp_decrypt = temp_fopen(template_decrypt);
-		if (!fp_decrypt){
-			log_debug("Failed to make template_decrypt");
-			ret = -1;
-			goto cleanup;
-		}
-		fclose(fp_decrypt);
-		fp_decrypt = NULL;
-		if (easy_decrypt(file, template_decrypt, opt.enc_algorithm, opt.flags & FLAG_VERBOSE) != 0){
-			log_debug("Failed to easy_decrypt()");
-			ret = -1;
-			goto cleanup;
-		}
-		remove(file);
-		file = template_decrypt;
-	}
-
-	if (tar_extract(file, cwd) != 0){
-		log_debug("Failed to extract tar");
+	if (cloud_download(cwd, co, out_file) != 0){
+		log_debug("Failed to download file from cloud");
 		ret = -1;
 		goto cleanup;
 	}
 
 cleanup:
 	free(cwd);
-	free_options(&opt);
-	fp_decrypt ? fclose(fp_decrypt) : 0;
-	remove(template_decrypt);
-	remove(file);
+	return ret;
+}
+
+int restore_main(const struct options* opt, char** out_file){
+	if (opt->cloud_options->cp == CLOUD_NONE || opt->cloud_options->cp == CLOUD_INVALID){
+		return restore_local_menu(opt, out_file);
+	}
+
+	return restore_cloud(opt, out_file);
+}
+
+int restore_extract(const char* file, const struct options* opt){
+	char* cwd = NULL;
+	char* last_backup_dir = NULL;
+	char* last_backup_cfg = NULL;
+	struct options* opt_tar = NULL;
+	struct TMPFILE* tfp_decrypt = NULL;
+	int ret = 0;
+
+	cwd = getcwd_malloc();
+	if (!cwd){
+		log_error("Failed to determine current working directory");
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (get_last_backup_dir(&last_backup_dir) != 0){
+		log_error("Failed to determine location of last backup");
+		ret = -1;
+		goto cleanup;
+	}
+
+	last_backup_cfg = sh_concat(sh_dup(cwd), "/config");
+	if (!last_backup_cfg){
+		log_error("Failed to extract config");
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (opt->enc_algorithm){
+		tfp_decrypt = temp_fopen();
+		if (!tfp_decrypt){
+			log_debug("Failed to make template_decrypt");
+			ret = -1;
+			goto cleanup;
+		}
+		if (easy_decrypt(file, tfp_decrypt->name, opt->enc_algorithm, opt->flags.bits.flag_verbose) != 0){
+			log_debug("Failed to easy_decrypt()");
+			ret = -1;
+			goto cleanup;
+		}
+		temp_fflush(tfp_decrypt);
+
+		if (tar_extract_file(tfp_decrypt->name, "/config", last_backup_cfg) != 0){
+			log_debug("Failed to extract config file from tar");
+			ret = -1;
+			goto cleanup;
+		}
+
+		if (parse_options_fromfile(last_backup_dir, &opt_tar) != 0){
+			log_error("Failed to extract options from last backup");
+			ret = -1;
+			goto cleanup;
+		}
+	}
+	else{
+		if (tar_extract_file(file, "/config", last_backup_cfg) != 0){
+			log_debug("Failed to extract config file from tar");
+			ret = -1;
+			goto cleanup;
+		}
+
+		if (parse_options_fromfile(last_backup_dir, &opt_tar) != 0){
+			log_error("Failed to extract options from last backup");
+			ret = -1;
+			goto cleanup;
+		}
+	}
+
+cleanup:
+	free(cwd);
+	free(last_backup_dir);
+	free(last_backup_cfg);
+	free_options(opt_tar);
+	tfp_decrypt ? ((int(*)(struct TMPFILE*))temp_fclose)(tfp_decrypt) : 0;
 	return ret;
 }

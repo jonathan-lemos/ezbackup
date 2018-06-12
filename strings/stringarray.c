@@ -8,7 +8,7 @@
 
 #include "stringarray.h"
 #include "stringhelper.h"
-#include "error.h"
+#include "../log.h"
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>

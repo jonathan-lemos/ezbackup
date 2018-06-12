@@ -7,49 +7,50 @@
  */
 
 #include "include.h"
-#include "../options.h"
-#include "../error.h"
+#include "../crypt/crypt_getpassword.h"
+#include "../readline_include.h"
+#include "../options/options.h"
+#include "../log.h"
+#include "../strings/stringhelper.h"
 #include "mega.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(__linux__)
-#include <editline/readline.h>
-#elif defined(__APPLE__)
-#include <readline/readline.h>
-#else
-#error "This operating system is not supported"
-#endif
 
 struct cloud_options* co_new(void){
 	struct cloud_options* ret;
-	ret = malloc(sizeof(*ret));
+	ret = calloc(1, sizeof(*ret));
 	if (!ret){
 		log_enomem();
 		return NULL;
 	}
-	ret->cp = CLOUD_NONE;
-	ret->username = NULL;
-	ret->password = NULL;
-	ret->upload_directory = NULL;
 	return ret;
 }
 
 int co_set_username(struct cloud_options* co, const char* username){
-	if (co->username){
-		free(co->username);
-	}
-	if (!username){
+	free(co->username);
+
+	if (!username || strlen(username) == 0){
 		co->username = NULL;
 		return 0;
 	}
-	co->username = malloc(strlen(username) + 1);
+	co->username = sh_dup(username);
 	if (!co->username){
 		log_enomem();
 		return -1;
 	}
-	strcpy(co->username, username);
+	return 0;
+}
+
+int co_set_username_stdin(struct cloud_options* co){
+	char* tmp;
+	int ret;
+
+	tmp = readline("Username:");
+	ret = co_set_username(co, tmp);
+	free(tmp);
+
 	return 0;
 }
 
@@ -57,17 +58,35 @@ int co_set_password(struct cloud_options* co, const char* password){
 	if (co->password){
 		free(co->password);
 	}
-	if (!password){
+	if (!password || strlen(password) == 0){
 		co->password = NULL;
 		return 0;
 	}
-	co->password = malloc(strlen(password) + 1);
+	co->password = sh_dup(password);
 	if (!co->password){
 		log_enomem();
 		return -1;
 	}
-	strcpy(co->password, password);
 	return 0;
+}
+
+int co_set_password_stdin(struct cloud_options* co){
+	char* tmp;
+	int res;
+
+	do{
+		res = crypt_getpassword("Password:", "Verify password:", &tmp);
+	}while (res > 0);
+	if (res < 0){
+		log_error("Error reading password from terminal");
+		crypt_freepassword(tmp);
+		return -1;
+	}
+
+	res = co_set_password(co, tmp);
+	crypt_freepassword(tmp);
+
+	return res;
 }
 
 int co_set_upload_directory(struct cloud_options* co, const char* upload_directory){
@@ -309,27 +328,13 @@ void free_file_nodes(struct file_node** nodes, size_t len){
 }
 
 int mega_upload(const char* file, const char* upload_dir, const char* username, const char* password){
-	char* uname = NULL;
 	char** parent_dirs = NULL;
 	size_t parent_dirs_len = 0;
 	MEGAhandle* mh = NULL;
 	int ret = 0;
 	size_t i;
 
-	if (!username){
-		uname = readline("Enter username:");
-	}
-	else{
-		uname = malloc(strlen(username) + 1);
-		if (!uname){
-			log_enomem();
-			ret = -1;
-			goto cleanup;
-		}
-		strcpy(uname, username);
-	}
-
-	if (MEGAlogin(uname, password, &mh) != 0){
+	if (MEGAlogin(username, password, &mh) != 0){
 		log_debug("Failed to log in to MEGA");
 		ret = -1;
 		goto cleanup;
@@ -375,20 +380,16 @@ cleanup:
 		}
 		free(parent_dirs);
 	}
-
-	free(uname);
 	return ret;
 }
 
-int mega_download(const char* download_dir, const char* out_dir, const char* username, const char* password, char** out_file, char** out_conf){
+int mega_download(const char* download_dir, const char* out_dir, const char* username, const char* password, char** out_file){
 	char* msg = NULL;
-	char* conf_file = NULL;
 	struct file_node** files = NULL;
 	size_t len = 0;
 	MEGAhandle* mh = NULL;
 	int res;
 	int ret = 0;
-	size_t i;
 
 	if (MEGAlogin(username, password, &mh) != 0){
 		log_debug("Failed to login to MEGA");
@@ -400,15 +401,6 @@ int mega_download(const char* download_dir, const char* out_dir, const char* use
 		printf("Download directory does not exist\n");
 		ret = -1;
 		goto cleanup;
-	}
-
-	for (i = 0; i < len; ++i){
-		if (strcmp(get_extension(files[i]->name), ".conf") != 0){
-			continue;
-		}
-		if (remove_file_node(&files, &len, i) != 0){
-			log_debug("Failed to remove file node");
-		}
 	}
 
 	res = time_menu(files, len);
@@ -440,13 +432,6 @@ int mega_download(const char* download_dir, const char* out_dir, const char* use
 		strcat(*out_file, files[res]->name);
 	}
 
-	*out_conf = malloc(strlen(*out_file) + sizeof(".conf"));
-	if (!(*out_conf)){
-		log_enomem();
-		ret = -1;
-		goto cleanup;
-	}
-
 	msg = malloc(strlen(files[res]->name) + strlen(*out_file) + 64);
 	if (!msg){
 		log_enomem();
@@ -458,10 +443,6 @@ int mega_download(const char* download_dir, const char* out_dir, const char* use
 		log_debug_ex("Failed to download %s", files[res]->name);
 		ret = -1;
 		goto cleanup;
-	}
-
-	if (MEGAdownload(conf_file, *out_conf, "Downloading configuration file...", mh) != 0){
-		log_warning("Configuration file not found.");
 	}
 
 cleanup:
@@ -492,14 +473,53 @@ int mega_rm(const char* path, const char* username, const char* password){
 	return 0;
 }
 
-int cloud_upload(const char* in_file, const char* upload_dir, const char* username, const char* password, enum CLOUD_PROVIDER cp){
+int cloud_upload(const char* in_file, struct cloud_options* co){
 	int ret = 0;
+	int co_contains_username = co->username != NULL;
+	int co_contains_password = co->password != NULL;
+	char* user = NULL;
+	char* pw = NULL;
 
-	switch (cp){
+	if (!co_contains_username){
+		char* tmp = NULL;
+
+		do{
+			free(user);
+			free(tmp);
+
+			user = readline("Username:");
+			if (strlen(user) == 0){
+				log_info("Blank username specified");
+				ret = 0;
+				goto cleanup;
+			}
+
+			tmp = readline("Verify  :");
+		}while (strcmp(user, tmp) != 0);
+
+		free(tmp);
+	}
+
+	if (!co_contains_password){
+		int res;
+		while ((res = crypt_getpassword("Password:", "Verify  :", &pw)) > 0){
+			printf("The passwords do not match.");
+			free(pw);
+		}
+
+		if (strlen(pw) == 0){
+			log_info("Blank password specified");
+			ret = 0;
+			goto cleanup;
+		}
+	}
+
+
+	switch (co->cp){
 	case CLOUD_NONE:
 		break;
 	case CLOUD_MEGA:
-		ret = mega_upload(in_file, upload_dir, username, password);
+		ret = mega_upload(in_file, co->upload_directory, co_contains_username ? co->username : user, co_contains_password ? co->password : pw);
 		break;
 	default:
 		log_error("Invalid CLOUD_PROVIDER passed");
@@ -507,17 +527,58 @@ int cloud_upload(const char* in_file, const char* upload_dir, const char* userna
 		break;
 	}
 
+cleanup:
+	free(user);
+	free(pw);
 	return ret;
 }
 
-int cloud_download(const char* download_dir, const char* out_dir, const char* username, const char* password, enum CLOUD_PROVIDER cp, char** out_file, char** out_conf){
+int cloud_download(const char* out_dir, struct cloud_options* co, char** out_file){
 	int ret = 0;
+	int co_contains_username = co->username != NULL;
+	int co_contains_password = co->password != NULL;
+	char* user = NULL;
+	char* pw = NULL;
 
-	switch (cp){
+	if (!co_contains_username){
+		char* tmp = NULL;
+
+		do{
+			free(user);
+			free(tmp);
+
+			user = readline("Username:");
+			if (strlen(user) == 0){
+				log_info("Blank username specified");
+				ret = 0;
+				goto cleanup;
+			}
+
+			tmp =  readline("Verify  :");
+		}while (strcmp(user, tmp) != 0);
+
+		free(tmp);
+	}
+
+	if (!co_contains_password){
+		int res;
+		while ((res = crypt_getpassword("Password:", "Verify  :", &pw)) > 0){
+			printf("The passwords do not match.");
+			free(pw);
+		}
+
+		if (strlen(pw) == 0){
+			log_info("Blank password specified");
+			ret = 0;
+			goto cleanup;
+		}
+	}
+
+	switch (co->cp){
 	case CLOUD_NONE:
 		break;
 	case CLOUD_MEGA:
-		ret = mega_download(download_dir, out_dir, username, password, out_file, out_conf);
+		ret = mega_download(co->upload_directory, out_dir, co_contains_username ? co->username : user, co_contains_password ? co->password : pw, out_file);
 		break;
 	default:
 		log_error("Invalid CLOUD_PROVIDER passed");
@@ -525,17 +586,58 @@ int cloud_download(const char* download_dir, const char* out_dir, const char* us
 		break;
 	}
 
+cleanup:
+	free(user);
+	free(pw);
 	return ret;
 }
 
-int cloud_rm(const char* path, const char* username, const char* password, enum CLOUD_PROVIDER cp){
+int cloud_rm(const char* path, struct cloud_options* co){
 	int ret = 0;
+	int co_contains_username = co->username != NULL;
+	int co_contains_password = co->password != NULL;
+	char* user = NULL;
+	char* pw = NULL;
 
-	switch (cp){
+	if (!co_contains_username){
+		char* tmp = NULL;
+
+		do{
+			free(user);
+			free(tmp);
+
+			user = readline("Username:");
+			if (strlen(user) == 0){
+				log_info("Blank username specified");
+				ret = 0;
+				goto cleanup;
+			}
+
+			tmp = readline("Verify  :");
+		}while (strcmp(user, tmp) != 0);
+
+		free(tmp);
+	}
+
+	if (!co_contains_password){
+		int res;
+		while ((res = crypt_getpassword("Password:", "Verify  :", &pw)) > 0){
+			printf("The passwords do not match.");
+			free(pw);
+		}
+
+		if (strlen(pw) == 0){
+			log_info("Blank password specified");
+			ret = 0;
+			goto cleanup;
+		}
+	}
+
+	switch (co->cp){
 	case CLOUD_NONE:
 		break;
 	case CLOUD_MEGA:
-		ret = mega_rm(path, username, password);
+		ret = mega_rm(path, co_contains_username ? co->username : user, co_contains_password ? co->password : pw);
 		break;
 	default:
 		log_error("Invalid CLOUD_PROVIDER passed");
@@ -543,5 +645,8 @@ int cloud_rm(const char* path, const char* username, const char* password, enum 
 		break;
 	}
 
+cleanup:
+	free(user);
+	free(pw);
 	return ret;
 }

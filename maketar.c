@@ -13,7 +13,7 @@
 /* progressbar stuff */
 #include "progressbar.h"
 /* errors */
-#include "error.h"
+#include "log.h"
 #include <errno.h>
 /* progressbar */
 #include "progressbar.h"
