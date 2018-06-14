@@ -1,3 +1,4 @@
 [submodule "cloud/mega"]
 	path = cloud/mega_sdk
 	url = https://github.com/meganz/sdk
+	ignore = dirty
