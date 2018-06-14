@@ -138,10 +138,18 @@ struct element* get_next_checksum_element(FILE* fp){
 	/* go back to where we started */
 	fseek(fp, pos_origin, SEEK_SET);
 	/* and read <length of file> bytes (includes \0)*/
-	fread(e->file, 1, len_file, fp);
+	if (fread(e->file, 1, len_file, fp) != len_file){
+		log_efread(e->file);
+		free_element(e);
+		return NULL;
+	}
 
 	/* and read <length of checksum> bytes (includes \0)*/
-	fread(e->checksum, 1, len_checksum, fp);
+	if (fread(e->checksum, 1, len_checksum, fp) != len_checksum){
+		log_efread(e->file);
+		free_element(e);
+		return NULL;
+	}
 	e->checksum[len_checksum - 1] = '\0';
 
 	if (ferror(fp)){

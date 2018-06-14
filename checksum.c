@@ -426,7 +426,11 @@ char* get_next_removed(FILE* fp){
 	}
 
 	fseek(fp, pos_origin, SEEK_SET);
-	fread(ret, 1, len_file, fp);
+	if (fread(ret, 1, len_file, fp) != len_file){
+		log_efread("file");
+		free(ret);
+		return NULL;
+	}
 	/* advance file pointer beyond '\n' */
 	fgetc(fp);
 

@@ -7,6 +7,7 @@
  */
 
 #include "include.h"
+#include "../cli.h"
 #include "../crypt/crypt_getpassword.h"
 #include "../readline_include.h"
 #include "../options/options.h"
@@ -51,7 +52,7 @@ int co_set_username_stdin(struct cloud_options* co){
 	ret = co_set_username(co, tmp);
 	free(tmp);
 
-	return 0;
+	return ret;
 }
 
 int co_set_password(struct cloud_options* co, const char* password){
@@ -147,7 +148,7 @@ void co_free(struct cloud_options* co){
 	free(co);
 }
 
-int cmp(const void* tm1, const void* tm2){
+static int cmp(const void* tm1, const void* tm2){
 	return (*((struct file_node**)tm2))->time - (*((struct file_node**)tm1))->time;
 }
 

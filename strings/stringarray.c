@@ -92,7 +92,7 @@ size_t sa_sanitize_directories(struct string_array* array){
 	return n_removed;
 }
 
-int cmp(const void* str1, const void* str2){
+static int cmp(const void* str1, const void* str2){
 	return strcmp(*(const char**)str1, *(const char**)str2);
 }
 

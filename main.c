@@ -19,7 +19,7 @@ int main(int argc, char** argv){
 	if (argc > 1){
 		int res;
 		if ((res = parse_options_cmdline(argc, argv, &opt, &op)) != 0){
-			fprintf(stderr, "Argument %s is invalid", res >= 0 ? argv[res] : "NULL");
+			fprintf(stderr, "Argument %s is invalid\n", res >= 0 ? argv[res] : "NULL");
 			return -1;
 		}
 	}
@@ -38,7 +38,7 @@ int main(int argc, char** argv){
 			}
 			break;
 		case OP_RESTORE:
-			fprintf(stderr, "Restore not implemented yet");
+			fprintf(stderr, "Restore not implemented yet\n");
 			break;
 		case OP_CONFIGURE:
 			op = parse_options_menu(&opt);

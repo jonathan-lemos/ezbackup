@@ -228,6 +228,8 @@ cleanup:
 	free(last_backup_dir);
 	free(last_backup_cfg);
 	free_options(opt_tar);
-	tfp_decrypt ? ((int(*)(struct TMPFILE*))temp_fclose)(tfp_decrypt) : 0;
+	if (tfp_decrypt){
+		temp_fclose(tfp_decrypt);
+	}
 	return ret;
 }

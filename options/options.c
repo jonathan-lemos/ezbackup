@@ -318,8 +318,8 @@ static char* read_file_string(FILE* in){
 
 int parse_options_fromfile(const char* file, struct options** output){
 	FILE* fp = NULL;
-	char* tmp;
-	unsigned tmp_len;
+	char* tmp = NULL;
+	unsigned tmp_len = 0;
 	struct options* opt = *output;
 	int ret = 0;
 
@@ -336,16 +336,35 @@ int parse_options_fromfile(const char* file, struct options** output){
 		goto cleanup;
 	}
 
-	fscanf(fp, "[Options]");
-	fscanf(fp, "\nVERSION=%*s");
-	fscanf(fp, "\nPREV=");
+	if (fscanf(fp, "[Options]") != 0){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (fscanf(fp, "\nVERSION=%*s") != 0){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (fscanf(fp, "\nPREV=") != 0){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
+
 	opt->prev_backup = read_file_string(fp);
 	if (strcmp(opt->prev_backup, "") == 0){
 		free(opt->prev_backup);
 		opt->prev_backup = NULL;
 	}
 
-	fscanf(fp, "\nDIRECTORIES=");
+	if (fscanf(fp, "\nDIRECTORIES=") != 0){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
 	do{
 		tmp = read_file_string(fp);
 		if (!tmp){
@@ -360,7 +379,12 @@ int parse_options_fromfile(const char* file, struct options** output){
 			tmp = NULL;
 		}
 	}while (tmp);
-	fscanf(fp, "\nEXCLUDE=");
+
+	if (fscanf(fp, "\nEXCLUDE=") != 0){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
 	do{
 		tmp = read_file_string(fp);
 		if (!tmp){
@@ -376,7 +400,11 @@ int parse_options_fromfile(const char* file, struct options** output){
 		}
 	}while (tmp);
 
-	fscanf(fp, "\nCHECKSUM=");
+	if (fscanf(fp, "\nCHECKSUM=") != 0){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
 	tmp = read_file_string(fp);
 	if (!tmp){
 		opt->hash_algorithm = NULL;
@@ -386,7 +414,11 @@ int parse_options_fromfile(const char* file, struct options** output){
 		free(tmp);
 	}
 
-	fscanf(fp, "\nENCRYPTION=");
+	if (fscanf(fp, "\nENCRYPTION=") != 0){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
 	tmp = read_file_string(fp);
 	if (!tmp){
 		opt->enc_algorithm = EVP_enc_null();
@@ -396,7 +428,11 @@ int parse_options_fromfile(const char* file, struct options** output){
 		free(tmp);
 	}
 
-	fscanf(fp, "\nENC_PASSWORD=");
+	if (fscanf(fp, "\nENC_PASSWORD=") != 0){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
 	tmp = read_file_string(fp);
 	if (!tmp || strcmp(tmp, "") == 0){
 		free(opt->enc_password);
@@ -419,27 +455,51 @@ int parse_options_fromfile(const char* file, struct options** output){
 	}
 	free(tmp);
 
-	fscanf(fp, "\nCOMPRESSION=%d", &(opt->comp_algorithm));
+	if (fscanf(fp, "\nCOMPRESSION=%d", (int*)&(opt->comp_algorithm)) != 1){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
 
-	fscanf(fp, "\nCOMP_LEVEL=%d", &(opt->comp_level));
+	if (fscanf(fp, "\nCOMP_LEVEL=%d", &(opt->comp_level)) != 1){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
 
-	fscanf(fp, "\nOUTPUT_DIRECTORY=");
+	if (fscanf(fp, "\nOUTPUT_DIRECTORY=") != 0){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
 	opt->output_directory = read_file_string(fp);
 	if (strcmp(opt->output_directory, "") == 0){
 		free(opt->output_directory);
 		opt->output_directory = NULL;
 	}
 
-	fscanf(fp, "\nCLOUD_PROVIDER=%d", &(opt->cloud_options->cp));
+	if (fscanf(fp, "\nCLOUD_PROVIDER=%d", (int*)&(opt->cloud_options->cp)) != 1){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
 
-	fscanf(fp, "\nCLOUD_USERNAME=");
+	if (fscanf(fp, "\nCLOUD_USERNAME=") != 0){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
 	opt->cloud_options->username = read_file_string(fp);
 	if (strcmp(opt->cloud_options->username, "") == 0){
 		free(opt->cloud_options->username);
 		opt->cloud_options->username = NULL;
 	}
 
-	fscanf(fp, "\nCLOUD_PASSWORD=");
+	if (fscanf(fp, "\nCLOUD_PASSWORD=") != 0){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
 	tmp = read_file_string(fp);
 	if (!tmp || strcmp(tmp, "") == 0){
 		free(opt->cloud_options->password);
@@ -462,14 +522,22 @@ int parse_options_fromfile(const char* file, struct options** output){
 	}
 	free(tmp);
 
-	fscanf(fp, "\nCLOUD_DIRECTORY=");
+	if (fscanf(fp, "\nCLOUD_DIRECTORY=") != 0){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
 	opt->cloud_options->upload_directory = read_file_string(fp);
 	if (strcmp(opt->cloud_options->upload_directory, "") == 0){
 		free(opt->cloud_options->upload_directory);
 		opt->cloud_options->upload_directory = NULL;
 	}
 
-	fscanf(fp, "\nFLAGS=%u", &(opt->flags.dword));
+	if (fscanf(fp, "\nFLAGS=%u", &(opt->flags.dword)) != 0){
+		log_efread(file);
+		ret = -1;
+		goto cleanup;
+	}
 
 cleanup:
 	if (fclose(fp) != 0){
@@ -558,12 +626,6 @@ void free_options(struct options* opt){
 	free(opt->output_directory);
 	co_free(opt->cloud_options);
 	free(opt);
-}
-
-static int does_file_exist(const char* file){
-	struct stat st;
-
-	return stat(file, &st) == 0;
 }
 
 int get_last_backup_file(char** out){

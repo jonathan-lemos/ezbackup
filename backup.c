@@ -179,8 +179,12 @@ int create_final_tar(const char* tar_out, const char* tar_in, const char* file_h
 cleanup:
 	free(backup_intar);
 	tp ? tar_close(tp) : 0;
-	tfp_removed ? ((int(*)(struct TMPFILE*))temp_fclose)(tfp_removed) : 0;
-	tfp_config ? ((int(*)(struct TMPFILE*))temp_fclose)(tfp_config) : 0;
+	if (tfp_removed){
+		temp_fclose(tfp_removed);
+	}
+	if (tfp_config){
+		temp_fclose(tfp_config);
+	}
 
 	return ret;
 }
@@ -246,9 +250,15 @@ int backup(const struct options* opt){
 	set_last_backup_dir(file_out);
 
 cleanup:
-	tfp_tar_files ? ((int(*)(struct TMPFILE*))temp_fclose)(tfp_tar_files) : 0;
-	tfp_hashes ? ((int(*)(struct TMPFILE*))temp_fclose)(tfp_hashes) : 0;
-	tfp_hashes_prev ? ((int(*)(struct TMPFILE*))temp_fclose)(tfp_hashes_prev) : 0;
+	if (tfp_tar_files){
+		temp_fclose(tfp_tar_files);
+	}
+	if (tfp_hashes){
+		temp_fclose(tfp_hashes);
+	}
+	if (tfp_hashes_prev){
+		temp_fclose(tfp_hashes_prev);
+	}
 	free(file_out);
 	return ret;
 }

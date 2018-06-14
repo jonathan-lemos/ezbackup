@@ -58,7 +58,11 @@ char* get_stdin_secure(const char* prompt){
 	do{
 		char* tmp;
 		/* read sizeof(input_buffer) bytes from stdin */
-		fgets(input_buffer, sizeof(input_buffer), stdin);
+		if (fgets(input_buffer, sizeof(input_buffer), stdin) == NULL){
+			log_error("Failed to read from stdin");
+			free(str);
+			return NULL;
+		}
 		input_buffer[strcspn(input_buffer, "\r\n")] = '\0';
 
 		/* make room for new data */

@@ -132,7 +132,6 @@ private:
 int MEGAlogin(const char* email, const char* password, MEGAhandle** out){
 	const char* API_KEY = "***REMOVED***";
 	std::string prompt;
-	char pwbuffer[1024];
 	mega::MegaApi* mega_api;
 	mega::SynchronousRequestListener listener;
 
@@ -173,7 +172,7 @@ int MEGAmkdir(const char* dir, MEGAhandle* mh){
 	mega::SynchronousRequestListener listener;
 	mega::MegaApi* mega_api;
 
-	mega_api = (mega::MegaApi*)mh;
+	mega_api = static_cast<mega::MegaApi*>(mh);
 	path = dir;
 
 	node = mega_api->getNodeByPath(path.c_str());
@@ -222,7 +221,7 @@ int MEGAreaddir(const char* dir, struct file_node*** out, size_t* out_len, MEGAh
 	mega::MegaApi* mega_api;
 	int ret = 0;
 
-	mega_api = (mega::MegaApi*)mh;
+	mega_api = static_cast<mega::MegaApi*>(mh);
 	(*out) = NULL;
 
 	path = dir;
@@ -298,7 +297,7 @@ int MEGAdownload(const char* download_path, const char* out_file, const char* ms
 	mega::MegaApi* mega_api;
 	ProgressBarTransferListener listener;
 
-	mega_api = (mega::MegaApi*)mh;
+	mega_api = static_cast<mega::MegaApi*>(mh);
 
 	path += download_path;
 
@@ -325,7 +324,7 @@ int MEGAupload(const char* in_file, const char* upload_dir, const char* msg, MEG
 	mega::MegaApi* mega_api;
 	ProgressBarTransferListener listener;
 
-	mega_api = (mega::MegaApi*)mh;
+	mega_api = static_cast<mega::MegaApi*>(mh);
 
 	path = upload_dir;
 
@@ -352,7 +351,7 @@ int MEGArm(const char* file, MEGAhandle* mh){
 	mega::MegaApi* mega_api;
 	mega::SynchronousRequestListener listener;
 
-	mega_api = (mega::MegaApi*)mh;
+	mega_api = static_cast<mega::MegaApi*>(mh);
 
 	path = file;
 
@@ -380,7 +379,7 @@ int MEGAlogout(MEGAhandle* mh){
 	mega::MegaApi* mega_api;
 	mega::SynchronousRequestListener listener;
 
-	mega_api = (mega::MegaApi*)mh;
+	mega_api = static_cast<mega::MegaApi*>(mh);
 
 	mega_api->logout(&listener);
 	if (listener.trywait(MEGA_WAIT_MS) != 0){

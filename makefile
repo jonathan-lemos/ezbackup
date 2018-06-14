@@ -13,7 +13,7 @@ CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500 -DPROG_NAME=\"$(NAME
 CXXFLAGS=-Wall -Wextra -pedantic -std=c++11 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega -lstdc++ -ledit
 DBGFLAGS=-g -rdynamic -D_FORTIFY_SOURCE=1 -O1
-CXXDBGFLAGS=-g -rdynamic -D_FORTIFY_SOURCE=1 -01
+CXXDBGFLAGS=-g -rdynamic -D_FORTIFY_SOURCE=1 -O1
 RELEASEFLAGS=-O3
 CXXRELEASEFLAGS=-O3
 DIRECTORIES=. cloud crypt options strings
@@ -65,8 +65,8 @@ clean:
 
 .PHONY: linecount
 linecount:
-	wc -l makefile readme.txt $(foreach dir,$(DIRECTORIES),$(dir)/*.c $(dir)/*.cpp) tests/*.c tests/*.cpp
+	wc -l makefile readme.txt $(foreach dir,$(DIRECTORIES),$(dir)/*.h $(dir)/*.c $(dir)/*.cpp) tests/*.h tests/*.c tests/*.cpp
 
 .PHONY: linecount_notests
 linecount_notests:
-	wc -l makefile readme.txt $(foreach dir,$(DIRECTORIES),$(dir)/*.c $(dir)/*.cpp)
+	wc -l makefile readme.txt $(foreach dir,$(DIRECTORIES),$(dir)/*.h $(dir)/*.c $(dir)/*.cpp)
