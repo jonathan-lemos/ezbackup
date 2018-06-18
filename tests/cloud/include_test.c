@@ -1,6 +1,6 @@
-#include "test_base.h"
-#include "../cloud/include.h"
-#include "../log.h"
+#include "../test_base.h"
+#include "../../cloud/include.h"
+#include "../../log.h"
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>

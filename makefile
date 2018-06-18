@@ -21,8 +21,8 @@ DIRECTORIES=. cloud crypt options strings
 HEADERS=$(foreach directory,$(DIRECTORIES),$(shell ls $(directory) | grep .*\\.c$$ | sed 's|\(.*\)\.c$$|$(directory)/\1|g;s|.*main||g'))
 CXXHEADERS=$(foreach directory,$(DIRECTORIES),$(shell ls $(directory) | grep .*\\.cpp$$ | sed 's|\(.*\)\.cpp$$|$(directory)/\1|g'))
 # TESTS=tests/test_checksum tests/test_crypt tests/test_error tests/test_fileiterator tests/test_maketar tests/test_options tests/test_progressbar
-TESTS=$(foreach test,$(shell ls tests | grep .*\\.c$$ | sed 's/\.c//g;s/test_base.*//g;'),tests/$(test))
-CXXTESTS=$(foreach test,$(shell ls tests | grep .*\\.cpp$$ | sed 's/\.cpp//g;s/test_base//g'),tests/$(test))
+TESTS=$(foreach directory,$(DIRECTORIES),$(shell ls tests/$(directory) | grep .*\\.c$$ | sed 's|\(.*\)\.c$$|tests/$(directory)/\1|g;s|.*test_base.*||g'))
+CXXTESTS=$(foreach directory,$(DIRECTORIES),$(shell ls tests/$(directory) | grep .*\\.cpp$$ | sed 's|\(.*\)\.cpp$$|tests/$(directory)/\1|g;s|.*test_base.*||g'))
 
 SOURCEFILES=$(foreach header,$(HEADERS),$(header).c)
 OBJECTS=$(foreach header,$(HEADERS),$(header).o)

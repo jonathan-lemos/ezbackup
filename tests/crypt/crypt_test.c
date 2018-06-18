@@ -6,9 +6,9 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "test_base.h"
-#include "../crypt/crypt.h"
-#include "../log.h"
+#include "../test_base.h"
+#include "../../crypt/crypt.h"
+#include "../../log.h"
 #include <stdlib.h>
 #include <string.h>
 

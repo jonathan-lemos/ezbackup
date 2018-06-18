@@ -6,8 +6,8 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "test_base.h"
-#include "../options/options.h"
+#include "../test_base.h"
+#include "../../options/options.h"
 #include <stdlib.h>
 #include <string.h>
 
