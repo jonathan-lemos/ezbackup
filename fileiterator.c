@@ -10,8 +10,6 @@
 #include "fileiterator.h"
 
 #include "log.h"
-
-#include "strings/stringhelper.h"
 /* enumerates files in directory */
 #include <dirent.h>
 /* holds file permissions and checks if file is actually a directory */
@@ -69,22 +67,23 @@ static int directory_push(const char* dir){
 	}
 
 	dir_stack[dir_stack_len - 1]->dp = opendir(dir);
-	if (!dir_stack[dir_stack_len - 1]){
+	if (!dir_stack[dir_stack_len - 1]->dp){
 		log_error_ex2("Failed to open %s (%s)", dir, strerror(errno));
-		if (!directory_pop()){
+		if (directory_pop() != 0){
 			log_error("Failed to pop failed directory off stack");
 		}
 		return -1;
 	}
 
-	dir_stack[dir_stack_len - 1]->name = sh_dup(dir);
+	dir_stack[dir_stack_len - 1]->name = malloc(strlen(dir) + 1);
 	if (!dir_stack[dir_stack_len - 1]->name){
 		log_error_ex("Failed to allocate space for directory name (%s)", dir);
-		if (!directory_pop()){
+		if (directory_pop() != 0){
 			log_error("Failed to pop failed directory off stack");
 		}
 		return -1;
 	}
+	strcpy(dir_stack[dir_stack_len - 1]->name, dir);
 
 	dir_stack[dir_stack_len - 1]->dnt = NULL;
 	return 0;
@@ -104,7 +103,7 @@ int fi_start(const char* dir){
 	}
 
 	if (directory_push(dir) != 0){
-		log_error("Failed to push directory on to stack");
+		log_error("Failed to start file iterator");
 		return -1;
 	}
 
@@ -161,6 +160,7 @@ char* fi_get_next(void){
 }
 
 int fi_skip_current_dir(void){
+	log_info_ex("Skipping current dir (%s)", directory_peek()->name);
 	return directory_pop();
 }
 

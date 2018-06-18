@@ -14,12 +14,11 @@
 int backup(const struct options* opt);
 
 #ifdef __UNIT_TESTING__
-int disable_core_dumps(void);
-int enable_core_dumps(void);
-int extract_prev_checksums(const char* in, char* _template);
-int encrypt_file(const char* in, const char* out, const EVP_CIPHER* enc_algorithm, int verbose);
-int rename_ex(const char* _old, const char* _new);
-int get_default_backup_name(struct options* opt, char** out);
+#include "filehelper.h"
+int create_tar_from_directories(const struct options* opt, FILE* fp_hashes, FILE* fp_hashes_prev, const char* out);
+struct TMPFILE* extract_prev_checksums(const char* in);
+int create_final_tar(const char* tar_out, const char* tar_in, const char* file_hashes, const char* file_hashes_prev, const struct options* opt, int verbose);
+int backup(const struct options* opt);
 #endif
 
 #endif

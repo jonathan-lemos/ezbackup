@@ -1,5 +1,5 @@
 #include "test_base.h"
-#include "../error.h"
+#include "../log.h"
 #include "../cli.h"
 #include <stdlib.h>
 
@@ -48,4 +48,14 @@ void test_display_menu(void){
 	printf_yellow("Choice %02d chosen\n", i);
 
 	printf_green("Finished testing display_menu()\n\n");
+}
+
+int main(void){
+	set_signal_handler();
+	log_setlevel(LEVEL_INFO);
+
+	test_display_dialog();
+	test_display_menu();
+
+	return 0;
 }

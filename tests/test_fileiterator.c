@@ -8,25 +8,35 @@
 
 #include "test_base.h"
 #include "../fileiterator.h"
-#include "string.h"
-
-static int func(const char* file, const char* dir, struct stat* st, void* params){
-	(void)dir;
-	(void)st;
-	(void)params;
-	printf("%s\n", file);
-	return 1;
-}
-
-static int err(const char* file, int __errno, void* params){
-	(void)params;
-	printf("Error opening %s (%s)\n", file, strerror(__errno));
-	return 1;
-}
+#include "../log.h"
+#include <stdlib.h>
 
 int main(void){
-	set_signal_handler();
+	char* tmp;
+	int ctr = 0;
 
-	enum_files("/", func, NULL, err, NULL);
+	set_signal_handler();
+	log_setlevel(LEVEL_INFO);
+
+	massert(fi_start("/") == 0);
+	while ((tmp = fi_get_next()) != NULL){
+		printf("%s\n", tmp);
+		free(tmp);
+	}
+	fi_end();
+
+	massert(fi_start("/") == 0);
+	while ((tmp = fi_get_next()) != NULL){
+		printf("%s\n", tmp);
+		free(tmp);
+		if (ctr >= 2){
+			fi_skip_current_dir();
+		}
+		ctr++;
+	}
+	fi_end();
+
+	massert(fi_start("/not/a/directory/") != 0);
+
 	return 0;
 }

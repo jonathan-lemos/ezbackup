@@ -7,7 +7,7 @@
  */
 
 #include "test_base.h"
-#include "../error.h"
+#include "../log.h"
 
 int test_return_ifnull(char* arg){
 	return_ifnull(arg, -1);

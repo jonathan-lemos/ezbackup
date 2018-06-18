@@ -1,6 +1,6 @@
 #include "test_base.h"
 #include "../cloud/include.h"
-#include "../error.h"
+#include "../log.h"
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,7 +52,7 @@ void test_time_menu(void){
 	struct file_node node1 = {"file2.txt", 315532800};
 	/* Jan 1 2000 GMT */
 	struct file_node node2 = {"file3.txt", 946684800};
-	struct file_node* arr[3];
+	const struct file_node* arr[3];
 
 	arr[0] = &node0;
 	arr[1] = &node1;
@@ -72,6 +72,7 @@ void test_get_parent_dirs(void){
 	const char* dir = "/dir1/dir2/dir3";
 	char** out = NULL;
 	size_t out_len = 0;
+	size_t i;
 
 	printf_blue("Testing get_parent_dirs()\n");
 
@@ -83,6 +84,13 @@ void test_get_parent_dirs(void){
 	massert(strcmp(out[0], "/dir1") == 0);
 	massert(strcmp(out[1], "/dir1/dir2") == 0);
 	massert(strcmp(out[2], "/dir1/dir2/dir3") == 0);
+
+	for (i = 0; i < out_len; ++i){
+		free(out[i]);
+	}
+	free(out);
+
+	printf_green("Finished testing get_parent_dirs()\n");
 }
 
 void test_cloud_download(void){
@@ -92,25 +100,30 @@ void test_cloud_download(void){
 	const char* dir = "/test1/test2";
 	const char* full_path = "/test1/test2/file1.txt";
 	char* file_out;
+	struct cloud_options* co;
 
 	printf_blue("Testing cloud_upload()\n");
 
 	create_file(file, (const unsigned char*)data, strlen(data));
+	co = co_new();
+	co_set_username(co, "***REMOVED***");
+	co_set_password(co, "***REMOVED***");
+	co_set_cp(co, CLOUD_MEGA);
 
 	printf_yellow("Calling cloud_upload()\n");
-	massert(cloud_upload(file, dir, "***REMOVED***", "***REMOVED***", CLOUD_MEGA) == 0);
+	massert(cloud_upload(file, co) == 0);
 
 	printf_yellow("Calling cloud_download()\n");
 	remove(file);
-	massert(cloud_download(dir, NULL, "***REMOVED***", "***REMOVED***", CLOUD_MEGA, &file_out) == 0);
+	massert(cloud_download(dir, co, &file_out) == 0);
 
 	printf_yellow("Checking that the files match\n");
 	massert(memcmp_file_data(file_out, (const unsigned char*) data, strlen(data)) == 0);
 
 	printf_yellow("Cleaning up\n");
-	massert(cloud_rm(full_path, "***REMOVED***", "***REMOVED***", CLOUD_MEGA) == 0);
-	massert(cloud_rm(dir, "***REMOVED***", "***REMOVED***", CLOUD_MEGA) == 0);
-	massert(cloud_rm(dir_base, "***REMOVED***", "***REMOVED***", CLOUD_MEGA) == 0);
+	massert(cloud_rm(full_path, co) == 0);
+	massert(cloud_rm(dir, co) == 0);
+	massert(cloud_rm(dir_base, co) == 0);
 
 	remove(file_out);
 	printf_green("Finished testing cloud_download()\n\n");

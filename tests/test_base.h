@@ -24,6 +24,8 @@ void create_file(const char* name, const unsigned char* data, int len);
 int memcmp_file_data(const char* file, const unsigned char* data, int data_len);
 int memcmp_file_file(const char* file1, const char* file2);
 int does_file_exist(const char* file);
+void setup_test_environment(const char* path);
+void cleanup_test_environment(const char* path);
 void __massert(int condition, const char* file, int line, const char* msg);
 #define massertm(condition, msg) __massert((intptr_t)(condition), __FILE__, __LINE__, msg)
 #define massert(condition) __massert((intptr_t)(condition), __FILE__, __LINE__, #condition)

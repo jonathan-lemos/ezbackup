@@ -1,5 +1,5 @@
 #include "test_base.h"
-#include "../readfile.h"
+#include "../filehelper.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -43,27 +43,26 @@ void test_read_file(void){
 }
 
 void test_temp_fopen(void){
-	FILE* tmp;
+	struct TMPFILE* tmp;
 	char tmp_template[] = "tmp_XXXXXX";
 
 	printf_blue("Testing temp_fopen()\n");
 
 	printf_yellow("Calling temp_fopen()\n");
-	tmp = temp_fopen(tmp_template);
+	tmp = temp_fopen();
 	massert(tmp);
 
 	printf_yellow("Checking that the file exists\n");
 	massert(does_file_exist(tmp_template));
 
 	printf_yellow("Writing to file\n");
-	fwrite(sample_data, 1, sizeof(sample_data), tmp);
-	massert(ferror(tmp) == 0);
-	massert(fflush(tmp) == 0);
+	fwrite(sample_data, 1, sizeof(sample_data), tmp->fp);
+	temp_fflush(tmp);
 
 	printf_yellow("Verifying file integrity\n");
 	massert(memcmp_file_data(tmp_template, sample_data, sizeof(sample_data)) == 0);
 
-	massert(fclose(tmp) == 0);
+	temp_fclose(tmp);
 
 	printf_green("Finished testing temp_fopen()\n\n");
 }

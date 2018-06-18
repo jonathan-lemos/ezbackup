@@ -8,7 +8,7 @@
 
 #include "test_base.h"
 #include "../maketar.h"
-#include "../error.h"
+#include "../log.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -67,7 +67,7 @@ void test_tar_add_file(void){
 void test_tar_extract(void){
 	char tar_cmd[1024];
 	char cwd[4096];
-	char path[4096];
+	char path[8192];
 
 	printf_blue("Testing tar_extract()\n");
 

@@ -8,7 +8,7 @@
 
 #include "../checksum.h"
 #include "../checksumsort.h"
-#include "../error.h"
+#include "../log.h"
 #include "test_base.h"
 #include <stdlib.h>
 #include <string.h>
@@ -63,8 +63,8 @@ void test_sort_checksum_file(void){
 	const char* fp1str = "checksum1.txt";
 	FILE* fp2;
 	const char* fp2str = "checksum2.txt";
-	element* e1 = NULL;
-	element* e2 = NULL;
+	struct element* e1 = NULL;
+	struct element* e2 = NULL;
 	int i;
 
 	printf_blue("Testing sort_checksum_file()\n");
@@ -162,8 +162,8 @@ void test_search_for_checksum(void){
 	const char* fp1str = "checksum1.txt";
 	FILE* fp2;
 	const char* fp2str = "checksum2.txt";
-	element* e1 = NULL;
-	element* e2 = NULL;
+	struct element* e1 = NULL;
+	struct element* e2 = NULL;
 	char* checksum;
 	int i;
 

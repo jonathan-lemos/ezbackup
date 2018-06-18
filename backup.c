@@ -68,6 +68,7 @@ int create_tar_from_directories(const struct options* opt, FILE* fp_hashes, FILE
 			else if (err < 0){
 				log_warning_ex("Failed to add %s to checksum file", buf);
 			}
+			printf("%s\n", buf);
 
 			if (tar_add_file_ex(tp, buf, buf, opt->flags.bits.flag_verbose, buf) != 0){
 				log_warning_ex("Failed to add %s to tar", buf);
@@ -232,18 +233,20 @@ int backup(const struct options* opt){
 
 	temp_fflush(tfp_tar_files);
 
+	/* encrypt output */
+	if (opt->enc_algorithm){
+		if (easy_encrypt_inplace(tfp_tar_files->name, opt->enc_algorithm, opt->flags.bits.flag_verbose) != 0){
+			log_warning("Failed to encrypt file");
+		}
+	}
+
+	temp_fflush(tfp_tar_files);
+
 	/* create final tar */
-	if (create_final_tar(file_out, tfp_tar_files->name, tfp_hashes->name, tfp_hashes_prev->name, opt, opt->flags.bits.flag_verbose) != 0){
+	if (create_final_tar(file_out, tfp_tar_files->name, tfp_hashes->name, tfp_hashes_prev ? tfp_hashes_prev->name : NULL, opt, opt->flags.bits.flag_verbose) != 0){
 		log_error("Failed to create final tar");
 		ret = -1;
 		goto cleanup;
-	}
-
-	/* encrypt output */
-	if (opt->enc_algorithm){
-		if (easy_encrypt_inplace(file_out, opt->enc_algorithm, opt->flags.bits.flag_verbose) != 0){
-			log_warning("Failed to encrypt file");
-		}
 	}
 
 	/* previous backup is now current backup */

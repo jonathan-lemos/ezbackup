@@ -454,9 +454,10 @@ int menu_cloud_password(struct options* opt){
 
 int menu_cloud_main(struct options* opt){
 	int res;
-	const char* options_cloud_main_menu[] = {
+	char* tmp = NULL;
+	char* options_cloud_main_menu[] = {
 		"Cloud Provider",
-		"Username",
+		NULL,
 		"Password",
 		"Exit"
 	};
@@ -466,8 +467,18 @@ int menu_cloud_main(struct options* opt){
 		return -1;
 	}
 
+	if (opt->cloud_options->username){
+		tmp = malloc(strlen(opt->cloud_options->username) + strlen("Username (") + sizeof(")"));
+		if (!tmp){
+			log_enomem();
+			return -1;
+		}
+		sprintf(tmp, "Username (%s)", opt->cloud_options->username);
+		options_cloud_main_menu[1] = tmp;
+	}
+
 	do{
-		res = display_menu(options_cloud_main_menu, ARRAY_SIZE(options_cloud_main_menu), "Cloud Main Menu");
+		res = display_menu((const char**)options_cloud_main_menu, ARRAY_SIZE(options_cloud_main_menu), "Cloud Main Menu");
 		switch (res){
 		case 0:
 			menu_cloud_provider(opt);
@@ -486,6 +497,7 @@ int menu_cloud_main(struct options* opt){
 		}
 	}while (res != 3);
 
+	free(tmp);
 	return 0;
 }
 
@@ -606,7 +618,7 @@ int menu_main_configure(struct options* opt){
 			return 0;
 
 		}
-	}while (res != 5);
+	}while (res != 4);
 	return 0;
 }
 

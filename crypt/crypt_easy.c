@@ -43,10 +43,10 @@ int easy_encrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 		goto cleanup;
 	}
 
-	sprintf(prompt, "Enter %s encryption password", EVP_CIPHER_name(enc_algorithm));
+	sprintf(prompt, "Enter %s encryption password:", EVP_CIPHER_name(enc_algorithm));
 
 	while ((ret = crypt_getpassword(prompt,
-					"Verify encryption password",
+					"Verify encryption password:",
 					&passwd)) > 0){
 		printf("\nPasswords do not match\n");
 	}
@@ -109,7 +109,7 @@ int easy_decrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 		goto cleanup;
 	}
 
-	sprintf(prompt, "Enter %s decryption password", EVP_CIPHER_name(enc_algorithm));
+	sprintf(prompt, "Enter %s decryption password:", EVP_CIPHER_name(enc_algorithm));
 	if ((crypt_getpassword(prompt, NULL, &passwd)) != 0){
 		log_debug("crypt_getpassword() failed");
 		ret = -1;
@@ -170,10 +170,10 @@ int easy_encrypt_inplace(const char* in_out, const EVP_CIPHER* enc_algorithm, in
 		goto cleanup;
 	}
 
-	sprintf(prompt, "Enter %s encryption password", EVP_CIPHER_name(enc_algorithm));
+	sprintf(prompt, "Enter %s encryption password:", EVP_CIPHER_name(enc_algorithm));
 
 	while ((ret = crypt_getpassword(prompt,
-					"Verify encryption password",
+					"Verify encryption password:",
 					&passwd)) > 0){
 		printf("\nPasswords do not match\n");
 	}
@@ -258,7 +258,7 @@ int easy_decrypt_inplace(const char* in_out, const EVP_CIPHER* enc_algorithm, in
 		goto cleanup;
 	}
 
-	sprintf(prompt, "Enter %s decryption password", EVP_CIPHER_name(enc_algorithm));
+	sprintf(prompt, "Enter %s decryption password:", EVP_CIPHER_name(enc_algorithm));
 	if ((crypt_getpassword(prompt, NULL, &passwd)) != 0){
 		log_debug("crypt_getpassword() failed");
 		ret = -1;

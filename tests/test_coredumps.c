@@ -1,6 +1,6 @@
 #include "test_base.h"
 #include "../coredumps.h"
-#include "../error.h"
+#include "../log.h"
 
 int main(void){
 	set_signal_handler();

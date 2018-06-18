@@ -26,6 +26,7 @@ struct cloud_options* co_new(void){
 		log_enomem();
 		return NULL;
 	}
+	co_set_default_upload_directory(ret);
 	return ret;
 }
 
@@ -111,6 +112,11 @@ int co_set_default_upload_directory(struct cloud_options* co){
 	return co_set_upload_directory(co, "/Backups");
 }
 
+int co_set_cp(struct cloud_options* co, enum CLOUD_PROVIDER cp){
+	co->cp = cp;
+	return 0;
+}
+
 enum CLOUD_PROVIDER cloud_provider_from_string(const char* str){
 	enum CLOUD_PROVIDER ret = CLOUD_INVALID;
 	if (!strcmp(str, "mega") ||
@@ -152,7 +158,7 @@ static int cmp(const void* tm1, const void* tm2){
 	return (*((struct file_node**)tm2))->time - (*((struct file_node**)tm1))->time;
 }
 
-int time_menu(struct file_node** arr, size_t len){
+int time_menu(const struct file_node** arr, size_t len){
 	char** options;
 	int res;
 	size_t i;
@@ -386,7 +392,7 @@ cleanup:
 
 int mega_download(const char* download_dir, const char* out_dir, const char* username, const char* password, char** out_file){
 	char* msg = NULL;
-	struct file_node** files = NULL;
+	const struct file_node** files = NULL;
 	size_t len = 0;
 	MEGAhandle* mh = NULL;
 	int res;

@@ -84,7 +84,7 @@ char* get_output_name(const char* dir){
 char* get_name_intar(const struct options* opt){
 	char* ret;
 
-	ret = sh_concat("/files-", get_backup_extension(opt));
+	ret = sh_concat(sh_dup("/files-"), get_backup_extension(opt));
 	if (!ret){
 		log_error("Failed to concatenate extension to base");
 		return NULL;

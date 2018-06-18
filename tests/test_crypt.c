@@ -7,7 +7,8 @@
  */
 
 #include "test_base.h"
-#include "../crypt.h"
+#include "../crypt/crypt.h"
+#include "../log.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -19,45 +20,6 @@ static const char* const sample_file_decrypt = "decrypt.txt";
 static const char* const sample_file_decrypt2 = "decrypt2.txt";
 static const char* const password = "password";
 static const unsigned char salt[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-
-void test_crypt_secure_memcmp(void){
-	const unsigned char mem1[]  = { 'A', 'B', 'C' };
-	const unsigned char mem2[]  = { 'A', 'B', 'C' };
-	const unsigned char fail[] = { 'A', 'B', 'c'};
-
-	printf_blue("Testing crypt_secure_memcmp()\n");
-
-	massert(crypt_secure_memcmp(mem1, mem2, sizeof(mem1)) == 0);
-	massert(crypt_secure_memcmp(mem2, mem1, sizeof(mem1)) == 0);
-	massert(crypt_secure_memcmp(mem1, fail, sizeof(fail)) != 0);
-
-	printf_green("Testing crypt_secure_memcmp() succeeded\n\n");
-}
-
-void test_crypt_getpassword(void){
-	char buf[1024];
-	int res;
-	int len;
-	int i;
-
-	printf_blue("Testing crypt_getpassword()\n");
-
-	do{
-		massert((res = crypt_getpassword("Enter temp pass", "Verify temp pass", buf, sizeof(buf))) >= 0);
-	}while (res != 0);
-	printf("You entered %s\n", buf);
-	len = strlen(password);
-
-	printf_yellow("Calling crypt_scrub()\n");
-	massert(crypt_scrub(buf, len) == 0);
-	printf("passwd buf: ");
-	for (i = 0; i < len; ++i){
-		printf("%c", buf[i]);
-	}
-	printf("\n");
-
-	printf_green("Finished testing crypt_getpassword()\n\n");
-}
 
 void test_crypt_encrypt(void){
 	struct crypt_keys* fk;
@@ -134,13 +96,12 @@ int main(void){
 	unsigned long i;
 
 	set_signal_handler();
+	log_setlevel(LEVEL_INFO);
 
 	for (i = 0; i < sizeof(sample_data); ++i){
 		sample_data[i] = i % 10 + '0';
 	}
 
-	test_crypt_secure_memcmp();
-	test_crypt_getpassword();
 	test_crypt_encrypt();
 	test_crypt_decrypt();
 	return 0;

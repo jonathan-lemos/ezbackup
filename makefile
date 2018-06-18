@@ -12,8 +12,8 @@ CXX=g++
 CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 CXXFLAGS=-Wall -Wextra -pedantic -std=c++11 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega -lstdc++ -ledit
-DBGFLAGS=-g -rdynamic -D_FORTIFY_SOURCE=1 -O1
-CXXDBGFLAGS=-g -rdynamic -D_FORTIFY_SOURCE=1 -O1
+DBGFLAGS=-g -rdynamic
+CXXDBGFLAGS=-g -rdynamic
 RELEASEFLAGS=-O3
 CXXRELEASEFLAGS=-O3
 DIRECTORIES=. cloud crypt options strings
@@ -21,7 +21,7 @@ DIRECTORIES=. cloud crypt options strings
 HEADERS=$(foreach directory,$(DIRECTORIES),$(shell ls $(directory) | grep .*\\.c$$ | sed 's|\(.*\)\.c$$|$(directory)/\1|g;s|.*main||g'))
 CXXHEADERS=$(foreach directory,$(DIRECTORIES),$(shell ls $(directory) | grep .*\\.cpp$$ | sed 's|\(.*\)\.cpp$$|$(directory)/\1|g'))
 # TESTS=tests/test_checksum tests/test_crypt tests/test_error tests/test_fileiterator tests/test_maketar tests/test_options tests/test_progressbar
-TESTS=$(foreach test,$(shell ls tests | grep .*\\.c$$ | sed 's/\.c//g;s/test_base//g'),tests/$(test))
+TESTS=$(foreach test,$(shell ls tests | grep .*\\.c$$ | sed 's/\.c//g;s/test_base.*//g;'),tests/$(test))
 CXXTESTS=$(foreach test,$(shell ls tests | grep .*\\.cpp$$ | sed 's/\.cpp//g;s/test_base//g'),tests/$(test))
 
 SOURCEFILES=$(foreach header,$(HEADERS),$(header).c)

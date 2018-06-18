@@ -79,11 +79,15 @@ struct TMPFILE* temp_fopen(void){
 }
 
 int temp_fflush(struct TMPFILE* tfp){
+	long pos = ftell(tfp->fp);
+
 	tfp->fp = freopen(tfp->name, "rb+", tfp->fp);
 	if (!tfp->fp){
 		log_error_ex("Failed to reopen temp file pointer (%s)", strerror(errno));
 		return -1;
 	}
+
+	fseek(tfp->fp, pos, SEEK_SET);
 	return 0;
 }
 
