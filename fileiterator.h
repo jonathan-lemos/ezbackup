@@ -16,9 +16,9 @@
 /* uintptr_t */
 #include <stdint.h>
 
-int fi_start(const char* dir);
-char* fi_get_next(void);
-int fi_skip_current_dir(void);
-void fi_end(void);
+struct fi_stack* fi_start(const char* dir);
+char* fi_next(struct fi_stack* fis);
+int fi_skip_current_dir(struct fi_stack* fis);
+void fi_end(struct fi_stack* fis);
 
 #endif

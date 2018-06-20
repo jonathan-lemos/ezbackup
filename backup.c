@@ -45,20 +45,25 @@ int create_tar_from_directories(const struct options* opt, FILE* fp_hashes, FILE
 		ret = -1;
 		goto cleanup;
 	}
+
 	for (i = 0; i < opt->directories->len; ++i){
+		struct fi_stack* fis = NULL;
 		char* buf = NULL;
-		if (fi_start(opt->directories->strings[i]) != 0){
+
+		if ((fis = fi_start(opt->directories->strings[i])) == NULL){
 			log_warning_ex("Failed to search through directory %s", opt->directories->strings[i]);
 			continue;
 		}
 
-		while ((buf = fi_get_next()) != NULL){
+		while ((buf = fi_next(fis)) != NULL){
 			int err;
+
 			if (exclude_this_dir(buf, opt->exclude)){
-				fi_skip_current_dir();
+				fi_skip_current_dir(fis);
 				free(buf);
 				continue;
 			}
+
 			err = add_checksum_to_file(buf, opt->hash_algorithm, fp_hashes, fp_hashes_prev);
 			if (err > 0){
 				log_info_ex("Skipping unchanged (%s)", buf);
@@ -77,7 +82,7 @@ int create_tar_from_directories(const struct options* opt, FILE* fp_hashes, FILE
 			free(buf);
 		}
 
-		fi_end();
+		fi_end(fis);
 	}
 
 cleanup:
