@@ -11,32 +11,65 @@
 #include "../log.h"
 #include <stdlib.h>
 
-int main(void){
+int test_fi_normal(void){
+	struct fi_stack* fis;
+	char* tmp;
+
+	fis = fi_start("/");
+	TEST_ASSERT(fis);
+
+	while ((tmp = fi_next(fis)) != NULL){
+		printf("%s\r", tmp);
+		free(tmp);
+	}
+	printf("\n");
+
+	fi_end(fis);
+	return TEST_SUCCESS;
+}
+
+int test_fi_skip_dir(void){
+	struct fi_stack* fis;
 	char* tmp;
 	int ctr = 0;
 
-	set_signal_handler();
+	fis = fi_start("/");
+	TEST_ASSERT(fis);
+
+	while ((tmp = fi_next(fis)) != NULL){
+		printf("%s\r", tmp);
+		free(tmp);
+
+		ctr++;
+		if (ctr >= 3){
+			fi_skip_current_dir(fis);
+			ctr = 0;
+		}
+	}
+	printf("\n");
+
+	fi_end(fis);
+	return TEST_SUCCESS;
+}
+
+int test_fi_fail(void){
+	struct fi_stack* fis;
+
+	fis = fi_start("/not/a/directory");
+	TEST_ASSERT(fis == NULL);
+
+	return TEST_SUCCESS;
+}
+
+int main(void){
+	struct unit_test tests[] = {
+		MAKE_TEST(test_fi_normal),
+		MAKE_TEST(test_fi_skip_dir),
+		MAKE_TEST(test_fi_fail)
+	};
+
 	log_setlevel(LEVEL_INFO);
 
-	massert(fi_start("/") == 0);
-	while ((tmp = fi_get_next()) != NULL){
-		printf("%s\n", tmp);
-		free(tmp);
-	}
-	fi_end();
-
-	massert(fi_start("/") == 0);
-	while ((tmp = fi_get_next()) != NULL){
-		printf("%s\n", tmp);
-		free(tmp);
-		if (ctr >= 2){
-			fi_skip_current_dir();
-		}
-		ctr++;
-	}
-	fi_end();
-
-	massert(fi_start("/not/a/directory/") != 0);
-
+	START_TESTS(tests);
 	return 0;
 }

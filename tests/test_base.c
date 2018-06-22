@@ -17,6 +17,8 @@
 #include <dirent.h>
 #include <setjmp.h>
 
+#define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
+
 enum PRINT_COLOR{
 	COLOR_RED,
 	COLOR_YELLOW,
@@ -237,6 +239,99 @@ int does_file_exist(const char* file){
 	return stat(file, &st) == 0;
 }
 
+static char* str_duplicate(const char* in){
+	char* ret = malloc(strlen(in) + 1);
+	INTERNAL_ERROR_IF_FALSE(ret);
+	strcpy(ret, in);
+	return ret;
+}
+
+static char* make_path(int n_components, ...){
+	char* ret = NULL;
+	va_list ap;
+	int i;
+
+	ret = calloc(1, 1);
+	INTERNAL_ERROR_IF_FALSE(ret);
+
+	va_start(ap, n_components);
+
+	for (i = 0; i < n_components; ++i){
+		const char* arg = va_arg(ap, const char*);
+
+		if (ret[strlen(ret) - 1] != '/' && arg[0] != '/'){
+			ret = realloc(ret, strlen(ret) + 2);
+			INTERNAL_ERROR_IF_FALSE(ret);
+
+			strcat(ret, "/");
+		}
+
+		ret = realloc(ret, strlen(ret) + strlen(arg) + 1);
+		INTERNAL_ERROR_IF_FALSE(ret);
+
+		strcat(ret, arg);
+	}
+
+	va_end(ap);
+	return ret;
+}
+
+/*
+ * Creates a test environment with the following structure.
+ *
+ * path (0755)
+ *     path/file_{00-20}.txt (0666)
+ */
+void setup_test_environment_basic(const char* path, char*** out, size_t* out_len){
+	char* files[20];
+	size_t i;
+
+	srand(0);
+
+	INTERNAL_ERROR_IF_FALSE(mkdir(path, 0755) == 0);
+
+	for (i = 0; i < ARRAY_LEN(files); ++i){
+		unsigned char* data;
+		char filename[64];
+		size_t len = rand() % 1024;
+		size_t j;
+
+		/* fill with random data from 0-1023 bytes */
+		data = malloc(len);
+		INTERNAL_ERROR_IF_FALSE(data);
+
+		for (j = 0; j < len; ++j){
+			data[i] = rand() % ('Z' - 'A') + 'A';
+		}
+
+		/* create d1_file_01.txt */
+		sprintf(filename, "file_%02lu.txt", i);
+		files[i] = make_path(2, path, filename);
+		create_file(files[i], data, len);
+
+		free(data);
+	}
+
+	if (!out){
+		for (i = 0; i < ARRAY_LEN(files); ++i){
+			free(files[i]);
+		}
+		return;
+	}
+
+	*out = calloc(ARRAY_LEN(files) + 1, sizeof(**out));
+	INTERNAL_ERROR_IF_FALSE(*out);
+
+	for (i = 0; i < ARRAY_LEN(files); ++i){
+		(*out)[i] = str_duplicate(files[i]);
+		free(files[i]);
+	}
+
+	if (out_len){
+		*out_len = ARRAY_LEN(files);
+	}
+}
+
 /*
  * Creates a test environment with the following structure.
  *
@@ -250,27 +345,27 @@ int does_file_exist(const char* file){
  * 			path/excl/exfile_noacc.txt (0000)
  * 		path/noaccess (0000)
  */
-void setup_test_environment(const char* path){
-	char cwd[4096];
-	char dir1_files[12][64];
-	char dir2_files[11][64];
-	char excl_files[10][64];
-	char excl_noacc[64];
+void setup_test_environment_full(const char* path, char*** out, size_t* out_len){
+	char* dir1_files[12];
+	char* dir2_files[11];
+	char* excl_files[10];
+	char* excl_noacc;
+	const size_t total_len = ARRAY_LEN(dir1_files) + ARRAY_LEN(dir2_files) + ARRAY_LEN(excl_files) + 1;
+
 	size_t i;
+	size_t out_ptr = 0;
 
 	srand(0);
 
 	/* make directory at path */
-	INTERNAL_ERROR_IF_FALSE(getcwd(cwd, sizeof(cwd)) != NULL);
 	INTERNAL_ERROR_IF_FALSE(mkdir(path, 0755) == 0);
-	INTERNAL_ERROR_IF_FALSE(chdir(path) == 0);
 
 	/* make dir1 */
 	INTERNAL_ERROR_IF_FALSE(mkdir("dir1", 0755) == 0);
-	INTERNAL_ERROR_IF_FALSE(chdir("dir1") == 0);
 	/* make dir1's files */
 	for (i = 0; i < sizeof(dir1_files) / sizeof(dir1_files[0]); ++i){
 		unsigned char* data;
+		char filename[64];
 		size_t len = rand() % 1024;
 		size_t j;
 
@@ -279,22 +374,21 @@ void setup_test_environment(const char* path){
 		INTERNAL_ERROR_IF_FALSE(data);
 
 		for (j = 0; j < len; ++j){
-			data[i] = rand() % 256;
+			data[i] = rand() % ('Z' - 'A') + 'A';
 		}
 
 		/* create d1_file_01.txt */
-		sprintf(dir1_files[i], "d1file_%02lu.txt", i);
+		sprintf(filename, "d1file_%02lu.txt", i);
+		dir1_files[i] = make_path(3, path, "dir1", filename);
 		create_file(dir1_files[i], data, len);
 
 		free(data);
 	}
-	/* go back to base dir */
-	INTERNAL_ERROR_IF_FALSE(chdir("..") == 0);
 
 	INTERNAL_ERROR_IF_FALSE(mkdir("dir2", 0755) == 0);
-	INTERNAL_ERROR_IF_FALSE(chdir("dir2") == 0);
 	for (i = 0; i < sizeof(dir2_files) / sizeof(dir2_files[0]); ++i){
 		unsigned char* data;
+		char filename[64];
 		size_t len = rand() % 1024;
 		size_t j;
 
@@ -302,20 +396,20 @@ void setup_test_environment(const char* path){
 		INTERNAL_ERROR_IF_FALSE(data);
 
 		for (j = 0; j < len; ++j){
-			data[i] = rand() % 256;
+			data[i] = rand() % ('Z' - 'A') + 'A';
 		}
 
-		sprintf(dir2_files[i], "d2file_%02lu.txt", i);
+		sprintf(filename, "d2file_%02lu.txt", i);
+		dir2_files[i] = make_path(3, path, "dir2", filename);
 		create_file(dir2_files[i], data, len);
 
 		free(data);
 	}
-	INTERNAL_ERROR_IF_FALSE(chdir("..") == 0);
 
 	INTERNAL_ERROR_IF_FALSE(mkdir("excl", 0755) == 0);
-	INTERNAL_ERROR_IF_FALSE(chdir("excl") == 0);
 	for (i = 0; i < sizeof(excl_files) / sizeof(excl_files[0]); ++i){
 		unsigned char* data;
+		char filename[64];
 		size_t len = rand() % 1024;
 		size_t j;
 
@@ -323,28 +417,75 @@ void setup_test_environment(const char* path){
 		INTERNAL_ERROR_IF_FALSE(data);
 
 		for (j = 0; j < len; ++j){
-			data[i] = rand() % 256;
+			data[i] = rand() % ('Z' - 'A') + 'A';
 		}
 
-		sprintf(excl_files[i], "exfile_%02lu.txt", i);
+		sprintf(filename, "exfile_%02lu.txt", i);
+		excl_files[i] = make_path(3, path, "excl", filename);
 		create_file(excl_files[i], data, len);
 
 		free(data);
 	}
-	sprintf(excl_noacc, "exfile_noacc.txt");
+	excl_noacc = make_path(3, path, "excl", "exfile_noacc.txt");
 	create_file(excl_noacc, (const unsigned char*)"noacc", strlen("noacc"));
 	INTERNAL_ERROR_IF_FALSE(chmod(excl_noacc, 0000) == 0);
 
-	INTERNAL_ERROR_IF_FALSE(chdir("..") == 0);
-
 	INTERNAL_ERROR_IF_FALSE(mkdir("noaccess", 0000) == 0);
 
-	INTERNAL_ERROR_IF_FALSE(chdir("..") == 0);
+	if (!out){
+		for (i = 0; i < ARRAY_LEN(dir1_files); ++i){
+			free(dir1_files[i]);
+		}
+		for (i = 0; i < ARRAY_LEN(dir2_files); ++i){
+			free(dir2_files[i]);
+		}
+		for (i = 0; i < ARRAY_LEN(excl_files); ++i){
+			free(excl_files[i]);
+		}
+		free(excl_noacc);
+		return;
+	}
+
+	*out = calloc(total_len + 1, sizeof(**out));
+	INTERNAL_ERROR_IF_FALSE(*out);
+	out_ptr = 0;
+
+	for (i = 0; i < ARRAY_LEN(dir1_files[i]); ++i){
+		(*out)[out_ptr] = str_duplicate(dir1_files[i]);
+		free(dir1_files[i]);
+		out_ptr++;
+	}
+
+	for (i = 0; i < ARRAY_LEN(dir2_files); ++i){
+		(*out)[out_ptr] = str_duplicate(dir2_files[i]);
+		free(dir2_files[i]);
+		out_ptr++;
+	}
+
+	for (i = 0; i < ARRAY_LEN(excl_files); ++i){
+		(*out)[out_ptr] = str_duplicate(excl_files[i]);
+		free(excl_files[i]);
+		out_ptr++;
+	}
+
+	(*out)[out_ptr] = str_duplicate(excl_noacc);
+
+	if (out_len){
+		*out_len = total_len;
+	}
 }
 
-void cleanup_test_environment(const char* path){
+void cleanup_test_environment(const char* path, char** files){
 	struct dirent* dnt;
 	DIR* dp = opendir(path);
+
+	if (files){
+		size_t i;
+		for (i = 0; files[i] != NULL; ++i){
+			free(files[i]);
+		}
+		free(files);
+	}
 
 	INTERNAL_ERROR_IF_FALSE(dp);
 	while ((dnt = readdir(dp)) != NULL){
