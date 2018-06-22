@@ -65,7 +65,7 @@ clean:
 
 .PHONY: linecount
 linecount:
-	wc -l makefile readme.txt $(foreach dir,$(DIRECTORIES),$(dir)/*.h $(dir)/*.c $(dir)/*.cpp) tests/*.h tests/*.c tests/*.cpp
+	wc -l makefile readme.txt $(foreach dir,$(DIRECTORIES),$(dir)/*.h $(dir)/*.c $(dir)/*.cpp) $(foreach test,$(TESTS),$(test).c) $(foreach cxxtest,$(CXXTESTS),$(cxxtest).cpp) tests/test_base.h tests/test_base.c
 
 .PHONY: linecount_notests
 linecount_notests:
