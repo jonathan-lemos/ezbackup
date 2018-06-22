@@ -13,13 +13,7 @@
 #include "../log.h"
 #include "../strings/stringhelper.h"
 #include <string.h>
-#if defined(__linux__)
-#include <editline/readline.h>
-#elif defined(__APPLE__)
-#include <readline/readline.h>
-#else
-#error "This operating system is not supported"
-#endif
+#include "../readline_include.h"
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
