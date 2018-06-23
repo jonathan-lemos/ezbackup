@@ -22,6 +22,7 @@ static const char sample_sha1_str[] = "A94A8FE5CCB19BA61C4C0873D391E987982FBBD3"
 int test_bytes_to_hex(void){
 	char* out;
 
+	/* sample_sha1 to hex str should equal sample_sha1_str */
 	TEST_ASSERT(bytes_to_hex(sample_sha1, sizeof(sample_sha1), &out) == 0);
 	TEST_ASSERT(strcmp(out, sample_sha1_str) == 0);
 
@@ -36,7 +37,7 @@ int test_checksum(void){
 
 	create_file(sample_file, sample_data, sizeof(sample_data));
 
-	/* hash that file and check it against the expected value */
+	/* sha1(sample_file) should equal sample_sha1 */
 	TEST_ASSERT(checksum(sample_file, EVP_sha1(), &out, &len) == 0);
 	TEST_ASSERT(memcmp(sample_sha1, out, len) == 0);
 
@@ -55,6 +56,8 @@ int test_sort_checksum_file(void){
 	const char* fp2str = "checksum2.txt";
 	struct element* e1 = NULL;
 	struct element* e2 = NULL;
+	int n_changed = 0;
+	int n_ctr = 0;
 
 	const char* path = "TEST_ENVIRONMENT";
 	char** files;
@@ -64,11 +67,11 @@ int test_sort_checksum_file(void){
 
 	setup_test_environment_basic(path, &files, &files_len);
 
-	/* make output file */
 	fp1 = fopen(fp1str, "wb");
 	TEST_ASSERT(fp1);
 
-	/* initial checksum run */
+	/* these two for loops add checkums to file in an unsorted order
+	 * this is so we can be sure that sort_checksum_file() actually did something */
 	for (i = 1; i < files_len; i += 2){
 		int res;
 		res = add_checksum_to_file(files[i], EVP_sha1(), fp1, NULL);
@@ -87,19 +90,23 @@ int test_sort_checksum_file(void){
 	}
 	TEST_ASSERT(fclose(fp1) == 0);
 
-	/* sorting file */
 	TEST_ASSERT(sort_checksum_file(fp1str, fp2str) == 0);
-	/* checking that it's sorted */
+
+	/* checking that the file is properly sorted */
 	fp2 = fopen(fp2str, "rb");
 	TEST_ASSERT(fp2);
+	/* e1 = previous element, e2 = current element
+	 * e2->file should always be greater than e1->file */
 	e1 = get_next_checksum_element(fp2);
 	for (i = 0; i < files_len - 1; ++i){
 		e2 = get_next_checksum_element(fp2);
-		TEST_ASSERT(strcmp(e1->file, e2->file) <= 0);
+		TEST_ASSERT(strcmp(e2->file, e1->file) > 0);
 		free_element(e1);
 		e1 = e2;
 	}
 	free_element(e2);
+
+	/* from this point on we are checking if the incremental checksum update works properly */
 
 	/* moving sorted list to fp1 */
 	TEST_ASSERT(fclose(fp2) == 0);
@@ -110,25 +117,34 @@ int test_sort_checksum_file(void){
 	fp2 = fopen(fp2str, "wb");
 	TEST_ASSERT(fp2);
 
-	/* changing data */
+	/* change every other file */
 	for (i = 0; i < files_len; i += 2){
 		const unsigned char data[] = {'c', 'h', 'a', 'n', 'g', 'e', 'd'};
 		create_file(files[i], data, sizeof(data));
+		n_changed++;
 	}
 
-	/* checksum run with previous file */
+	/* check if add_checksum_to_file() skips the unchanged files like it should */
 	for (i = 0; i < files_len; ++i){
 		int res;
 		res = add_checksum_to_file(files[i], EVP_sha1(), fp2, fp1);
+		/* less than zero means an error occured */
 		TEST_ASSERT(res >= 0);
+		/* if file was unchanged */
 		if (res == 1){
 			printf("Old element: %s\n", files[i]);
 		}
+		/* file was changed */
+		else{
+			n_ctr++;
+		}
 	}
-	TEST_ASSERT(fclose(fp1) == 0);
-	TEST_ASSERT(fclose(fp2) == 0);
+	/* n_changed should equal the number of checksums actually added */
+	TEST_ASSERT(n_ctr == n_changed);
 
 	/* cleaning up */
+	TEST_ASSERT(fclose(fp1) == 0);
+	TEST_ASSERT(fclose(fp2) == 0);
 	cleanup_test_environment(path, files);
 	remove(fp1str);
 	remove(fp2str);
@@ -136,8 +152,6 @@ int test_sort_checksum_file(void){
 }
 
 int test_search_for_checksum(void){
-	char files[100][64];
-	char data[100][64];
 	FILE* fp1;
 	const char* fp1str = "checksum1.txt";
 	FILE* fp2;
@@ -145,34 +159,21 @@ int test_search_for_checksum(void){
 	struct element* e1 = NULL;
 	struct element* e2 = NULL;
 	char* checksum;
-	int i;
 
-	/* predictable shuffle */
-	srand(0);
+	const char* path = "TEST_ENVIRONMENT";
+	char** files;
+	size_t files_len = 0;
 
-	/* make output file */
+	size_t i;
+
+	setup_test_environment_basic(path, &files, &files_len);
+
 	fp1 = fopen(fp1str, "wb");
 	TEST_ASSERT(fp1);
-	/* make files 0 to 100 */
-	for (i = 0; i < 100; ++i){
-		sprintf(files[i], "file%03d.txt", i);
-		sprintf(data[i], "test%03d", i);
-	}
-	/* shuffle the list */
-	for (i = 0; i < 100; ++i){
-		char buf[64];
-		int index = rand() % 100;
-		strcpy(buf, files[i]);
-		strcpy(files[i], files[index]);
-		strcpy(files[index], buf);
-	}
-	/* add data to each file */
-	for (i = 0; i < 100; ++i){
-		create_file(files[i], (unsigned char*)data[i], strlen(data[i]));
-	}
-	/* initial checksum run */
 
-	for (i = 0; i < 100; ++i){
+	/* these two for loops add checkums to file in an unsorted order
+	 * this is so we can be sure that sort_checksum_file() actually did something */
+	for (i = 1; i < files_len; i += 2){
 		int res;
 		res = add_checksum_to_file(files[i], EVP_sha1(), fp1, NULL);
 		TEST_ASSERT(res >= 0);
@@ -180,15 +181,25 @@ int test_search_for_checksum(void){
 			printf("Old element: %s\n", files[i]);
 		}
 	}
+	for (i = 0; i < files_len; i += 2){
+		int res;
+		res = add_checksum_to_file(files[i], EVP_sha1(), fp1, NULL);
+		TEST_ASSERT(res >= 0);
+		if (res == 1){
+			printf("Old element: %s\n", files[i]);
+		}
+	}
+	/* add our file to search for right at the end,
+	 * since binsearch starts at the middle, we don't want to give it an unfair advantage */
 	create_file(sample_file, sample_data, sizeof(sample_data));
 	add_checksum_to_file(sample_file, EVP_sha1(), fp1, NULL);
 
 	TEST_ASSERT(fclose(fp1) == 0);
-	/* sorting file */
 
 	TEST_ASSERT(sort_checksum_file(fp1str, fp2str) == 0);
-	TEST_ASSERT(fclose(fp1) == 0);
-	/* checking that it's sorted */
+
+	/* checking that the file was properly sorted
+	 * file must be sorted for the binary search to work properly */
 	fp2 = fopen(fp2str, "rb");
 	TEST_ASSERT(fp2);
 	e1 = get_next_checksum_element(fp2);
@@ -200,49 +211,44 @@ int test_search_for_checksum(void){
 	}
 	free_element(e2);
 
+	/* search_for_checksum returns -1 on error, 1 on not found, 0 on success */
 	TEST_ASSERT(search_for_checksum(fp2, "noexist", &checksum) > 0);
+	/* check that it found our file and the checksums match */
 	TEST_ASSERT(search_for_checksum(fp2, sample_file, &checksum) == 0);
 	TEST_ASSERT(strcmp(sample_sha1_str, checksum) == 0);
 
 	/* cleaning up */
+	cleanup_test_environment(path, files);
 	free(checksum);
 	remove(sample_file);
-	for (i = 0; i < 100; ++i){
-		remove(files[i]);
-	}
 	remove(fp1str);
 	remove(fp2str);
 	return TEST_SUCCESS;
 }
 
 int test_create_removed_list(void){
-	char files[100][64];
-	char data[100][64];
 	FILE* fp1;
 	const char* fp1str = "checksum1.txt";
 	FILE* fp2;
 	const char* fp2str = "checksum2.txt";
 	char* tmp;
-	int ctr = 0;
 
-	int i;
+	const char* path = "TEST_ENVIRONMENT";
+	char** files;
+	size_t files_len = 0;
 
-	/* make output file */
+	size_t n_removed = 0;
+	size_t ctr = 0;
+
+	size_t i;
+
+	setup_test_environment_basic(path, &files, &files_len);
+
 	fp1 = fopen(fp1str, "wb");
 	TEST_ASSERT(fp1);
-	/* make files 0 to 100 */
-	for (i = 0; i < 100; ++i){
-		sprintf(files[i], "file%03d.txt", i);
-		sprintf(data[i], "test%03d", i);
-	}
-	/* add data to each file */
-	for (i = 0; i < 100; ++i){
-		create_file(files[i], (unsigned char*)data[i], strlen(data[i]));
-	}
 
-	/* initial checksum run */
-
-	for (i = 0; i < 100; ++i){
+	/* do the same shuffle as above */
+	for (i = 1; i < files_len; i += 2){
 		int res;
 		res = add_checksum_to_file(files[i], EVP_sha1(), fp1, NULL);
 		TEST_ASSERT(res >= 0);
@@ -250,47 +256,53 @@ int test_create_removed_list(void){
 			printf("Old element: %s\n", files[i]);
 		}
 	}
-
+	for (i = 0; i < files_len; i += 2){
+		int res;
+		res = add_checksum_to_file(files[i], EVP_sha1(), fp1, NULL);
+		TEST_ASSERT(res >= 0);
+		if (res == 1){
+			printf("Old element: %s\n", files[i]);
+		}
+	}
 	TEST_ASSERT(fclose(fp1) == 0);
-	fp1 = fopen(fp1str, "rb");
-	TEST_ASSERT(fp1);
-	fp2 = fopen(fp2str, "wb");
-	TEST_ASSERT(fp2);
 
-	for (i = 0; i < 100; i += 9){
+	/* remove every other file */
+	for (i = 1; i < files_len; i += 2){
 		remove(files[i]);
+		n_removed++;
 	}
 
-	TEST_ASSERT(fclose(fp1) == 0);
-	TEST_ASSERT(fclose(fp2) == 0);
+	/* create a list of removed files in fp2str based on fp1str */
 	TEST_ASSERT(create_removed_list(fp1str, fp2str) == 0);
+
 	fp2 = fopen(fp2str, "rb");
 	TEST_ASSERT(fp2);
 
 	while ((tmp = get_next_removed(fp2)) != NULL){
-		int buf;
-		TEST_ASSERT(sscanf(tmp, "file%03d.txt", &buf) == 1);
-		TEST_ASSERT(buf % 9 == 0);
+		log_red("Removed: %s\n", tmp);
+		/* count the amount of files in the list */
 		ctr++;
 		free(tmp);
 	}
-	TEST_ASSERT(ctr == 12);
+	/* number removed should equal number of files in list */
+	TEST_ASSERT(n_removed == ctr);
 
+	cleanup_test_environment(path, files);
 	remove(fp1str);
 	remove(fp2str);
-	for (i = 0; i < 100; ++i){
-		remove(files[i]);
-	}
 	return TEST_SUCCESS;
 }
 
 int main(void){
-	set_signal_handler();
-	log_setlevel(LEVEL_INFO);
+	struct unit_test tests[] = {
+		MAKE_TEST(test_bytes_to_hex),
+		MAKE_TEST(test_checksum),
+		MAKE_TEST(test_sort_checksum_file),
+		MAKE_TEST(test_search_for_checksum),
+		MAKE_TEST(test_create_removed_list)
+	};
 
-	test_bytes_to_hex();
-	test_checksum();
-	test_sort_checksum_file();
-	test_create_removed_list();
+	log_setlevel(LEVEL_INFO);
+	START_TESTS(tests);
 	return 0;
 }

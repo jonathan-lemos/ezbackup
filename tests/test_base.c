@@ -27,6 +27,7 @@ enum PRINT_COLOR{
 	COLOR_NONE
 };
 
+/* these two are needed to handle segfaults and other signals */
 static jmp_buf s_jumpbuffer;
 static volatile sig_atomic_t s_last_signal;
 
@@ -69,24 +70,43 @@ static void internal_error_if_false(int condition, const char* file, int line, c
 }
 #define INTERNAL_ERROR_IF_FALSE(condition) internal_error_if_false((intptr_t)(condition), __FILE__, __LINE__, #condition)
 
+/* this is our true signal handler
+ *
+ * it's rather limited since signal handlers can only use
+ * re-entrant functions
+ *
+ * the actual handling of the signal happens in handle_signal() */
 static void sig_longjmp(int signo){
 	s_last_signal = signo;
+	/* longjmp to our previous setjmp() location */
 	longjmp(s_jumpbuffer, signo);
 }
 
 static void handle_signal(void){
 	switch (s_last_signal){
+	/* SIGABRT == serious error
+	 * no use trying to recover here
+	 *
+	 * furthermore, not exiting after SIGABRT causes assert() to not exit the program */
 	case SIGABRT:
 		log_red("SIGABRT sent to program. Exiting");
 		exit(1);
 		break;
+	/* catches segfaults
+	 *
+	 * hopefully the heap is still in good condition when we do this
+	 * otherwise the program will crash very soon after we handle this signal */
 	case SIGSEGV:
 		log_red("Caught signal SIGSEGV");
 		break;
+	/* catches ctrl+c
+	 *
+	 * ctrl+c means the user wants to exit, so we let them */
 	case SIGINT:
 		log_yellow("SIGINT sent to program. Exiting");
 		exit(0);
 		break;
+	/* no signal */
 	case 0:
 		break;
 	default:
@@ -151,6 +171,13 @@ void log_blue(const char* format, ...){
 	va_end(ap);
 }
 
+void log_default(const char* format, ...){
+	va_list ap;
+	va_start(ap, format);
+	vfprintf_color(COLOR_NONE, stderr, format, ap);
+	va_end(ap);
+}
+
 int test_assert(int condition, const char* file, int line, const char* msg){
 	if (condition){
 		return 0;
@@ -163,13 +190,17 @@ int test_assert(int condition, const char* file, int line, const char* msg){
 void set_signal_handler(void){
 	struct sigaction sa;
 	sa.sa_handler = sig_longjmp;
+	/* block all signals while signal handler is running */
 	sigfillset(&(sa.sa_mask));
+	/* re-enter functions where we left off */
 	sa.sa_flags = SA_RESTART;
 
+	/* i'll catch other signals if I come across them */
 	sigaction(SIGINT, &sa, NULL);
 	sigaction(SIGABRT, &sa, NULL);
 	sigaction(SIGSEGV, &sa, NULL);
 
+	/* need a default landing point for signal handler's longjmp */
 	if (setjmp(s_jumpbuffer)){
 		handle_signal();
 		log_yellow("A setjmp() location was not specified, so the program cannot continue");
@@ -188,6 +219,7 @@ void create_file(const char* name, const unsigned char* data, int len){
 	INTERNAL_ERROR_IF_FALSE(fclose(fp) == 0);
 }
 
+/* memcmp's the contents of a file to data */
 int memcmp_file_data(const char* file, const unsigned char* data, int data_len){
 	FILE* fp;
 	int i;
@@ -199,11 +231,13 @@ int memcmp_file_data(const char* file, const unsigned char* data, int data_len){
 		int c;
 
 		c = fgetc(fp);
+		/* EOF = -1, lowest possible char */
 		if (c != data[i]){
 			fclose(fp);
 			return c - data[i];
 		}
 	}
+	/* if data_len is less than file len */
 	if (fgetc(fp) != EOF){
 		fclose(fp);
 		return 1;
@@ -213,6 +247,7 @@ int memcmp_file_data(const char* file, const unsigned char* data, int data_len){
 	return 0;
 }
 
+/* memcmp's the contents of two files */
 int memcmp_file_file(const char* file1, const char* file2){
 	FILE* fp1;
 	FILE* fp2;
@@ -226,11 +261,14 @@ int memcmp_file_file(const char* file1, const char* file2){
 	do{
 		c1 = fgetc(fp1);
 		c2 = fgetc(fp2);
+	/* don't need to check c2 != EOF since c1 == c2 will catch it */
 	}while (c1 == c2 && c1 != EOF);
 
 	fclose(fp1);
 	fclose(fp2);
 
+	/* if c1 is EOF, this returns negative like it should
+	 * if c2 is EOF, this returns positive like it should */
 	return c1 - c2;
 }
 
@@ -239,6 +277,7 @@ int does_file_exist(const char* file){
 	return stat(file, &st) == 0;
 }
 
+/* strdup() is not guaranteed by the c standard */
 static char* str_duplicate(const char* in){
 	char* ret = malloc(strlen(in) + 1);
 	INTERNAL_ERROR_IF_FALSE(ret);
@@ -246,11 +285,13 @@ static char* str_duplicate(const char* in){
 	return ret;
 }
 
+/* make_path(3, "dir1", "dir2", "file.txt") -> "dir1/dir2/file.txt" */
 static char* make_path(int n_components, ...){
 	char* ret = NULL;
 	va_list ap;
 	int i;
 
+	/* make an empty string so strcat() works properly */
 	ret = calloc(1, 1);
 	INTERNAL_ERROR_IF_FALSE(ret);
 
@@ -259,13 +300,17 @@ static char* make_path(int n_components, ...){
 	for (i = 0; i < n_components; ++i){
 		const char* arg = va_arg(ap, const char*);
 
+		/* if the string does not end with '/' and
+		 * the next string does not begin with '/' */
 		if (ret[strlen(ret) - 1] != '/' && arg[0] != '/'){
+			/* add a '/' to the end. strlen() + 2 leaves room for '/' and '\0' */
 			ret = realloc(ret, strlen(ret) + 2);
 			INTERNAL_ERROR_IF_FALSE(ret);
 
 			strcat(ret, "/");
 		}
 
+		/* strlen() + 1 leaves room for '\0' */
 		ret = realloc(ret, strlen(ret) + strlen(arg) + 1);
 		INTERNAL_ERROR_IF_FALSE(ret);
 
@@ -304,7 +349,7 @@ void setup_test_environment_basic(const char* path, char*** out, size_t* out_len
 			data[i] = rand() % ('Z' - 'A') + 'A';
 		}
 
-		/* create d1_file_01.txt */
+		/* create d1_file_XX.txt */
 		sprintf(filename, "file_%02lu.txt", i);
 		files[i] = make_path(2, path, filename);
 		create_file(files[i], data, len);
@@ -319,9 +364,14 @@ void setup_test_environment_basic(const char* path, char*** out, size_t* out_len
 		return;
 	}
 
+	/* out is not NULL, so fill out with filenames */
+
+	/* ARRAY_LEN + 1 makes sure last entry is NULL
+	 * this is needed to iterate through the list without files_len */
 	*out = calloc(ARRAY_LEN(files) + 1, sizeof(**out));
 	INTERNAL_ERROR_IF_FALSE(*out);
 
+	/* copy the filenames over and free the local ones */
 	for (i = 0; i < ARRAY_LEN(files); ++i){
 		(*out)[i] = str_duplicate(files[i]);
 		free(files[i]);
@@ -351,19 +401,22 @@ void setup_test_environment_full(const char* path, char*** out, size_t* out_len)
 	char* excl_files[10];
 	char* excl_noacc;
 	const size_t total_len = ARRAY_LEN(dir1_files) + ARRAY_LEN(dir2_files) + ARRAY_LEN(excl_files) + 1;
+	char* tmp;
 
 	size_t i;
 	size_t out_ptr = 0;
 
 	srand(0);
 
-	/* make directory at path */
 	INTERNAL_ERROR_IF_FALSE(mkdir(path, 0755) == 0);
 
 	/* make dir1 */
-	INTERNAL_ERROR_IF_FALSE(mkdir("dir1", 0755) == 0);
+	tmp = make_path(2, path, "dir1");
+	INTERNAL_ERROR_IF_FALSE(mkdir(tmp, 0755) == 0);
+	free(tmp);
+
 	/* make dir1's files */
-	for (i = 0; i < sizeof(dir1_files) / sizeof(dir1_files[0]); ++i){
+	for (i = 0; i < ARRAY_LEN(dir1_files); ++i){
 		unsigned char* data;
 		char filename[64];
 		size_t len = rand() % 1024;
@@ -385,8 +438,12 @@ void setup_test_environment_full(const char* path, char*** out, size_t* out_len)
 		free(data);
 	}
 
-	INTERNAL_ERROR_IF_FALSE(mkdir("dir2", 0755) == 0);
-	for (i = 0; i < sizeof(dir2_files) / sizeof(dir2_files[0]); ++i){
+	/* make dir2 */
+	tmp = make_path(2, path, "dir2");
+	INTERNAL_ERROR_IF_FALSE(mkdir(tmp, 0755) == 0);
+	free(tmp);
+
+	for (i = 0; i < ARRAY_LEN(dir2_files); ++i){
 		unsigned char* data;
 		char filename[64];
 		size_t len = rand() % 1024;
@@ -406,7 +463,11 @@ void setup_test_environment_full(const char* path, char*** out, size_t* out_len)
 		free(data);
 	}
 
-	INTERNAL_ERROR_IF_FALSE(mkdir("excl", 0755) == 0);
+	/* make excl */
+	tmp = make_path(2, path, "excl");
+	INTERNAL_ERROR_IF_FALSE(mkdir(path, 0755) == 0);
+	free(tmp);
+
 	for (i = 0; i < sizeof(excl_files) / sizeof(excl_files[0]); ++i){
 		unsigned char* data;
 		char filename[64];
@@ -446,6 +507,7 @@ void setup_test_environment_full(const char* path, char*** out, size_t* out_len)
 		return;
 	}
 
+	/* total_len + 1 makes last entry NULL */
 	*out = calloc(total_len + 1, sizeof(**out));
 	INTERNAL_ERROR_IF_FALSE(*out);
 	out_ptr = 0;
@@ -475,12 +537,15 @@ void setup_test_environment_full(const char* path, char*** out, size_t* out_len)
 	}
 }
 
+/* recursively removes files and directories at path
+ * if files != NULL, frees files */
 void cleanup_test_environment(const char* path, char** files){
 	struct dirent* dnt;
 	DIR* dp = opendir(path);
 
 	if (files){
 		size_t i;
+		/* last entry guaranteed to be NULL */
 		for (i = 0; files[i] != NULL; ++i){
 			free(files[i]);
 		}
@@ -488,39 +553,42 @@ void cleanup_test_environment(const char* path, char** files){
 	}
 
 	INTERNAL_ERROR_IF_FALSE(dp);
+	/* while there are entries in the current directory */
 	while ((dnt = readdir(dp)) != NULL){
 		char* path_true;
 		struct stat st;
 
+		/* "." and ".." are not real folders */
 		if (!strcmp(dnt->d_name, ".") || !strcmp(dnt->d_name, "..")){
 			continue;
 		}
 
-		path_true = malloc(strlen(path) + strlen(dnt->d_name) + 3);
-		strcpy(path_true, path);
-		if (path[strlen(path) - 1] != '/'){
-			strcat(path_true, "/");
-		}
-		strcat(path_true, dnt->d_name);
+		path_true = make_path(2, path, dnt->d_name);
 
-		if (chmod(path_true, 0777) != 0){
+		/* some of the files are 0000
+		 * they need to be at least 0700 so they can be removed */
+		if (chmod(path_true, 0700) != 0){
 			fprintf(stderr, "Failed to chmod %s (%s)\n", path_true, strerror(errno));
 			free(path_true);
 			continue;
 		}
 
+		/* lstat does not follow symlinks */
 		lstat(path_true, &st);
+		/* if the current file is a directory */
 		if (S_ISDIR(st.st_mode)){
-			cleanup_test_environment(path_true);
-			rmdir(path_true);
+			/* recursively remove files in that directory */
+			cleanup_test_environment(path_true, NULL);
 			free(path_true);
 			continue;
 		}
 
+		/* otherwise remove the file */
 		remove(path_true);
 		free(path_true);
 	}
 	closedir(dp);
+	/* finally, remove the base directory */
 	rmdir(path);
 }
 
@@ -529,12 +597,15 @@ int run_tests(const struct unit_test* tests, size_t len){
 	int n_succeeded = 0;
 	int n_failed = 0;
 	for (i = 0; i < len; ++i){
+		/* if a test sends a signal, execution will jump here */
 		if (setjmp(s_jumpbuffer)){
+			/* take appropriate action based on the signal */
 			handle_signal();
 			log_red("Test %lu of %lu (%s) crashed", i + 1, len + 1, tests[i].func_name);
 			n_failed++;
 		}
-		else if (tests[i].func() != 0){
+		/* execute the test and see if it returns TEST_SUCCESS or not */
+		else if (tests[i].func() != TEST_SUCCESS){
 			log_red("Test %lu of %lu (%s) failed", i + 1, len + 1, tests[i].func_name);
 			n_failed++;
 		}
@@ -548,5 +619,34 @@ int run_tests(const struct unit_test* tests, size_t len){
 	printf("\nResults: \n");
 	log_green("%d of %lu succeeded.\n", n_succeeded, len);
 	log_red("%d of %lu failed.\n", n_failed, len);
+	/* returns 0 if no failures */
 	return n_failed;
+}
+
+/* asks for yes/no. returns 0 if yes and 1 if no */
+int pause_yn(const char* prompt){
+	char c;
+	int ret;
+
+	if (!prompt){
+		prompt = "Yes or no (Y/N)?";
+	}
+
+	/* clear stdin of any leftover characters */
+	while ((c = getchar()) != '\n' && c != EOF);
+
+	log_default("%s", prompt);
+	c = getchar();
+
+	switch (c){
+	case 'y':
+	case 'Y':
+		ret = TEST_SUCCESS;
+	default:
+		ret = TEST_FAIL;
+	}
+
+	/* clear stdin of any trailing characters */
+	while ((c = getchar()) != '\n' && c != EOF);
+	return ret;
 }

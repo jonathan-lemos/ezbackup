@@ -19,6 +19,7 @@ void log_red(const char* format, ...);
 void log_yellow(const char* format, ...);
 void log_green(const char* format, ...);
 void log_blue(const char* format, ...);
+void log_default(const char* format, ...);
 
 void set_signal_handler(void);
 
@@ -29,6 +30,7 @@ int does_file_exist(const char* file);
 void setup_test_environment_basic(const char* path, char*** out, size_t* out_len);
 void setup_test_environment_full(const char* path, char*** out, size_t* out_len);
 void cleanup_test_environment(const char* path, char** files);
+int pause_yn(const char* prompt);
 
 int test_assert(int condition, const char* file, int line, const char* msg);
 

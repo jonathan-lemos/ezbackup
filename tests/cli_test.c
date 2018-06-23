@@ -5,7 +5,7 @@
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 
-void test_display_dialog(void){
+int test_display_dialog(void){
 	const char* choices[] = {
 		"Abort",
 		"Retry",
@@ -13,49 +13,49 @@ void test_display_dialog(void){
 	};
 	int res;
 
-	printf_blue("Testing display_dialog()\n");
-	massert((res = display_dialog(choices, ARRAY_SIZE(choices), "C\nC-C\nCOMBO BREAKER")) >= 0);
+	TEST_ASSERT((res = display_dialog(choices, ARRAY_SIZE(choices), "C\nC-C\nCOMBO BREAKER")) >= 0);
 	switch(res){
 		case 0:
-			printf_yellow("Abort chosen\n");
+			printf("Abort chosen\n");
 			break;
 		case 1:
-			printf_yellow("Retry chosen\n");
+			printf("Retry chosen\n");
 			break;
 		case 2:
-			printf_yellow("Fail chosen\n");
+			printf("Fail chosen\n");
 			break;
 	}
 
-	printf_green("Finished testing display_dialog()\n\n");
+	return pause_yn("Is the statement above correct (Y/N)?");
 }
 
-void test_display_menu(void){
+int test_display_menu(void){
 	char** choices;
 	int res;
 	int i;
 
 	choices = malloc(sizeof(*choices) * 50);
-	massert(choices);
+	TEST_ASSERT(choices);
 	for (i = 0; i < 50; ++i){
 		choices[i] = malloc(sizeof("Choice 00"));
-		massert(choices[i]);
+		TEST_ASSERT(choices[i]);
 
 		sprintf(choices[i], "Choice %02d", i + 1);
 	}
 
-	massert((res = display_menu((const char* const*)choices, 50, "Menu Test")) >= 0);
-	printf_yellow("Choice %02d chosen\n", i);
+	TEST_ASSERT((res = display_menu((const char* const*)choices, 50, "Menu Test")) >= 0);
+	printf("Choice %02d chosen\n", i);
 
-	printf_green("Finished testing display_menu()\n\n");
+	return pause_yn("Is the statement above correct (Y/N)?");
 }
 
 int main(void){
-	set_signal_handler();
+	struct unit_test tests[] = {
+		MAKE_TEST(test_display_dialog),
+		MAKE_TEST(test_display_menu)
+	};
+
 	log_setlevel(LEVEL_INFO);
-
-	test_display_dialog();
-	test_display_menu();
-
+	START_TESTS(tests);
 	return 0;
 }

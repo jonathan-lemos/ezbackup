@@ -13,11 +13,12 @@
 #include <errno.h>
 #include <sys/resource.h>
 
-int __coredumps(int enable){
+static int __coredumps(int enable){
 	static struct rlimit rl_prev;
 	static int previously_disabled = 0;
 	struct rlimit rl;
 	int ret = 0;
+
 	if (!enable){
 		if (getrlimit(RLIMIT_CORE, &rl_prev) != 0){
 			log_warning_ex("Failed to get previous core dump limits (%s)", strerror(errno));
