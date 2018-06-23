@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-void test_co(void){
+void test_co(enum TEST_STATUS* status){
 	struct cloud_options* co;
 
 	printf_blue("Testing co_* functions\n");
@@ -44,7 +44,7 @@ void test_co(void){
 	printf_green("Finished testing co_* functions\n");
 }
 
-void test_time_menu(void){
+void test_time_menu(enum TEST_STATUS* status){
 	int res;
 	/* Jan 1 1970 GMT */
 	struct file_node node0 = {"file1.txt", 0};
@@ -68,7 +68,7 @@ void test_time_menu(void){
 	printf_green("Finished testing time_menu()\n\n");
 }
 
-void test_get_parent_dirs(void){
+void test_get_parent_dirs(enum TEST_STATUS* status){
 	const char* dir = "/dir1/dir2/dir3";
 	char** out = NULL;
 	size_t out_len = 0;
@@ -93,7 +93,7 @@ void test_get_parent_dirs(void){
 	printf_green("Finished testing get_parent_dirs()\n");
 }
 
-void test_cloud_download(void){
+void test_cloud_download(enum TEST_STATUS* status){
 	const char* file = "file1.txt";
 	const char* data = "xyzzy";
 	const char* dir_base = "/test1";
@@ -130,11 +130,5 @@ void test_cloud_download(void){
 }
 
 int main(void){
-	set_signal_handler();
-	log_setlevel(LEVEL_INFO);
-
-	test_time_menu();
-	test_get_parent_dirs();
-	test_cloud_download();
 	return 0;
 }

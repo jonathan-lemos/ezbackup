@@ -1,74 +1,98 @@
 #include "test_base.h"
 #include "../filehelper.h"
+#include "../log.h"
 #include <stdlib.h>
 #include <string.h>
 
-int test_read_file(void){
+static void fill_sample_data(unsigned char* ptr, size_t len){
+	size_t i;
+	for (i = 0; i < len; ++i){
+		ptr[i] = i % 10 + '0';
+	}
+}
+
+void test_read_file(enum TEST_STATUS* status){
 	const char* sample_file = "file1.txt";
 	const char* sample_file2 = "file2.txt";
 	unsigned char sample_data[4096];
-	FILE* fp1;
-	FILE* fp2;
+	FILE* fp1 = NULL;
+	FILE* fp2 = NULL;
 	unsigned char buf[16];
 	int len;
-	size_t i;
 
-	for (i = 0; i < sizeof(sample_data); ++i){
-		sample_data[i] = i % 10 + '0';
-	}
+	fill_sample_data(sample_data, sizeof(sample_data));
 
 	create_file(sample_file, sample_data, sizeof(sample_data));
+	/* copy fp1 to fp2 */
 	fp1 = fopen(sample_file, "rb");
 	TEST_ASSERT(fp1);
 	fp2 = fopen(sample_file2, "wb");
 	TEST_ASSERT(fp2);
 
+	/* while the file has data */
 	while ((len = read_file(fp1, buf, sizeof(buf))) > 0){
+		/* write it to fp2 */
 		fwrite(buf, 1, len, fp2);
 		TEST_ASSERT(ferror(fp2) == 0);
 	}
+	/* if len is -1, there was an error */
 	TEST_ASSERT(len == 0);
 
+	/* flush fp2's buffer to file */
 	TEST_ASSERT(fflush(fp2) == 0);
 
+	/* make sure the two files match */
 	TEST_ASSERT(memcmp_file_file(sample_file, sample_file2) == 0);
 
-	TEST_ASSERT(fclose(fp1) == 0);
-	TEST_ASSERT(fclose(fp2) == 0);
+	/* these throw an error if fclose fails while
+	 * the below two lines don't */
+	TEST_ASSERT_FREE(fp1, fclose);
+	TEST_ASSERT_FREE(fp2, fclose);
 
+cleanup:
+	fp1 ? fclose(fp1) : 0;
+	fp2 ? fclose(fp2) : 0;
 	remove(sample_file);
 	remove(sample_file2);
-
-	printf_green("Finsihed testing read_file()\n\n");
 }
 
-void test_temp_fopen(void){
-	struct TMPFILE* tmp;
-	char tmp_template[] = "tmp_XXXXXX";
+void test_temp_fopen(enum TEST_STATUS* status){
+	struct TMPFILE* tmp = NULL;
+	char* file = NULL;
+	unsigned char sample_data[4096];
 
-	printf_blue("Testing temp_fopen()\n");
+	fill_sample_data(sample_data, sizeof(sample_data));
 
-	printf_yellow("Calling temp_fopen()\n");
 	tmp = temp_fopen();
 	TEST_ASSERT(tmp);
 
-	printf_yellow("Checking that the file exists\n");
-	TEST_ASSERT(does_file_exist(tmp_template));
+	/* copy filename for later use */
+	file = malloc(strlen(tmp->name) + 1);
+	TEST_ASSERT(file);
+	strcpy(file, tmp->name);
 
-	printf_yellow("Writing to file\n");
+	TEST_ASSERT(does_file_exist(file));
+
 	fwrite(sample_data, 1, sizeof(sample_data), tmp->fp);
 	temp_fflush(tmp);
 
-	printf_yellow("Verifying file integrity\n");
-	TEST_ASSERT(memcmp_file_data(tmp_template, sample_data, sizeof(sample_data)) == 0);
+	/* check that the data we wrote is the same as sample_data */
+	TEST_ASSERT(memcmp_file_data(tmp->name, sample_data, sizeof(sample_data)) == 0);
 
-	temp_fclose(tmp);
+	TEST_FREE(tmp, temp_fclose);
 
-	printf_green("Finished testing temp_fopen()\n\n");
+	/* test that the file no longer exists */
+	TEST_ASSERT(!does_file_exist(file));
+
+cleanup:
+	tmp ? temp_fclose(tmp) : (void)0;
+	free(tmp);
 }
 
-void test_file_opened_for_reading(void){
-	FILE* fp;
+void test_file_opened_for_reading(enum TEST_STATUS* status){
+	const char* sample_file = "file1.txt";
+	unsigned char sample_data[4096];
+	FILE* fp = NULL;
 	size_t i;
 	char* modes_accept[] = {
 		"r",
@@ -84,31 +108,32 @@ void test_file_opened_for_reading(void){
 		"a"
 	};
 
-	printf_blue("Testing file_opened_for_reading()\n");
+	fill_sample_data(sample_data, sizeof(sample_data));
 
 	for (i = 0; i < sizeof(modes_accept) / sizeof(modes_accept[0]); ++i){
 		create_file(sample_file, sample_data, sizeof(sample_data));
-		printf_yellow("Calling file_opened_for_reading(\"%s\")\n", modes_accept[i]);
 		fp = fopen(sample_file, modes_accept[i]);
 		TEST_ASSERT(fp);
 		TEST_ASSERT(file_opened_for_reading(fp));
-		TEST_ASSERT(fclose(fp) == 0);
+		TEST_ASSERT_FREE(fp, fclose);
 	}
 
 	for (i = 0; i < sizeof(modes_deny) / sizeof(modes_deny[0]); ++i){
 		create_file(sample_file, sample_data, sizeof(sample_data));
-		printf_yellow("Calling file_opened_for_reading(\"%s\")\n", modes_deny[i]);
 		fp = fopen(sample_file, modes_deny[i]);
 		TEST_ASSERT(fp);
 		TEST_ASSERT(!file_opened_for_reading(fp));
-		TEST_ASSERT(fclose(fp) == 0);
+		TEST_ASSERT_FREE(fp, fclose);
 	}
 
-	printf_green("Finished testing file_opened_for_reading()\n\n");
+cleanup:
+	fp ? fclose(fp) : 0;
 }
 
-void test_file_opened_for_writing(void){
-	FILE* fp;
+void test_file_opened_for_writing(enum TEST_STATUS* status){
+	const char* sample_file = "file1.txt";
+	unsigned char sample_data[4096];
+	FILE* fp = NULL;
 	size_t i;
 	char* modes_accept[] = {
 		"w",
@@ -124,40 +149,94 @@ void test_file_opened_for_writing(void){
 		"rb"
 	};
 
-	printf_blue("Testing file_opened_for_writing()\n");
+	fill_sample_data(sample_data, sizeof(sample_data));
 
 	for (i = 0; i < sizeof(modes_accept) / sizeof(modes_accept[0]); ++i){
 		create_file(sample_file, sample_data, sizeof(sample_data));
-		printf_yellow("Calling file_opened_for_writing(\"%s\")\n", modes_accept[i]);
 		fp = fopen(sample_file, modes_accept[i]);
 		TEST_ASSERT(fp);
 		TEST_ASSERT(file_opened_for_writing(fp));
-		TEST_ASSERT(fclose(fp) == 0);
+		TEST_ASSERT_FREE(fp, fclose);
 	}
 
 	for (i = 0; i < sizeof(modes_deny) / sizeof(modes_deny[0]); ++i){
 		create_file(sample_file, sample_data, sizeof(sample_data));
-		printf_yellow("Calling file_opened_for_writing(\"%s\")\n", modes_deny[i]);
 		fp = fopen(sample_file, modes_deny[i]);
 		TEST_ASSERT(fp);
 		TEST_ASSERT(!file_opened_for_writing(fp));
-		TEST_ASSERT(fclose(fp) == 0);
+		TEST_ASSERT_FREE(fp, fclose);
 	}
 
-	printf_green("Finished testing file_opened_for_writing()\n\n");
+cleanup:
+	fp ? fclose(fp) : 0;
+}
+
+void test_get_file_size(enum TEST_STATUS* status){
+	const char* sample_file = "file1.txt";
+	unsigned char sample_data[1337];
+	FILE* fp = NULL;
+
+	fill_sample_data(sample_data, sizeof(sample_data));
+	fill_sample_data(sample_data, sizeof(sample_data));
+
+	create_file(sample_file, sample_data, sizeof(sample_data));
+	TEST_ASSERT(get_file_size(sample_file) == sizeof(sample_data));
+
+	fp = fopen(sample_file, "rb");
+	TEST_ASSERT(fp);
+
+	TEST_ASSERT(get_file_size_fp(fp) == sizeof(sample_data));
+
+cleanup:
+	fp ? fclose(fp) : 0;
+}
+
+void test_copy_file(enum TEST_STATUS* status){
+	const char* sample_file1 = "file1.txt";
+	const char* sample_file2 = "file2.txt";
+	unsigned char sample_data[4096];
+
+	fill_sample_data(sample_data, sizeof(sample_data));
+
+	create_file(sample_file1, sample_data, sizeof(sample_data));
+	copy_file(sample_file1, sample_file2);
+
+	TEST_ASSERT(memcmp_file_file(sample_file1, sample_file2) == 0);
+
+cleanup:
+	remove(sample_file1);
+	remove(sample_file2);
+}
+
+void test_rename_file(enum TEST_STATUS* status){
+	const char* sample_file1 = "file1.txt";
+	const char* sample_file2 = "file2.txt";
+	unsigned char sample_data[4096];
+
+	fill_sample_data(sample_data, sizeof(sample_data));
+
+	create_file(sample_file1, sample_data, sizeof(sample_data));
+	rename_file(sample_file1, sample_file2);
+
+	TEST_ASSERT(!does_file_exist(sample_file1));
+	TEST_ASSERT(memcmp_file_data(sample_file2, sample_data, sizeof(sample_data)) == 0);
+
+cleanup:
+	remove(sample_file1);
+	remove(sample_file2);
 }
 
 int main(void){
-	size_t i;
+	struct unit_test tests[] = {
+		MAKE_TEST(test_read_file),
+		MAKE_TEST(test_temp_fopen),
+		MAKE_TEST(test_file_opened_for_reading),
+		MAKE_TEST(test_file_opened_for_writing),
+		MAKE_TEST(test_copy_file),
+		MAKE_TEST(test_rename_file)
+	};
 
-	set_signal_handler();
-	for (i = 0; i < sizeof(sample_data); ++i){
-		sample_data[i] = i % 10 + '0';
-	}
-
-	test_read_file();
-	test_temp_fopen();
-	test_file_opened_for_reading();
-	test_file_opened_for_writing();
+	log_setlevel(LEVEL_INFO);
+	START_TESTS(tests);
 	return 0;
 }

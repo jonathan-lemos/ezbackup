@@ -11,26 +11,27 @@
 #include "../log.h"
 #include <stdlib.h>
 
-int test_fi_normal(void){
-	struct fi_stack* fis;
-	char* tmp;
+void test_fi_normal(enum TEST_STATUS* status){
+	struct fi_stack* fis = NULL;
+	char* tmp = NULL;
 
 	fis = fi_start("/");
 	TEST_ASSERT(fis);
 
 	while ((tmp = fi_next(fis)) != NULL){
 		printf("%s\r", tmp);
-		free(tmp);
+		TEST_FREE(tmp, free);
 	}
 	printf("\n");
 
-	fi_end(fis);
-	return TEST_SUCCESS;
+cleanup:
+	fis ? fi_end(fis) : (void)0;
+	free(tmp);
 }
 
-int test_fi_skip_dir(void){
-	struct fi_stack* fis;
-	char* tmp;
+void test_fi_skip_dir(enum TEST_STATUS* status){
+	struct fi_stack* fis = NULL;
+	char* tmp = NULL;
 	int ctr = 0;
 
 	fis = fi_start("/");
@@ -38,7 +39,7 @@ int test_fi_skip_dir(void){
 
 	while ((tmp = fi_next(fis)) != NULL){
 		printf("%s\r", tmp);
-		free(tmp);
+		TEST_FREE(tmp, free);
 
 		ctr++;
 		if (ctr >= 3){
@@ -48,17 +49,19 @@ int test_fi_skip_dir(void){
 	}
 	printf("\n");
 
-	fi_end(fis);
-	return TEST_SUCCESS;
+cleanup:
+	fis ? fi_end(fis) : (void)0;
+	free(tmp);
 }
 
-int test_fi_fail(void){
+void test_fi_fail(enum TEST_STATUS* status){
 	struct fi_stack* fis;
 
 	fis = fi_start("/not/a/directory");
 	TEST_ASSERT(fis == NULL);
 
-	return TEST_SUCCESS;
+cleanup:
+	;
 }
 
 int main(void){

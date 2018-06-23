@@ -2,8 +2,10 @@
 #include "../backup.h"
 #include "../log.h"
 
-int test_backup(void){
-	return TEST_SUCCESS;
+void test_backup(enum TEST_STATUS* status){
+	TEST_ASSERT(1);
+cleanup:
+	;
 }
 
 int main(void){

@@ -8,16 +8,31 @@
 
 #include "test_base.h"
 #include "../progressbar.h"
+#include "../log.h"
 #include <unistd.h>
+#include <stdlib.h>
 
-int main(void){
-	struct progress* p;
+void test_progress(enum TEST_STATUS* status){
+	struct progress* p = NULL;
+
+	srand(0);
 
 	p = start_progress("Test progress", 100000);
+	TEST_ASSERT(p);
 	while (p->count < p->max){
-		usleep(66);
+		usleep(rand() % 150 + 10);
 		inc_progress(p, 6);
 	}
-	finish_progress(p);
+cleanup:
+	p ? finish_progress(p) : (void)0;
+}
+
+int main(void){
+	struct unit_test tests[] = {
+		MAKE_TEST(test_progress)
+	};
+
+	log_setlevel(LEVEL_INFO);
+	START_TESTS(tests);
 	return 0;
 }

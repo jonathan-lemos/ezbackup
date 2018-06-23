@@ -19,19 +19,19 @@ static const unsigned char sample_sha1[] = { 0xA9, 0x4A, 0x8F, 0xE5, 0xCC, 0xB1,
 static const char sample_sha1_str[] = "A94A8FE5CCB19BA61C4C0873D391E987982FBBD3";
 
 /* bytes_to_hex() */
-int test_bytes_to_hex(void){
+void test_bytes_to_hex(enum TEST_STATUS* status){
 	char* out;
 
 	/* sample_sha1 to hex str should equal sample_sha1_str */
 	TEST_ASSERT(bytes_to_hex(sample_sha1, sizeof(sample_sha1), &out) == 0);
 	TEST_ASSERT(strcmp(out, sample_sha1_str) == 0);
 
+cleanup:
 	free(out);
-	return TEST_SUCCESS;
 }
 
 /* checksum() */
-int test_checksum(void){
+void test_checksum(enum TEST_STATUS* status){
 	unsigned char* out;
 	unsigned len;
 
@@ -41,18 +41,18 @@ int test_checksum(void){
 	TEST_ASSERT(checksum(sample_file, EVP_sha1(), &out, &len) == 0);
 	TEST_ASSERT(memcmp(sample_sha1, out, len) == 0);
 
+cleanup:
 	free(out);
 	remove(sample_file);
-	return TEST_SUCCESS;
 }
 
 /* add_checksum_to_file()
  * sort_checksum_file()
  * add_checksum_to_file() with previous file */
-int test_sort_checksum_file(void){
-	FILE* fp1;
+void test_sort_checksum_file(enum TEST_STATUS* status){
+	FILE* fp1 = NULL;
 	const char* fp1str = "checksum1.txt";
-	FILE* fp2;
+	FILE* fp2 = NULL;
 	const char* fp2str = "checksum2.txt";
 	struct element* e1 = NULL;
 	struct element* e2 = NULL;
@@ -60,8 +60,8 @@ int test_sort_checksum_file(void){
 	int n_ctr = 0;
 
 	const char* path = "TEST_ENVIRONMENT";
-	char** files;
-	size_t files_len;
+	char** files = NULL;
+	size_t files_len = 0;
 
 	size_t i;
 
@@ -88,7 +88,7 @@ int test_sort_checksum_file(void){
 			printf("Old element: %s\n", files[i]);
 		}
 	}
-	TEST_ASSERT(fclose(fp1) == 0);
+	TEST_ASSERT_FREE(fp1, fclose);
 
 	TEST_ASSERT(sort_checksum_file(fp1str, fp2str) == 0);
 
@@ -101,15 +101,15 @@ int test_sort_checksum_file(void){
 	for (i = 0; i < files_len - 1; ++i){
 		e2 = get_next_checksum_element(fp2);
 		TEST_ASSERT(strcmp(e2->file, e1->file) > 0);
-		free_element(e1);
+		TEST_FREE(e1, free_element);
 		e1 = e2;
 	}
-	free_element(e2);
+	TEST_FREE(e2, free_element);
 
 	/* from this point on we are checking if the incremental checksum update works properly */
 
 	/* moving sorted list to fp1 */
-	TEST_ASSERT(fclose(fp2) == 0);
+	TEST_ASSERT_FREE(fp2, fclose);
 	remove(fp1str);
 	rename(fp2str, fp1str);
 	fp1 = fopen(fp1str, "rb");
@@ -142,23 +142,24 @@ int test_sort_checksum_file(void){
 	/* n_changed should equal the number of checksums actually added */
 	TEST_ASSERT(n_ctr == n_changed);
 
-	/* cleaning up */
-	TEST_ASSERT(fclose(fp1) == 0);
-	TEST_ASSERT(fclose(fp2) == 0);
+cleanup:
+	e1 ? free_element(e1) : (void)0;
+	e2 ? free_element(e2) : (void)0;
+	fp1 ? fclose(fp1) : 0;
+	fp2 ? fclose(fp2) : 0;
 	cleanup_test_environment(path, files);
 	remove(fp1str);
 	remove(fp2str);
-	return TEST_SUCCESS;
 }
 
-int test_search_for_checksum(void){
-	FILE* fp1;
+void test_search_for_checksum(enum TEST_STATUS* status){
+	FILE* fp1 = NULL;
 	const char* fp1str = "checksum1.txt";
-	FILE* fp2;
+	FILE* fp2 = NULL;
 	const char* fp2str = "checksum2.txt";
 	struct element* e1 = NULL;
 	struct element* e2 = NULL;
-	char* checksum;
+	char* checksum = NULL;
 
 	const char* path = "TEST_ENVIRONMENT";
 	char** files;
@@ -194,7 +195,7 @@ int test_search_for_checksum(void){
 	create_file(sample_file, sample_data, sizeof(sample_data));
 	add_checksum_to_file(sample_file, EVP_sha1(), fp1, NULL);
 
-	TEST_ASSERT(fclose(fp1) == 0);
+	TEST_ASSERT_FREE(fp1, fclose);
 
 	TEST_ASSERT(sort_checksum_file(fp1str, fp2str) == 0);
 
@@ -206,10 +207,10 @@ int test_search_for_checksum(void){
 	for (i = 0; i < 100 - 1; ++i){
 		e2 = get_next_checksum_element(fp2);
 		TEST_ASSERT(strcmp(e1->file, e2->file) <= 0);
-		free_element(e1);
+		TEST_FREE(e1, free_element);
 		e1 = e2;
 	}
-	free_element(e2);
+	TEST_FREE(e2, free_element);
 
 	/* search_for_checksum returns -1 on error, 1 on not found, 0 on success */
 	TEST_ASSERT(search_for_checksum(fp2, "noexist", &checksum) > 0);
@@ -217,24 +218,27 @@ int test_search_for_checksum(void){
 	TEST_ASSERT(search_for_checksum(fp2, sample_file, &checksum) == 0);
 	TEST_ASSERT(strcmp(sample_sha1_str, checksum) == 0);
 
-	/* cleaning up */
+cleanup:
+	e1 ? free_element(e1) : (void)0;
+	e2 ? free_element(e2) : (void)0;
+	fp1 ? fclose(fp1) : 0;
+	fp2 ? fclose(fp2) : 0;
 	cleanup_test_environment(path, files);
 	free(checksum);
 	remove(sample_file);
 	remove(fp1str);
 	remove(fp2str);
-	return TEST_SUCCESS;
 }
 
-int test_create_removed_list(void){
-	FILE* fp1;
+void test_create_removed_list(enum TEST_STATUS* status){
+	FILE* fp1 = NULL;
 	const char* fp1str = "checksum1.txt";
-	FILE* fp2;
+	FILE* fp2 = NULL;
 	const char* fp2str = "checksum2.txt";
-	char* tmp;
+	char* tmp = NULL;
 
 	const char* path = "TEST_ENVIRONMENT";
-	char** files;
+	char** files = NULL;
 	size_t files_len = 0;
 
 	size_t n_removed = 0;
@@ -264,7 +268,7 @@ int test_create_removed_list(void){
 			printf("Old element: %s\n", files[i]);
 		}
 	}
-	TEST_ASSERT(fclose(fp1) == 0);
+	TEST_ASSERT_FREE(fp1, fclose);
 
 	/* remove every other file */
 	for (i = 1; i < files_len; i += 2){
@@ -287,10 +291,10 @@ int test_create_removed_list(void){
 	/* number removed should equal number of files in list */
 	TEST_ASSERT(n_removed == ctr);
 
+cleanup:
 	cleanup_test_environment(path, files);
 	remove(fp1str);
 	remove(fp2str);
-	return TEST_SUCCESS;
 }
 
 int main(void){

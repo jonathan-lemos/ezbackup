@@ -9,30 +9,48 @@
 #include "test_base.h"
 #include "../log.h"
 
-int test_return_ifnull(char* arg){
-	return_ifnull(arg, -1);
+static int func_return_ifnull(const void* arg){
+	return_ifnull(arg, 1);
 	return 0;
 }
 
-int main(void){
-	enum LOG_LEVEL level;
-	char* tmp = "hello";
-
-	set_signal_handler();
-
-	for (level = LEVEL_NONE; level <= LEVEL_INFO; level++){
-		log_setlevel(level);
-		log_info("info");
-		log_debug("debug");
-		log_warning("warning");
-		log_error("error");
-		log_fatal("fatal");
-		printf("\n");
-	}
-
-	massert(test_return_ifnull(tmp) == 0);
+void test_return_ifnull(enum TEST_STATUS* status){
+	const char* tmp = "444";
+	TEST_ASSERT(func_return_ifnull(tmp) == 0);
 	tmp = NULL;
-	massert(test_return_ifnull(tmp) == -1);
+	TEST_ASSERT(func_return_ifnull(tmp) != 0);
+cleanup:
+	;
+}
 
-	return 0;
+void test_log(enum TEST_STATUS* status){
+	log_setlevel(LEVEL_INFO);
+	log_fatal("Fatal");
+	log_error("Error");
+	log_warning("Warning");
+	log_debug("Debug");
+	log_info("Info");
+
+	log_default("\n");
+
+	log_setlevel(LEVEL_FATAL);
+	log_fatal("Fatal");
+	log_error("Error");
+	log_warning("Warning");
+	log_debug("Debug");
+	log_info("Info");
+
+	TEST_ASSERT(pause_yn("Last line is fatal?") == 0);
+
+cleanup:
+	;
+}
+
+int main(void){
+	struct unit_test tests[] = {
+		MAKE_TEST(test_return_ifnull),
+		MAKE_TEST(test_log)
+	};
+
+	START_TESTS(tests);
 }

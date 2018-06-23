@@ -34,17 +34,27 @@ int pause_yn(const char* prompt);
 
 int test_assert(int condition, const char* file, int line, const char* msg);
 
+enum TEST_STATUS{
+	TEST_SUCCESS = 0,
+	TEST_FAIL = 1
+};
+
 struct unit_test{
-	int(*func)(void);
+	void(*func)(enum TEST_STATUS* status);
 	const char* func_name;
 };
 int run_tests(const struct unit_test* tests, size_t len);
 
-#define TEST_SUCCESS 0
-#define TEST_FAIL 1
+/* I KNOW THIS IS UGLY
+ * this is about the point in my project where I realized that C++ and RAII would be pretty convenient right about now.
+ *
+ * I have to cleanup dynamically allocated resources somehow, so goto cleanup accomplishes that */
+#define TEST_ASSERT(condition) if (test_assert((intptr_t)(condition), __FILE__, __LINE__, #condition)) *status = TEST_FAIL;goto cleanup
+#define TEST_ASSERT_MSG(condition, msg) if (test_assert((intptr_t)(condition), __FILE__, __LINE__, msg)) *status = TEST_FAIL;goto cleanup
 
-#define TEST_ASSERT(condition) if (test_assert((intptr_t)(condition), __FILE__, __LINE__, #condition)) return TEST_FAIL
-#define TEST_ASSERT_MSG(condition, msg) if (test_assert((intptr_t)(condition), __FILE__, __LINE__, msg)) return TEST_FAIL
+/* prevents double free problems arising from TEST_ASSERT's goto */
+#define TEST_FREE(ptr, free_func) { free_func(ptr); ptr = NULL; }
+#define TEST_ASSERT_FREE(ptr, free_func) if (free_func(ptr) != 0){ ptr = NULL; test_assert(0, __FILE__, __LINE__, #free_func); }
 
 #define MAKE_TEST(func) {func, #func}
 #define START_TESTS(tests) set_signal_handler();run_tests(tests, sizeof(tests) / sizeof(tests[0]))

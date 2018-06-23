@@ -3,7 +3,7 @@
 #include "../log.h"
 #include <sys/resource.h>
 
-int test_coredumps(void){
+void test_coredumps(enum TEST_STATUS* status){
 	struct rlimit rl;
 
 	disable_core_dumps();
@@ -14,7 +14,8 @@ int test_coredumps(void){
 	TEST_ASSERT(getrlimit(RLIMIT_CORE, &rl) == 0);
 	TEST_ASSERT(rl.rlim_max > 0 && rl.rlim_cur == 0);
 
-	return TEST_SUCCESS;
+cleanup:
+	;
 }
 
 int main(void){

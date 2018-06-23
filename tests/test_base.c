@@ -552,7 +552,9 @@ void cleanup_test_environment(const char* path, char** files){
 		free(files);
 	}
 
-	INTERNAL_ERROR_IF_FALSE(dp);
+	if (!dp){
+		return;
+	}
 	/* while there are entries in the current directory */
 	while ((dnt = readdir(dp)) != NULL){
 		char* path_true;
@@ -597,21 +599,25 @@ int run_tests(const struct unit_test* tests, size_t len){
 	int n_succeeded = 0;
 	int n_failed = 0;
 	for (i = 0; i < len; ++i){
+		enum TEST_STATUS status = TEST_SUCCESS;
 		/* if a test sends a signal, execution will jump here */
 		if (setjmp(s_jumpbuffer)){
 			/* take appropriate action based on the signal */
 			handle_signal();
 			log_red("Test %lu of %lu (%s) crashed", i + 1, len + 1, tests[i].func_name);
 			n_failed++;
+			printf("\n");
+			continue;
 		}
 		/* execute the test and see if it returns TEST_SUCCESS or not */
-		else if (tests[i].func() != TEST_SUCCESS){
-			log_red("Test %lu of %lu (%s) failed", i + 1, len + 1, tests[i].func_name);
-			n_failed++;
-		}
-		else{
+		tests[i].func(&status);
+		if (status == TEST_SUCCESS){
 			log_green("Test %lu of %lu (%s) succeeded", i + 1, len + 1, tests[i].func_name);
 			n_succeeded++;
+		}
+		else{
+			log_red("Test %lu of %lu (%s) failed", i + 1, len + 1, tests[i].func_name);
+			n_failed++;
 		}
 
 		printf("\n");
@@ -641,9 +647,9 @@ int pause_yn(const char* prompt){
 	switch (c){
 	case 'y':
 	case 'Y':
-		ret = TEST_SUCCESS;
+		ret = 0;
 	default:
-		ret = TEST_FAIL;
+		ret = 1;
 	}
 
 	/* clear stdin of any trailing characters */

@@ -5,7 +5,7 @@
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 
-int test_display_dialog(void){
+void test_display_dialog(enum TEST_STATUS* status){
 	const char* choices[] = {
 		"Abort",
 		"Retry",
@@ -25,11 +25,12 @@ int test_display_dialog(void){
 			printf("Fail chosen\n");
 			break;
 	}
-
-	return pause_yn("Is the statement above correct (Y/N)?");
+	TEST_ASSERT(pause_yn("Is the statement above correct (Y/N)?") == 0);
+cleanup:
+	;
 }
 
-int test_display_menu(void){
+void test_display_menu(enum TEST_STATUS* status){
 	char** choices;
 	int res;
 	int i;
@@ -46,7 +47,13 @@ int test_display_menu(void){
 	TEST_ASSERT((res = display_menu((const char* const*)choices, 50, "Menu Test")) >= 0);
 	printf("Choice %02d chosen\n", i);
 
-	return pause_yn("Is the statement above correct (Y/N)?");
+	TEST_ASSERT(pause_yn("Is the statement above correct (Y/N)?") == 0);
+
+cleanup:
+	for (i = 0; i < 50; ++i){
+		free(choices[i]);
+	}
+	free(choices);
 }
 
 int main(void){
