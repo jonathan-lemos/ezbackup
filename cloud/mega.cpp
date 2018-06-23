@@ -8,6 +8,7 @@
 
 #include "mega.h"
 extern "C"{
+#include "keys.h"
 #include "../log.h"
 #include "../progressbar.h"
 }
@@ -130,12 +131,11 @@ private:
 };
 
 int MEGAlogin(const char* email, const char* password, MEGAhandle** out){
-	const char* API_KEY = "***REMOVED***";
 	std::string prompt;
 	mega::MegaApi* mega_api;
 	mega::SynchronousRequestListener listener;
 
-	mega_api = new mega::MegaApi(API_KEY, (const char*)NULL, "ezbackup");
+	mega_api = new mega::MegaApi(MEGA_API_KEY, (const char*)NULL, "ezbackup");
 
 	mega_api->login(email, password, &listener);
 

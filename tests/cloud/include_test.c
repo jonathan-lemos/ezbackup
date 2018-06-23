@@ -1,5 +1,6 @@
 #include "../test_base.h"
 #include "../../cloud/include.h"
+#include "../../cloud/keys.h"
 #include "../../log.h"
 #include <time.h>
 #include <stdlib.h>
@@ -8,40 +9,34 @@
 void test_co(enum TEST_STATUS* status){
 	struct cloud_options* co;
 
-	printf_blue("Testing co_* functions\n");
-
-	printf_yellow("Calling co_new()\n");
 	co = co_new();
-	massert(co);
+	TEST_ASSERT(co);
 
-	printf_yellow("Calling co_set_username(\"bobby_basketball\")\n");
-	massert(co_set_username(co, "bobby_basketball") == 0);
-	massert(strcmp("bobby_basketball", co->username) == 0);
-	massert(co_set_username(co, NULL) == 0);
-	massert(co->username = NULL);
-	massert(co_set_username(co, "bobby_basketball") == 0);
-	massert(strcmp("bobby_basketball", co->username) == 0);
+	TEST_ASSERT(co_set_username(co, "bobby_basketball") == 0);
+	TEST_ASSERT(strcmp("bobby_basketball", co->username) == 0);
+	TEST_ASSERT(co_set_username(co, NULL) == 0);
+	TEST_ASSERT(co->username = NULL);
+	TEST_ASSERT(co_set_username(co, "bobby_basketball") == 0);
+	TEST_ASSERT(strcmp("bobby_basketball", co->username) == 0);
 
-	printf_yellow("Calling co_set_password(\"hunter2\")");
-	massert(co_set_password(co, "hunter2") == 0);
-	massert(strcmp("hunter2", co->password));
-	massert(co_set_password(co, NULL) == 0);
-	massert(co->password = NULL);
-	massert(co_set_password(co, "hunter2") == 0);
-	massert(strcmp("hunter2", co->password) == 0);
+	TEST_ASSERT(co_set_password(co, "hunter2") == 0);
+	TEST_ASSERT(strcmp("hunter2", co->password));
+	TEST_ASSERT(co_set_password(co, NULL) == 0);
+	TEST_ASSERT(co->password = NULL);
+	TEST_ASSERT(co_set_password(co, "hunter2") == 0);
+	TEST_ASSERT(strcmp("hunter2", co->password) == 0);
 
-	printf_yellow("Calling co_set_default_upload_directory()\n");
-	massert(co_set_default_upload_directory(co) == 0);
-	massert(strcmp(co->upload_directory, "/Backups") == 0);
-	massert(co_set_upload_directory(co, NULL) == 0);
-	massert(co->upload_directory = NULL);
-	massert(co_set_upload_directory(co, "/dir1/dir2") == 0);
-	massert(strcmp("/dir1/dir2", co->upload_directory) == 0);
 
-	printf_yellow("Calling co_free()\n");
-	co_free(co);
+	TEST_ASSERT(co_set_default_upload_directory(co) == 0);
+	TEST_ASSERT(co->upload_directory);
+	printf("Default upload dir: %s\n", co->upload_directory);
+	TEST_ASSERT(co_set_upload_directory(co, NULL) == 0);
+	TEST_ASSERT(co->upload_directory = NULL);
+	TEST_ASSERT(co_set_upload_directory(co, "/dir1/dir2") == 0);
+	TEST_ASSERT(strcmp("/dir1/dir2", co->upload_directory) == 0);
 
-	printf_green("Finished testing co_* functions\n");
+cleanup:
+	co ? co_free(co) : (void)0;
 }
 
 void test_time_menu(enum TEST_STATUS* status){
@@ -58,14 +53,13 @@ void test_time_menu(enum TEST_STATUS* status){
 	arr[1] = &node1;
 	arr[2] = &node2;
 
-	printf_blue("Testing time_menu()\n");
-
-	printf_yellow("Calling time_menu()\n");
 	res = time_menu(arr, sizeof(arr) / sizeof(arr[0]));
 
 	printf("You selected %d\n", res);
+	TEST_ASSERT(pause_yn("Is the above statement correct (Y/N)?") == 0);
 
-	printf_green("Finished testing time_menu()\n\n");
+cleanup:
+	;
 }
 
 void test_get_parent_dirs(enum TEST_STATUS* status){
@@ -74,23 +68,18 @@ void test_get_parent_dirs(enum TEST_STATUS* status){
 	size_t out_len = 0;
 	size_t i;
 
-	printf_blue("Testing get_parent_dirs()\n");
+	TEST_ASSERT(get_parent_dirs(dir, &out, &out_len) == 0);
 
-	printf_yellow("Calling get_parent_dirs()\n");
-	massert(get_parent_dirs(dir, &out, &out_len) == 0);
+	TEST_ASSERT(out_len == 3);
+	TEST_ASSERT(strcmp(out[0], "/dir1") == 0);
+	TEST_ASSERT(strcmp(out[1], "/dir1/dir2") == 0);
+	TEST_ASSERT(strcmp(out[2], "/dir1/dir2/dir3") == 0);
 
-	printf_yellow("Checking that it worked\n");
-	massert(out_len == 3);
-	massert(strcmp(out[0], "/dir1") == 0);
-	massert(strcmp(out[1], "/dir1/dir2") == 0);
-	massert(strcmp(out[2], "/dir1/dir2/dir3") == 0);
-
+cleanup:
 	for (i = 0; i < out_len; ++i){
 		free(out[i]);
 	}
 	free(out);
-
-	printf_green("Finished testing get_parent_dirs()\n");
 }
 
 void test_cloud_download(enum TEST_STATUS* status){
@@ -99,36 +88,41 @@ void test_cloud_download(enum TEST_STATUS* status){
 	const char* dir_base = "/test1";
 	const char* dir = "/test1/test2";
 	const char* full_path = "/test1/test2/file1.txt";
-	char* file_out;
-	struct cloud_options* co;
-
-	printf_blue("Testing cloud_upload()\n");
+	char* file_out = "file2.txt";
+	struct cloud_options* co = NULL;
 
 	create_file(file, (const unsigned char*)data, strlen(data));
 	co = co_new();
-	co_set_username(co, "***REMOVED***");
-	co_set_password(co, "***REMOVED***");
+	co_set_username(co, MEGA_SAMPLE_USERNAME);
+	co_set_password(co, MEGA_SAMPLE_PASSWORD);
 	co_set_cp(co, CLOUD_MEGA);
+	co_set_upload_directory(co, dir);
 
-	printf_yellow("Calling cloud_upload()\n");
-	massert(cloud_upload(file, co) == 0);
+	TEST_ASSERT(cloud_upload(file, co) == 0);
 
-	printf_yellow("Calling cloud_download()\n");
 	remove(file);
-	massert(cloud_download(dir, co, &file_out) == 0);
+	TEST_ASSERT(cloud_download(dir, co, &file_out) == 0);
 
-	printf_yellow("Checking that the files match\n");
-	massert(memcmp_file_data(file_out, (const unsigned char*) data, strlen(data)) == 0);
+	TEST_ASSERT(memcmp_file_data(file_out, (const unsigned char*)data, strlen(data)) == 0);
 
-	printf_yellow("Cleaning up\n");
-	massert(cloud_rm(full_path, co) == 0);
-	massert(cloud_rm(dir, co) == 0);
-	massert(cloud_rm(dir_base, co) == 0);
+	TEST_ASSERT(cloud_rm(full_path, co) == 0);
+	TEST_ASSERT(cloud_rm(dir, co) == 0);
+	TEST_ASSERT(cloud_rm(dir_base, co) == 0);
 
+cleanup:
+	co_free(co);
 	remove(file_out);
-	printf_green("Finished testing cloud_download()\n\n");
 }
 
 int main(void){
+	struct unit_test tests[] = {
+		MAKE_TEST(test_co),
+		MAKE_TEST(test_time_menu),
+		MAKE_TEST(test_get_parent_dirs),
+		MAKE_TEST(test_cloud_download)
+	};
+
+	log_setlevel(LEVEL_INFO);
+	START_TESTS(tests);
 	return 0;
 }
