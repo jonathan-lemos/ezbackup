@@ -136,12 +136,14 @@ static void handle_signal(void){
    }
    */
 
-static void fprintf_color(enum PRINT_COLOR pc, FILE* stream, const char* format, ...){
-	va_list ap;
-	va_start(ap, format);
-	vfprintf_color(pc, stream, format, ap);
-	va_end(ap);
-}
+/*
+ * static void fprintf_color(enum PRINT_COLOR pc, FILE* stream, const char* format, ...){
+ * 	va_list ap;
+ * 	va_start(ap, format);
+ * 	vfprintf_color(pc, stream, format, ap);
+ * 	va_end(ap);
+ * }
+*/
 
 void log_red(const char* format, ...){
 	va_list ap;
@@ -512,7 +514,7 @@ void setup_test_environment_full(const char* path, char*** out, size_t* out_len)
 	INTERNAL_ERROR_IF_FALSE(*out);
 	out_ptr = 0;
 
-	for (i = 0; i < ARRAY_LEN(dir1_files[i]); ++i){
+	for (i = 0; i < ARRAY_LEN(dir1_files); ++i){
 		(*out)[out_ptr] = str_duplicate(dir1_files[i]);
 		free(dir1_files[i]);
 		out_ptr++;
@@ -648,6 +650,7 @@ int pause_yn(const char* prompt){
 	case 'y':
 	case 'Y':
 		ret = 0;
+		break;
 	default:
 		ret = 1;
 	}

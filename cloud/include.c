@@ -158,7 +158,7 @@ static int cmp(const void* tm1, const void* tm2){
 	return (*((struct file_node**)tm2))->time - (*((struct file_node**)tm1))->time;
 }
 
-int time_menu(const struct file_node** arr, size_t len){
+int time_menu(struct file_node** arr, size_t len){
 	char** options;
 	int res;
 	size_t i;
@@ -392,7 +392,7 @@ cleanup:
 
 int mega_download(const char* download_dir, const char* out_dir, const char* username, const char* password, char** out_file){
 	char* msg = NULL;
-	const struct file_node** files = NULL;
+	struct file_node** files = NULL;
 	size_t len = 0;
 	MEGAhandle* mh = NULL;
 	int res;

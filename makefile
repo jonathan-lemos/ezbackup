@@ -12,8 +12,8 @@ CXX=g++
 CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 CXXFLAGS=-Wall -Wextra -pedantic -std=c++11 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega -lstdc++ -ledit
-DBGFLAGS=-g -rdynamic
-CXXDBGFLAGS=-g -rdynamic
+DBGFLAGS=-g -rdynamic -Werror
+CXXDBGFLAGS=-g -rdynamic -Werror
 RELEASEFLAGS=-O3
 CXXRELEASEFLAGS=-O3
 DIRECTORIES=. cloud crypt options strings

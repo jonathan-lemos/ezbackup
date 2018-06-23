@@ -39,7 +39,7 @@ enum CLOUD_PROVIDER cloud_provider_from_string(const char* str);
 const char* cloud_provider_to_string(enum CLOUD_PROVIDER cp);
 void co_free(struct cloud_options* co);
 
-int time_menu(const struct file_node** arr, size_t len);
+int time_menu(struct file_node** arr, size_t len);
 int cloud_upload(const char* in_file, struct cloud_options* co);
 int cloud_download(const char* out_dir, struct cloud_options* co, char** out_file);
 int cloud_rm(const char* path, struct cloud_options* co);

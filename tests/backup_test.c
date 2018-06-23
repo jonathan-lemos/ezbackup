@@ -15,4 +15,5 @@ int main(void){
 
 	log_setlevel(LEVEL_INFO);
 	START_TESTS(tests);
+	return 0;
 }

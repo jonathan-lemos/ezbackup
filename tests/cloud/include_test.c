@@ -47,7 +47,7 @@ void test_time_menu(enum TEST_STATUS* status){
 	struct file_node node1 = {"file2.txt", 315532800};
 	/* Jan 1 2000 GMT */
 	struct file_node node2 = {"file3.txt", 946684800};
-	const struct file_node* arr[3];
+	struct file_node* arr[3];
 
 	arr[0] = &node0;
 	arr[1] = &node1;

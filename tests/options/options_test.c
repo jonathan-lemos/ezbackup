@@ -7,30 +7,20 @@
  */
 
 #include "../test_base.h"
+#include "../../log.h"
 #include "../../options/options.h"
 #include <stdlib.h>
 #include <string.h>
 
-void mpause(void){
-	int c;
-	while ((c = getchar()) != '\n' && c != EOF);
-	printf("Press ENTER to continue...");
-	getchar();
-}
-
-void test_version_usage(void){
-	printf_blue("Testing version()/usage()\n");
-
-	printf_yellow("Calling version()\n");
+void test_version_usage(enum TEST_STATUS* status){
 	version();
-
-	printf_yellow("Calling usage()\n");
 	usage("PROGRAM_NAME");
-
-	printf_green("Finished testing version()/usage()\n\n");
+	TEST_ASSERT(pause_yn("Is the above output correct (Y/N)?") == 0);
+cleanup:
+	;
 }
 
-void test_parse_options_cmdline(void){
+void test_parse_options_cmdline(enum TEST_STATUS* status){
 	struct options* opt;
 	enum OPERATION op;
 	char* argv_pass[] = {
@@ -80,87 +70,70 @@ void test_parse_options_cmdline(void){
 		"/ex2"
 	};
 
-	printf_blue("Testing parse_options_cmdline()\n");
 
-	printf_yellow("Testing parse_options_cmdline() (pass)\n");
-	massert(parse_options_cmdline(sizeof(argv_pass) / sizeof(argv_pass[0]), argv_pass, &opt, &op) == 0);
+	TEST_ASSERT(parse_options_cmdline(sizeof(argv_pass) / sizeof(argv_pass[0]), argv_pass, &opt, &op) == 0);
 	free_options(opt);
-	printf_yellow("Testing parse_options_cmdline() (fail)\n");
-	massert(parse_options_cmdline(sizeof(argv_fail) / sizeof(argv_fail[0]), argv_fail, &opt, &op) == 5);
-	free_options(opt);
+	TEST_ASSERT(parse_options_cmdline(sizeof(argv_fail) / sizeof(argv_fail[0]), argv_fail, &opt, &op) == 5);
 
-	printf_green("Finished testing parse_options_cmdline()\n\n");
+cleanup:
+	opt ? free_options(opt) : (void)0;
 }
 
-void test_parse_options_menu(void){
-	struct options* opt;
+void test_parse_options_menu(enum TEST_STATUS* status){
+	struct options* opt = NULL;
 
-	printf_blue("Testing parse_options_menu()\n");
+	TEST_ASSERT(parse_options_menu(&opt) == 0);
+	TEST_ASSERT(write_options_tofile("/dev/stdout", opt) == 0);
+	TEST_ASSERT(pause_yn("Is the above output correct (Y/N)?") == 0);
 
-	printf_yellow("Calling parse_options_menu()\n");
-	massert(parse_options_menu(&opt) == 0);
-
-	printf_yellow("Verify the following options are correct\n");
-	massert(write_options_tofile("/dev/stdout", opt) == 0);
-
-	free_options(opt);
-	mpause();
-
-	printf_green("Finished testing parse_options_menu()\n\n");
+cleanup:
+	opt ? free_options(opt) : (void)0;
 }
 
-void test_parse_options_fromfile(void){
-	struct options* opt;
-	struct options* opt_read;
+void test_parse_options_fromfile(enum TEST_STATUS* status){
+	struct options* opt = NULL;
+	struct options* opt_read = NULL;
 	char* file = "options.txt";
 
-	printf_blue("Testing parse_options_fromfile()\n");
-
-	massert((opt = options_new()) != NULL);
+	TEST_ASSERT((opt = options_new()) != NULL);
 	opt->output_directory = malloc(sizeof("/test/dir"));
-	massert(opt->output_directory);
+	TEST_ASSERT(opt->output_directory);
 	strcpy(opt->output_directory, "/test/dir");
 
-	printf_yellow("Creating an options file\n");
-	massert(write_options_tofile(file, opt) == 0);
+	TEST_ASSERT(write_options_tofile(file, opt) == 0);
 
-	printf_yellow("Calling parse_options_fromfile()\n");
 	memcpy(&opt_read, &opt, sizeof(opt_read));
-	massert(parse_options_fromfile(file, &opt_read) == 0);
+	TEST_ASSERT(parse_options_fromfile(file, &opt_read) == 0);
 
-	printf_yellow("Checking that it worked\n");
-	massert(strcmp(opt->output_directory, opt_read->output_directory) == 0);
+	TEST_ASSERT(strcmp(opt->output_directory, opt_read->output_directory) == 0);
 
-	free_options(opt);
-	free_options(opt_read);
+cleanup:
+	opt ? free_options(opt) : (void)0;
+	opt_read ? free_options(opt_read) : (void)0;
 	remove(file);
-
-	printf_green("Finished testing parse_options_fromfile()\n\n");
 }
 
-void test_write_options_tofile(void){
-	struct options* opt;
+void test_write_options_tofile(enum TEST_STATUS* status){
+	struct options* opt = NULL;
 
-	printf_blue("Testing write_options_tofile()\n");
+	TEST_ASSERT((opt = options_new()) != NULL);
+	TEST_ASSERT(write_options_tofile("/dev/stdout", opt) == 0);
+	TEST_ASSERT(pause_yn("Is the above output correct (Y/N)?") == 0);
 
-	massert((opt = options_new()) != NULL);
-
-	printf_yellow("Calling write_options_tofile(stdout)\n");
-	massert(write_options_tofile("/dev/stdout", opt) == 0);
-
-	free_options(opt);
-	mpause();
-
-	printf_green("Finished testing write_options_tofile()\n\n");
+cleanup:
+	opt ? free_options(opt) : (void)0;
 }
 
 int main(void){
-	set_signal_handler();
+	struct unit_test tests[] = {
+		MAKE_TEST(test_version_usage),
+		MAKE_TEST(test_parse_options_cmdline),
+		MAKE_TEST(test_parse_options_menu),
+		MAKE_TEST(test_parse_options_fromfile),
+		MAKE_TEST(test_write_options_tofile)
+	};
+	log_setlevel(LEVEL_INFO);
 
-	test_version_usage();
-	test_parse_options_cmdline();
-	test_parse_options_menu();
-	test_parse_options_fromfile();
-	test_write_options_tofile();
+	START_TESTS(tests);
 	return 0;
 }

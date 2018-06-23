@@ -53,4 +53,5 @@ int main(void){
 	};
 
 	START_TESTS(tests);
+	return 0;
 }
