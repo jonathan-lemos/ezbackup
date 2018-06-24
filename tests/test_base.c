@@ -17,6 +17,31 @@
 #include <dirent.h>
 #include <setjmp.h>
 
+#if defined(ENABLE_BRIGHT_COLORS)
+
+#define RED_STR "\033[91m"
+#define YELLOW_STR "\033[93m"
+#define GREEN_STR "\033[92m"
+#define BLUE_STR "\033[96m"
+
+#elif defined (DISABLE_COLORS)
+
+#define RED_STR ""
+#define YELLOW_STR ""
+#define GREEN_STR ""
+#define BLUE_STR ""
+
+#else
+
+#define RED_STR "\033[31m"
+#define YELLOW_STR "\033[33m"
+#define GREEN_STR "\033[32m"
+#define BLUE_STR "\033[36m"
+
+#endif
+
+#define NORMAL_STR "\033[m"
+
 #define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
 
 enum PRINT_COLOR{
@@ -38,16 +63,16 @@ static void vfprintf_color(enum PRINT_COLOR pc, FILE* stream, const char* format
 
 	switch (pc){
 	case COLOR_RED:
-		fprintf(stream, "\033[31m");
+		fprintf(stream, RED_STR);
 		break;
 	case COLOR_YELLOW:
-		fprintf(stream, "\033[33m");
+		fprintf(stream, YELLOW_STR);
 		break;
 	case COLOR_GREEN:
-		fprintf(stream, "\033[32m");
+		fprintf(stream, GREEN_STR);
 		break;
 	case COLOR_BLUE:
-		fprintf(stream, "\033[36m");
+		fprintf(stream, BLUE_STR);
 		break;
 	default:
 		break;
@@ -55,7 +80,7 @@ static void vfprintf_color(enum PRINT_COLOR pc, FILE* stream, const char* format
 
 	vfprintf(stream, format, ap);
 	if (pc != COLOR_NONE){
-		fprintf(stream, "\033[m");
+		fprintf(stream, NORMAL_STR);
 	}
 	fflush(stream);
 }
@@ -635,14 +660,11 @@ int run_tests(const struct unit_test* tests, size_t len){
 /* asks for yes/no. returns 0 if yes and 1 if no */
 int pause_yn(const char* prompt){
 	char c;
-	int ret;
+	int ret = 1;
 
 	if (!prompt){
 		prompt = "Yes or no (Y/N)?";
 	}
-
-	/* clear stdin of any leftover characters */
-	while ((c = getchar()) != '\n' && c != EOF);
 
 	log_default("%s", prompt);
 	c = getchar();

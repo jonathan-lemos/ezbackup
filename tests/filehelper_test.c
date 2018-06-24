@@ -87,6 +87,7 @@ void test_temp_fopen(enum TEST_STATUS* status){
 cleanup:
 	tmp ? temp_fclose(tmp) : (void)0;
 	free(tmp);
+	free(file);
 }
 
 void test_file_opened_for_reading(enum TEST_STATUS* status){

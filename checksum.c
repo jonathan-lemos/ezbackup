@@ -315,6 +315,7 @@ cleanup:
 	for (i = 0; i < n_files; ++i){
 		temp_fclose(tmp_files[i]);
 	}
+	free(tmp_files);
 	fp_in ? fclose(fp_in) : 0;
 	fp_out ? fclose(fp_out) : 0;
 	return ret;

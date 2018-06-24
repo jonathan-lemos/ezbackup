@@ -103,8 +103,9 @@ void test_sort_checksum_file(enum TEST_STATUS* status){
 		TEST_ASSERT(strcmp(e2->file, e1->file) > 0);
 		TEST_FREE(e1, free_element);
 		e1 = e2;
+		e2 = NULL;
 	}
-	TEST_FREE(e2, free_element);
+	TEST_FREE(e1, free_element);
 
 	/* from this point on we are checking if the incremental checksum update works properly */
 
@@ -204,13 +205,16 @@ void test_search_for_checksum(enum TEST_STATUS* status){
 	fp2 = fopen(fp2str, "rb");
 	TEST_ASSERT(fp2);
 	e1 = get_next_checksum_element(fp2);
-	for (i = 0; i < 100 - 1; ++i){
+	for (i = 0; i < files_len - 1; ++i){
 		e2 = get_next_checksum_element(fp2);
+		TEST_ASSERT(e1);
+		TEST_ASSERT(e2);
 		TEST_ASSERT(strcmp(e1->file, e2->file) <= 0);
 		TEST_FREE(e1, free_element);
 		e1 = e2;
+		e2 = NULL;
 	}
-	TEST_FREE(e2, free_element);
+	TEST_FREE(e1, free_element);
 
 	/* search_for_checksum returns -1 on error, 1 on not found, 0 on success */
 	TEST_ASSERT(search_for_checksum(fp2, "noexist", &checksum) > 0);
@@ -283,7 +287,7 @@ void test_create_removed_list(enum TEST_STATUS* status){
 	TEST_ASSERT(fp2);
 
 	while ((tmp = get_next_removed(fp2)) != NULL){
-		log_red("Removed: %s\n", tmp);
+		printf("Removed: %s\n", tmp);
 		/* count the amount of files in the list */
 		ctr++;
 		free(tmp);

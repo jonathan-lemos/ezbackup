@@ -12,7 +12,7 @@ void test_coredumps(enum TEST_STATUS* status){
 
 	enable_core_dumps();
 	TEST_ASSERT(getrlimit(RLIMIT_CORE, &rl) == 0);
-	TEST_ASSERT(rl.rlim_max > 0 && rl.rlim_cur == 0);
+	TEST_ASSERT(rl.rlim_max > 0 && rl.rlim_cur > 0);
 
 cleanup:
 	;

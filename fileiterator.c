@@ -100,7 +100,7 @@ static struct directory* directory_peek(const struct fi_stack* fis){
 struct fi_stack* fi_start(const char* dir){
 	struct fi_stack* fis = NULL;
 
-	fis = malloc(sizeof(*fis));
+	fis = calloc(1, sizeof(*fis));
 	if (!fis){
 		log_enomem();
 		return NULL;
@@ -142,7 +142,7 @@ char* fi_next(struct fi_stack* fis){
 	path = malloc(strlen(dir->name) + strlen(dir->dnt->d_name) + 3);
 	if (!path){
 		log_enomem();
-		return (char*)-1;
+		return NULL;
 	}
 	strcpy(path, dir->name);
 	/* append filename */
@@ -158,6 +158,7 @@ char* fi_next(struct fi_stack* fis){
 	if (S_ISDIR(st.st_mode)){
 		/* if so, recursively enum files on that dir */
 		directory_push(path, fis);
+		free(path);
 		return fi_next(fis);
 	}
 
@@ -172,6 +173,7 @@ int fi_skip_current_dir(struct fi_stack* fis){
 void fi_end(struct fi_stack* fis){
 	size_t i;
 	if (!fis->dir_stack){
+		free(fis);
 		return;
 	}
 	for (i = 0; i < fis->dir_stack_len; ++i){

@@ -31,21 +31,21 @@ cleanup:
 }
 
 void test_display_menu(enum TEST_STATUS* status){
-	char** choices;
+	char** choices = NULL;
 	int res;
 	int i;
 
-	choices = malloc(sizeof(*choices) * 50);
+	choices = calloc(50, sizeof(*choices));
 	TEST_ASSERT(choices);
 	for (i = 0; i < 50; ++i){
-		choices[i] = malloc(sizeof("Choice 00"));
+		choices[i] = calloc(sizeof("Choice 00"), 1);
 		TEST_ASSERT(choices[i]);
 
 		sprintf(choices[i], "Choice %02d", i + 1);
 	}
 
 	TEST_ASSERT((res = display_menu((const char* const*)choices, 50, "Menu Test")) >= 0);
-	printf("Choice %02d chosen\n", i);
+	printf("Choice %02d chosen\n", res + 1);
 
 	TEST_ASSERT(pause_yn("Is the statement above correct (Y/N)?") == 0);
 

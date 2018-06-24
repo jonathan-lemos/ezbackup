@@ -315,7 +315,7 @@ int create_initial_runs(FILE* fp_in, struct TMPFILE*** out, size_t* n_files){
 		(*n_files)++;
 		/* make space for new string */
 		*out = realloc(*out, sizeof(**out) * *n_files);
-		if (!*out){
+		if (!(*out)){
 			log_enomem();
 			return -1;
 		}
@@ -348,7 +348,7 @@ int create_initial_runs(FILE* fp_in, struct TMPFILE*** out, size_t* n_files){
 			temp_fclose(tfp);
 			(*n_files)--;
 			*out = realloc(*out, *n_files * sizeof(**out));
-			if (!(*out)){
+			if ((*n_files) > 0 && !(*out)){
 				log_enomem();
 				return -1;
 			}

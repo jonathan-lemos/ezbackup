@@ -40,7 +40,7 @@ void test_log(enum TEST_STATUS* status){
 	log_debug("Debug");
 	log_info("Info");
 
-	TEST_ASSERT(pause_yn("Last line is fatal?") == 0);
+	TEST_ASSERT(pause_yn("Last line is FATAL (Y/N)?") == 0);
 
 cleanup:
 	;

@@ -10,6 +10,7 @@
 #include "../fileiterator.h"
 #include "../log.h"
 #include <stdlib.h>
+#include <string.h>
 
 void test_fi_normal(enum TEST_STATUS* status){
 	struct fi_stack* fis = NULL;
@@ -19,7 +20,20 @@ void test_fi_normal(enum TEST_STATUS* status){
 	TEST_ASSERT(fis);
 
 	while ((tmp = fi_next(fis)) != NULL){
-		printf("%s\r", tmp);
+		if (strlen(tmp) <= 60){
+			printf("%s", tmp);
+		}
+		else{
+			printf("%.60s...", tmp);
+		}
+		printf(
+				"          "\
+				"          "\
+				"          "\
+				"          "\
+				"          "\
+				"          "\
+				"   \r");
 		TEST_FREE(tmp, free);
 	}
 	printf("\n");
@@ -38,7 +52,20 @@ void test_fi_skip_dir(enum TEST_STATUS* status){
 	TEST_ASSERT(fis);
 
 	while ((tmp = fi_next(fis)) != NULL){
-		printf("%s\r", tmp);
+		if (strlen(tmp) <= 60){
+			printf("%s", tmp);
+		}
+		else{
+			printf("%.60s...", tmp);
+		}
+		printf(
+				"          "\
+				"          "\
+				"          "\
+				"          "\
+				"          "\
+				"          "\
+				"   \r");
 		TEST_FREE(tmp, free);
 
 		ctr++;
@@ -71,7 +98,7 @@ int main(void){
 		MAKE_TEST(test_fi_fail)
 	};
 
-	log_setlevel(LEVEL_INFO);
+	log_setlevel(LEVEL_DEBUG);
 
 	START_TESTS(tests);
 	return 0;

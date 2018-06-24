@@ -72,7 +72,7 @@ int display_dialog(const char* const* choices, int n_choices, const char* msg){
 
 	print_in_middle(win_msg, row - 5, col - 4, msg);
 
-	win_menu = derwin(win_body, 3, row - 4, col - 4, 2);
+	win_menu = derwin(win_body, 3, col - 4, row - 4, 2);
 	box(win_menu, 0, 0);
 	keypad(win_menu, TRUE);
 
