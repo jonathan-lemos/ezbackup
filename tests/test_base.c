@@ -89,7 +89,7 @@ static void handle_signal(void){
 	 *
 	 * furthermore, not exiting after SIGABRT causes assert() to not exit the program */
 	case SIGABRT:
-		log_red("SIGABRT sent to program. Exiting");
+		log_red("SIGABRT sent to program. Exiting\n");
 		exit(1);
 		break;
 	/* catches segfaults
@@ -97,20 +97,20 @@ static void handle_signal(void){
 	 * hopefully the heap is still in good condition when we do this
 	 * otherwise the program will crash very soon after we handle this signal */
 	case SIGSEGV:
-		log_red("Caught signal SIGSEGV");
+		log_red("Caught signal SIGSEGV\n");
 		break;
 	/* catches ctrl+c
 	 *
 	 * ctrl+c means the user wants to exit, so we let them */
 	case SIGINT:
-		log_yellow("SIGINT sent to program. Exiting");
+		log_yellow("SIGINT sent to program. Exiting\n");
 		exit(0);
 		break;
 	/* no signal */
 	case 0:
 		break;
 	default:
-		log_blue("Caught signal %d", s_last_signal);
+		log_blue("Caught signal %d\n", s_last_signal);
 		break;
 	}
 	s_last_signal = 0;
@@ -304,7 +304,7 @@ static char* make_path(int n_components, ...){
 
 		/* if the string does not end with '/' and
 		 * the next string does not begin with '/' */
-		if (ret[strlen(ret) - 1] != '/' && arg[0] != '/'){
+		if (i > 0 && ret[strlen(ret) - 1] != '/' && arg[0] != '/'){
 			/* add a '/' to the end. strlen() + 2 leaves room for '/' and '\0' */
 			ret = realloc(ret, strlen(ret) + 2);
 			INTERNAL_ERROR_IF_FALSE(ret);
@@ -335,7 +335,8 @@ void setup_test_environment_basic(const char* path, char*** out, size_t* out_len
 
 	srand(0);
 
-	INTERNAL_ERROR_IF_FALSE(mkdir(path, 0755) == 0);
+	mkdir(path, 0755);
+	INTERNAL_ERROR_IF_FALSE(does_file_exist(path));
 
 	for (i = 0; i < ARRAY_LEN(files); ++i){
 		unsigned char* data;
@@ -348,7 +349,7 @@ void setup_test_environment_basic(const char* path, char*** out, size_t* out_len
 		INTERNAL_ERROR_IF_FALSE(data);
 
 		for (j = 0; j < len; ++j){
-			data[i] = rand() % ('Z' - 'A') + 'A';
+			data[j] = rand() % ('Z' - 'A') + 'A';
 		}
 
 		/* create d1_file_XX.txt */
@@ -606,7 +607,7 @@ int run_tests(const struct unit_test* tests, size_t len){
 		if (setjmp(s_jumpbuffer)){
 			/* take appropriate action based on the signal */
 			handle_signal();
-			log_red("Test %lu of %lu (%s) crashed", i + 1, len + 1, tests[i].func_name);
+			log_red("Test %lu of %lu (%s) crashed", i + 1, len, tests[i].func_name);
 			n_failed++;
 			printf("\n");
 			continue;
@@ -614,11 +615,11 @@ int run_tests(const struct unit_test* tests, size_t len){
 		/* execute the test and see if it returns TEST_SUCCESS or not */
 		tests[i].func(&status);
 		if (status == TEST_SUCCESS){
-			log_green("Test %lu of %lu (%s) succeeded", i + 1, len + 1, tests[i].func_name);
+			log_green("Test %lu of %lu (%s) succeeded", i + 1, len, tests[i].func_name);
 			n_succeeded++;
 		}
 		else{
-			log_red("Test %lu of %lu (%s) failed", i + 1, len + 1, tests[i].func_name);
+			log_red("Test %lu of %lu (%s) failed", i + 1, len, tests[i].func_name);
 			n_failed++;
 		}
 
