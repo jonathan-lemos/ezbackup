@@ -87,7 +87,7 @@ void test_cloud_download(enum TEST_STATUS* status){
 	const char* dir_base = "/test1";
 	const char* dir = "/test1/test2";
 	const char* full_path = "/test1/test2/file1.txt";
-	char* file_out = "file2.txt";
+	char* file_out = NULL;
 	struct cloud_options* co = NULL;
 
 	create_file(file, (const unsigned char*)data, strlen(data));
@@ -100,7 +100,7 @@ void test_cloud_download(enum TEST_STATUS* status){
 	TEST_ASSERT(cloud_upload(file, co) == 0);
 
 	remove(file);
-	TEST_ASSERT(cloud_download(dir, co, &file_out) == 0);
+	TEST_ASSERT(cloud_download(NULL, co, &file_out) == 0);
 
 	TEST_ASSERT(memcmp_file_data(file_out, (const unsigned char*)data, strlen(data)) == 0);
 
@@ -111,6 +111,7 @@ void test_cloud_download(enum TEST_STATUS* status){
 cleanup:
 	co_free(co);
 	remove(file_out);
+	free(file_out);
 }
 
 int main(void){

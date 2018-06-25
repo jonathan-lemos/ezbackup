@@ -23,5 +23,6 @@ struct progress* start_progress(const char* text, uint64_t max);
 void inc_progress(struct progress* p, uint64_t count);
 void set_progress(struct progress* p, uint64_t count);
 void finish_progress(struct progress* p);
+void finish_progress_fail(struct progress* p);
 
 #endif

@@ -160,7 +160,7 @@ int MEGAlogin(const char* email, const char* password, MEGAhandle** out){
 		return -1;
 	}
 
-	*out = (MEGAhandle*)mega_api;
+	*out = static_cast<MEGAhandle*>(mega_api);
 	return 0;
 }
 
@@ -235,14 +235,7 @@ int MEGAreaddir(const char* dir, struct file_node*** out, size_t* out_len, MEGAh
 	*out = NULL;
 	*out_len = 0;
 	for (int i = 0; i < children->size(); ++i){
-		struct file_node* tmp = (struct file_node*)malloc(sizeof(struct file_node));
 		mega::MegaNode* n;
-
-		if (!tmp){
-			log_enomem();
-			ret = -1;
-			goto cleanup_freeout;
-		}
 
 		(*out_len)++;
 		*out = (struct file_node**)realloc(*out, sizeof(**out) * *out_len);
@@ -268,7 +261,7 @@ int MEGAreaddir(const char* dir, struct file_node*** out, size_t* out_len, MEGAh
 			goto cleanup_freeout;
 		}
 		strcpy((*out)[*out_len - 1]->name, dir);
-		if (dir[strlen(dir) - 1] != '/'){
+		if ((*out)[*out_len - 1]->name[strlen((*out)[*out_len - 1]->name) - 1] != '/'){
 			strcat((*out)[*out_len - 1]->name, "/");
 		}
 		strcat((*out)[*out_len - 1]->name, n->getName());
@@ -292,7 +285,6 @@ cleanup_freeout:
 
 int MEGAdownload(const char* download_path, const char* out_file, const char* msg, MEGAhandle* mh){
 	std::string path;
-	std::string spath;
 	mega::MegaNode* node;
 	mega::MegaApi* mega_api;
 	ProgressBarTransferListener listener;
@@ -315,6 +307,7 @@ int MEGAdownload(const char* download_path, const char* out_file, const char* ms
 		log_error("MEGA: Failed to download file");
 	}
 
+	delete node;
 	return 0;
 }
 
@@ -342,6 +335,7 @@ int MEGAupload(const char* in_file, const char* upload_dir, const char* msg, MEG
 		log_error("MEGA: Failed to upload file");
 	}
 
+	delete node;
 	return 0;
 }
 
@@ -364,14 +358,16 @@ int MEGArm(const char* file, MEGAhandle* mh){
 	mega_api->remove(node, &listener);
 	if (listener.trywait(MEGA_WAIT_MS) != 0){
 		std::cerr << "Connection timed out" << std::endl;
+		delete node;
 		return 1;
 	}
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
 		std::cerr << "Failed to remove " << path << " (" << listener.getError()->toString() << ")." << std::endl;
-		delete mega_api;
+		delete node;
 		return 1;
 	}
 
+	delete node;
 	return 0;
 }
 
@@ -384,6 +380,7 @@ int MEGAlogout(MEGAhandle* mh){
 	mega_api->logout(&listener);
 	if (listener.trywait(MEGA_WAIT_MS) != 0){
 		std::cerr << "Connection timed out" << std::endl;
+		delete mega_api;
 		return 1;
 	}
 	if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){

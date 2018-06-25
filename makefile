@@ -10,7 +10,7 @@ VERSION=0.3\ beta
 CC=gcc
 CXX=g++
 CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
-CXXFLAGS=-Wall -Wextra -pedantic -std=c++11 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
+CXXFLAGS=-Wall -Wextra -pedantic -std=c++14 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega -lstdc++ -ledit
 DBGFLAGS=-g -rdynamic -Werror
 CXXDBGFLAGS=-g -rdynamic -Werror

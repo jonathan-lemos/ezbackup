@@ -9,6 +9,8 @@
 #include "../log.h"
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <unistd.h>
 
 char* sh_new(void){
 	return calloc(1, 1);
@@ -53,6 +55,18 @@ const char* sh_file_ext(const char* in){
 	return in;
 }
 
+const char* sh_filename(const char* in){
+	size_t ptr = 0;
+
+	return_ifnull(in, NULL);
+
+	while ((ptr = strcspn(in, "/")) != strlen(in)){
+		in += ptr + 1;
+		ptr = 0;
+	}
+	return in;
+}
+
 const char* sh_file_name(const char* in){
 	size_t ptr = 0;
 
@@ -78,4 +92,35 @@ int sh_starts_with(const char* haystack, const char* needle){
 		}
 	}
 	return 1;
+}
+
+char* sh_getcwd(void){
+	char* cwd = NULL;
+	int cwd_len = 256;
+
+	cwd = malloc(cwd_len);
+	if (!cwd){
+		log_enomem();
+		return NULL;
+	}
+	while (getcwd(cwd, cwd_len) == NULL){
+		if (errno != ERANGE){
+			log_error_ex("Failed to get current directory (%s)", strerror(errno));
+			free(cwd);
+			return NULL;
+		}
+		cwd_len *= 2;
+		cwd = realloc(cwd, cwd_len);
+		if (!cwd){
+			log_enomem();
+			return NULL;
+		}
+	}
+	cwd = realloc(cwd, strlen(cwd) + 1);
+	if (!cwd){
+		log_enomem();
+		return NULL;
+	}
+
+	return cwd;
 }

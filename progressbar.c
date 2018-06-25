@@ -114,3 +114,16 @@ void finish_progress(struct progress* p){
 	printf("\033[?25h\n");
 	free(p);
 }
+
+void finish_progress_fail(struct progress* p){
+	if (!p){
+		return;
+	}
+	/* make sure it displays */
+	p->time_prev--;
+	/* display final progress */
+	display_progress(p);
+	/* restore terminal cursor blinking */
+	printf("\033[?25h\n");
+	free(p);
+}

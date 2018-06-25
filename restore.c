@@ -29,37 +29,6 @@
 #error "This operating system is not supported"
 #endif
 
-char* getcwd_malloc(void){
-	char* cwd = NULL;
-	int cwd_len = 256;
-
-	cwd = malloc(cwd_len);
-	if (!cwd){
-		log_enomem();
-		return NULL;
-	}
-	while (getcwd(cwd, cwd_len) == NULL){
-		if (errno != ERANGE){
-			log_error_ex("Failed to get current directory (%s)", strerror(errno));
-			free(cwd);
-			return NULL;
-		}
-		cwd_len *= 2;
-		cwd = realloc(cwd, cwd_len);
-		if (!cwd){
-			log_enomem();
-			return NULL;
-		}
-	}
-	cwd = realloc(cwd, strlen(cwd) + 1);
-	if (!cwd){
-		log_enomem();
-		return NULL;
-	}
-
-	return cwd;
-}
-
 int restore_local_menu(const struct options* opt, char** out_file){
 	int res;
 	struct file_node** nodes = NULL;
@@ -130,7 +99,7 @@ int restore_cloud(const struct options* opt, char** out_file){
 	char* cwd = NULL;
 	int ret = 0;
 
-	cwd = getcwd_malloc();
+	cwd = sh_getcwd();
 	if (!cwd){
 		ret = -1;
 		goto cleanup;
@@ -163,7 +132,7 @@ int restore_extract(const char* file, const struct options* opt){
 	struct TMPFILE* tfp_decrypt = NULL;
 	int ret = 0;
 
-	cwd = getcwd_malloc();
+	cwd = sh_getcwd();
 	if (!cwd){
 		log_error("Failed to determine current working directory");
 		ret = -1;

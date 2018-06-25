@@ -94,8 +94,9 @@ int co_set_password_stdin(struct cloud_options* co){
 int co_set_upload_directory(struct cloud_options* co, const char* upload_directory){
 	if (co->upload_directory){
 		free(co->upload_directory);
+		co->upload_directory = NULL;
 	}
-	if (!co->upload_directory){
+	if (!upload_directory){
 		co->upload_directory = NULL;
 		return 0;
 	}
@@ -201,6 +202,10 @@ int get_parent_dirs(const char* in, char*** out, size_t* out_len){
 	char* dir_tok = NULL;
 	int ret = 0;
 
+	return_ifnull(in, -1);
+	return_ifnull(out, -1);
+	return_ifnull(out_len, -1);
+
 	*out = NULL;
 	*out_len = 0;
 
@@ -210,7 +215,7 @@ int get_parent_dirs(const char* in, char*** out, size_t* out_len){
 	while (dir_tok != NULL){
 		size_t len_prev = 0;
 
-		if (*out_len > 1){
+		if (*out_len >= 1){
 			len_prev = strlen((*out)[*out_len - 1]);
 		}
 		else{
@@ -259,19 +264,10 @@ cleanup_freeout:
 	return ret;
 }
 
-const char* just_the_filename(const char* full_path){
-	size_t ptr = 0;
-	while((ptr = strcspn(full_path, "/")) != strlen(full_path)){
-		full_path += ptr + 1;
-		ptr = 0;
-	}
-	return full_path;
-}
-
 char* get_default_out_file(const char* full_path){
 	int cwd_len = 256;
 	char* cwd;
-	const char* filename = just_the_filename(full_path);
+	const char* filename = sh_filename(full_path);
 
 	cwd = malloc(cwd_len);
 	if (!cwd){
@@ -298,15 +294,6 @@ char* get_default_out_file(const char* full_path){
 	}
 	strcat(cwd, filename);
 	return cwd;
-}
-
-const char* get_extension(const char* filename){
-	size_t ptr = 0;
-	while ((ptr = strcspn(filename, ".")) != strlen(filename)){
-		filename += ptr + 1;
-		ptr = 0;
-	}
-	return filename;
 }
 
 int remove_file_node(struct file_node*** nodes, size_t* len, size_t index){
@@ -340,6 +327,9 @@ int mega_upload(const char* file, const char* upload_dir, const char* username, 
 	MEGAhandle* mh = NULL;
 	int ret = 0;
 	size_t i;
+
+	return_ifnull(file, -1);
+	return_ifnull(upload_dir, -1);
 
 	if (MEGAlogin(username, password, &mh) != 0){
 		log_debug("Failed to log in to MEGA");
@@ -436,7 +426,7 @@ int mega_download(const char* download_dir, const char* out_dir, const char* use
 		if ((*out_file)[strlen(*out_file) - 1] != '/'){
 			strcat(*out_file, "/");
 		}
-		strcat(*out_file, files[res]->name);
+		strcat(*out_file, sh_filename(files[res]->name));
 	}
 
 	msg = malloc(strlen(files[res]->name) + strlen(*out_file) + 64);
@@ -466,6 +456,7 @@ int mega_rm(const char* path, const char* username, const char* password){
 	MEGAhandle* mh;
 	if (MEGAlogin(username, password, &mh) != 0){
 		log_debug("Failed to log in to MEGA");
+		MEGAlogout(mh);
 		return -1;
 	}
 	if (MEGArm(path, mh) != 0){
@@ -521,7 +512,6 @@ int cloud_upload(const char* in_file, struct cloud_options* co){
 		}
 	}
 
-
 	switch (co->cp){
 	case CLOUD_NONE:
 		break;
@@ -546,6 +536,11 @@ int cloud_download(const char* out_dir, struct cloud_options* co, char** out_fil
 	int co_contains_password = co->password != NULL;
 	char* user = NULL;
 	char* pw = NULL;
+	char* cwd = NULL;
+
+	if (!out_dir){
+		cwd = sh_getcwd();
+	}
 
 	if (!co_contains_username){
 		char* tmp = NULL;
@@ -585,7 +580,7 @@ int cloud_download(const char* out_dir, struct cloud_options* co, char** out_fil
 	case CLOUD_NONE:
 		break;
 	case CLOUD_MEGA:
-		ret = mega_download(co->upload_directory, out_dir, co_contains_username ? co->username : user, co_contains_password ? co->password : pw, out_file);
+		ret = mega_download(co->upload_directory, cwd ? cwd : out_dir, co_contains_username ? co->username : user, co_contains_password ? co->password : pw, out_file);
 		break;
 	default:
 		log_error("Invalid CLOUD_PROVIDER passed");
@@ -596,6 +591,7 @@ int cloud_download(const char* out_dir, struct cloud_options* co, char** out_fil
 cleanup:
 	free(user);
 	free(pw);
+	free(cwd);
 	return ret;
 }
 
