@@ -81,7 +81,7 @@ cleanup:
 	free(out);
 }
 
-void test_cloud_download(enum TEST_STATUS* status){
+void test_cloud_download_mega(enum TEST_STATUS* status){
 	const char* file = "file1.txt";
 	const char* data = "xyzzy";
 	const char* dir_base = "/test1";
@@ -119,7 +119,7 @@ int main(void){
 		MAKE_TEST(test_co),
 		MAKE_TEST(test_time_menu),
 		MAKE_TEST(test_get_parent_dirs),
-		MAKE_TEST(test_cloud_download)
+		MAKE_TEST(test_cloud_download_mega)
 	};
 
 	log_setlevel(LEVEL_INFO);
