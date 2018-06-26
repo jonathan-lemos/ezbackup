@@ -10,7 +10,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int to_base16(const unsigned char* bytes, unsigned len, char** out){
+int to_base16(const void* bytes, unsigned len, char** out){
+	const unsigned char* ucbytes = bytes;
 	unsigned i;
 	unsigned outptr;
 	unsigned outlen;
@@ -37,9 +38,9 @@ int to_base16(const unsigned char* bytes, unsigned len, char** out){
 		 * (*out)[x] != *out[x] */
 
 		/* converts top 4 bits to a hex digit */
-		(*out)[outptr] = hexmap[(bytes[i] & 0xF0) >> 4];
+		(*out)[outptr] = hexmap[(ucbytes[i] & 0xF0) >> 4];
 		/* converts bottom 4 bits */
-		(*out)[outptr + 1] = hexmap[(bytes[i] & 0x0F)];
+		(*out)[outptr + 1] = hexmap[(ucbytes[i] & 0x0F)];
 	}
 	/* since '\0' is not a valid hex char, we can null-terminate */
 	(*out)[outlen - 1] = '\0';
@@ -47,22 +48,26 @@ int to_base16(const unsigned char* bytes, unsigned len, char** out){
 	return 0;
 }
 
-int from_base16(char* hex, unsigned len, unsigned char** out, unsigned* len_out){
-   unsigned ptr;
-   unsigned hexptr;
-   unsigned c;
-   /* 2 hex digits = 1 byte */
-   out = malloc(len / 2);
-   if (!out){
-	   log_enomem();
-   }
+int from_base16(const char* hex, unsigned len, void** out, unsigned* len_out){
+	unsigned char** ucout = (unsigned char**)out;
+	unsigned ptr;
+	unsigned hexptr;
+	unsigned c;
+	/* 2 hex digits = 1 byte */
+	out = malloc(len / 2);
+	if (!out){
+		log_enomem();
+		return -1;
+	}
 
-   for (ptr = 0, hexptr = 0; hexptr < len; ptr++, hexptr += 2){
-	   sscanf(&(hex[hexptr]), "%2x", &c);
-	   (*out)[ptr] = c;
-   }
+	for (ptr = 0, hexptr = 0; hexptr < len; ptr++, hexptr += 2){
+		sscanf(&(hex[hexptr]), "%2x", &c);
+		(*ucout)[ptr] = c;
+	}
 
-   *len_out = len / 2;
+	if (len_out){
+		*len_out = len / 2;
+	}
 
-   return 0;
+	return 0;
 }

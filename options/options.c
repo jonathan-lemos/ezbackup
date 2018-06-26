@@ -10,6 +10,8 @@
 #include "options.h"
 
 #include "options_menu.h"
+
+#include "options_file.h"
 /* errors */
 #include "../log.h"
 #include <errno.h>
@@ -290,332 +292,342 @@ struct options* options_new(void){
 	return opt;
 }
 
-static char* read_file_string(FILE* in){
-	int c;
-	char* ret = NULL;
-	int ret_len = 0;
+/*
+   static char* read_file_string(FILE* in){
+   int c;
+   char* ret = NULL;
+   int ret_len = 0;
 
-	while ((c = fgetc(in)) != '\0'){
-		if (c == EOF){
-			log_debug("Reached EOF");
-			free(ret);
-			return NULL;
-		}
-		ret_len++;
-		ret = realloc(ret, ret_len);
-		if (!ret){
-			log_enomem();
-			return NULL;
-		}
-		ret[ret_len - 1] = c;
-	}
-	ret_len++;
-	ret = realloc(ret, ret_len);
-	ret[ret_len - 1] = '\0';
+   while ((c = fgetc(in)) != '\0'){
+   if (c == EOF){
+   log_debug("Reached EOF");
+   free(ret);
+   return NULL;
+   }
+   ret_len++;
+   ret = realloc(ret, ret_len);
+   if (!ret){
+   log_enomem();
+   return NULL;
+   }
+   ret[ret_len - 1] = c;
+   }
+   ret_len++;
+   ret = realloc(ret, ret_len);
+   ret[ret_len - 1] = '\0';
 
-	return ret;
-}
+   return ret;
+   }
+   */
 
 int parse_options_fromfile(const char* file, struct options** output){
-	FILE* fp = NULL;
-	char* tmp = NULL;
-	unsigned tmp_len = 0;
 	struct options* opt = *output;
+	struct opt_entry** entries = NULL;
+	size_t entries_len = 0;
 	int ret = 0;
+	int res = 0;
 
-	fp = fopen(file, "rb");
-	if (!fp){
-		log_efopen(file);
+	opt = options_new();
+	if (!opt){
+		log_error("Failed to make new options object");
 		ret = -1;
 		goto cleanup;
 	}
 
-	if ((opt = options_new()) != 0){
-		log_debug("Failed to get default options");
+	if (read_option_file(file, &entries, &entries_len) != 0){
+		log_error("Failed to read options file");
 		ret = -1;
 		goto cleanup;
 	}
 
-	if (fscanf(fp, "[Options]") != 0){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "PREV_BACKUP");
+	if (res >= 0){
+		opt->prev_backup = entries[res]->value;
 	}
-
-	if (fscanf(fp, "\nVERSION=%*s") != 0){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
-	}
-
-	if (fscanf(fp, "\nPREV=") != 0){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
-	}
-
-	opt->prev_backup = read_file_string(fp);
-	if (strcmp(opt->prev_backup, "") == 0){
-		free(opt->prev_backup);
+	else{
+		log_warning("Key PREV_BACKUP missing from file");
 		opt->prev_backup = NULL;
 	}
 
-	if (fscanf(fp, "\nDIRECTORIES=") != 0){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
-	}
-	do{
-		tmp = read_file_string(fp);
-		if (!tmp){
-			break;
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "DIRECTORIES");
+	if (res >= 0){
+		const char* str = entries[res]->value;
+		size_t ptr;
+		for (ptr = 0; ptr < entries[res]->value_len; ptr += strlen(str) + 1){
+			if (sa_add(opt->directories, &(str[ptr])) != 0){
+				log_warning("Failed to add string to directories array");
+			}
 		}
-		if (tmp[0] != '\0'){
-			sa_add(opt->directories, tmp);
-			free(tmp);
-		}
-		else{
-			free(tmp);
-			tmp = NULL;
-		}
-	}while (tmp);
-
-	if (fscanf(fp, "\nEXCLUDE=") != 0){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
-	}
-	do{
-		tmp = read_file_string(fp);
-		if (!tmp){
-			break;
-		}
-		if (tmp[0] != '\0'){
-			sa_add(opt->exclude, tmp);
-			free(tmp);
-		}
-		else{
-			free(tmp);
-			tmp = NULL;
-		}
-	}while (tmp);
-
-	if (fscanf(fp, "\nCHECKSUM=") != 0){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
-	}
-	tmp = read_file_string(fp);
-	if (!tmp){
-		opt->hash_algorithm = NULL;
 	}
 	else{
-		opt->hash_algorithm = EVP_get_digestbyname(tmp);
-		free(tmp);
+		log_warning("Key DIRECTORIES missing from file");
 	}
 
-	if (fscanf(fp, "\nENCRYPTION=") != 0){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
-	}
-	tmp = read_file_string(fp);
-	if (!tmp){
-		opt->enc_algorithm = EVP_enc_null();
-	}
-	else{
-		opt->enc_algorithm = EVP_get_cipherbyname(tmp);
-		free(tmp);
-	}
-
-	if (fscanf(fp, "\nENC_PASSWORD=") != 0){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
-	}
-	tmp = read_file_string(fp);
-	if (!tmp || strcmp(tmp, "") == 0){
-		free(opt->enc_password);
-		opt->enc_password = NULL;
-	}
-	else if (from_base16(tmp, strlen(tmp), (unsigned char**)&(opt->enc_password), &tmp_len) != 0){
-		log_warning("Failed to convert password from base16");
-		free(opt->enc_password);
-		opt->enc_password = NULL;
-	}
-	else{
-		opt->enc_password = malloc(tmp_len + 1);
-		if (!opt->enc_password){
-			log_enomem();
-			ret = -1;
-			goto cleanup;
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "EXCLUDE");
+	if (res >= 0){
+		const char* str = entries[res]->value;
+		size_t ptr;
+		for (ptr = 0; ptr < entries[res]->value_len; ptr += strlen(str) + 1){
+			if (sa_add(opt->exclude, &(str[ptr])) != 0){
+				log_warning("Failed to add string to exclude array");
+			}
 		}
-		memcpy(opt->enc_password, tmp, tmp_len);
-		opt->enc_password[tmp_len] = '\0';
-	}
-	free(tmp);
-
-	if (fscanf(fp, "\nCOMPRESSION=%d", (int*)&(opt->comp_algorithm)) != 1){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
-	}
-
-	if (fscanf(fp, "\nCOMP_LEVEL=%d", &(opt->comp_level)) != 1){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
-	}
-
-	if (fscanf(fp, "\nOUTPUT_DIRECTORY=") != 0){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
-	}
-	opt->output_directory = read_file_string(fp);
-	if (strcmp(opt->output_directory, "") == 0){
-		free(opt->output_directory);
-		opt->output_directory = NULL;
-	}
-
-	if (fscanf(fp, "\nCLOUD_PROVIDER=%d", (int*)&(opt->cloud_options->cp)) != 1){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
-	}
-
-	if (fscanf(fp, "\nCLOUD_USERNAME=") != 0){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
-	}
-	opt->cloud_options->username = read_file_string(fp);
-	if (strcmp(opt->cloud_options->username, "") == 0){
-		free(opt->cloud_options->username);
-		opt->cloud_options->username = NULL;
-	}
-
-	if (fscanf(fp, "\nCLOUD_PASSWORD=") != 0){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
-	}
-	tmp = read_file_string(fp);
-	if (!tmp || strcmp(tmp, "") == 0){
-		free(opt->cloud_options->password);
-		opt->cloud_options->password = NULL;
-	}
-	else if (from_base16(tmp, strlen(tmp), (unsigned char**)&(opt->cloud_options->password), &tmp_len) != 0){
-		log_warning("Failed to convert password from base16");
-		free(opt->cloud_options->password);
-		opt->cloud_options->password = NULL;
 	}
 	else{
-		opt->cloud_options->password = malloc(tmp_len + 1);
-		if (!opt->cloud_options->password){
-			log_enomem();
-			ret = -1;
-			goto cleanup;
+		log_warning("Key EXCLUDE missing from file");
+	}
+
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "HASH_ALGORITHM");
+	if (res >= 0){
+		opt->hash_algorithm = EVP_get_digestbyname(entries[res]->value);
+	}
+	else{
+		log_warning("Key HASH_ALGORITHM missing from file");
+		opt->hash_algorithm =  NULL;
+	}
+
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "ENC_ALGORITHM");
+	if (res >= 0){
+		opt->enc_algorithm = EVP_get_cipherbyname(entries[res]->value);
+	}
+	else{
+		log_warning("Key ENC_ALGORITHM missing from file");
+		opt->hash_algorithm =  NULL;
+	}
+
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "ENC_PASSWORD");
+	if (res >= 0){
+		if (from_base16(entries[res]->value, entries[res]->value_len, (void**)&opt->enc_password, NULL) != 0){
+			log_warning("Failed to read ENC_PASSWORD");
 		}
-		memcpy(opt->cloud_options->password, tmp, tmp_len);
-		opt->cloud_options->password[tmp_len] = '\0';
 	}
-	free(tmp);
-
-	if (fscanf(fp, "\nCLOUD_DIRECTORY=") != 0){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
-	}
-	opt->cloud_options->upload_directory = read_file_string(fp);
-	if (strcmp(opt->cloud_options->upload_directory, "") == 0){
-		free(opt->cloud_options->upload_directory);
-		opt->cloud_options->upload_directory = NULL;
+	else{
+		log_warning("Key ENC_PASSWORD missing from file");
 	}
 
-	if (fscanf(fp, "\nFLAGS=%u", &(opt->flags.dword)) != 0){
-		log_efread(file);
-		ret = -1;
-		goto cleanup;
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "COMP_ALGORITHM");
+	if (res >= 0){
+		opt->comp_algorithm = strtoul(entries[res]->value, NULL, 10);
+	}
+	else{
+		log_warning("Key COMP_ALGORITHM missing from file");
+	}
+
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "COMP_ALGORITHM");
+	if (res >= 0){
+		opt->comp_algorithm = strtoul(entries[res]->value, NULL, 10);
+	}
+	else{
+		log_warning("Key COMP_ALGORITHM missing from file");
+	}
+
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "COMP_LEVEL");
+	if (res >= 0){
+		opt->comp_level = strtol(entries[res]->value, NULL, 10);
+	}
+	else{
+		log_warning("Key COMP_LEVEL missing from file");
+	}
+
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "OUTPUT_DIRECTORY");
+	if (res >= 0){
+		opt->output_directory = sh_dup(entries[res]->value);
+		if (!opt->output_directory){
+			log_warning("Failed to read output_directory for file");
+		}
+	}
+	else{
+		log_warning("Key OUTPUT_DIRECTORY missing from file");
+	}
+
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "CO_CP");
+	if (res >= 0){
+		opt->cloud_options->cp = strtoul(entries[res]->value, NULL, 10);
+	}
+	else{
+		log_warning("Key CO_CP missing from file");
+	}
+
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "CO_USERNAME");
+	if (res >= 0){
+		opt->cloud_options->username = sh_dup(entries[res]->value);
+		if (!opt->cloud_options->username){
+			log_warning("Failed to read username from file");
+		}
+	}
+	else{
+		log_warning("Key CO_USERNAME missing from file");
+	}
+
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "CO_PASSWORD");
+	if (res >= 0){
+		if (from_base16(entries[res]->value, entries[res]->value_len, (void**)&opt->cloud_options->password, NULL) != 0){
+			log_warning("Failed to read ENC_PASSWORD");
+		}
+	}
+	else{
+		log_warning("Key CO_PASSWORD missing from file");
+	}
+
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "CO_UPLOAD_DIRECTORY");
+	if (res >= 0){
+		opt->cloud_options->upload_directory = sh_dup(entries[res]->value);
+		if (!opt->cloud_options->upload_directory){
+			log_warning("Failed to read password from file");
+		}
+	}
+	else{
+		log_warning("Key CO_UPLOAD_DIRECTORY missing from file");
+	}
+
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "FLAGS");
+	if (res >= 0){
+		opt->flags.dword = strtoul(entries[res]->value, NULL, 10);
+	}
+	else{
+		log_warning("Key FLAGS missing from file");
+		opt->flags.dword = 0;
+		opt->flags.bits.flag_verbose = 1;
 	}
 
 cleanup:
-	if (fclose(fp) != 0){
-		log_efclose(file);
+	if (ret != 0){
+		free(opt);
 	}
-	free(tmp);
+	free_opt_entry_array(entries, entries_len);
 	return ret;
 }
 
-/* File format:
- *
- * [Options]
- * PREV=/path/to/prev.tar\0
- * DIRECTORIES=/dir1\0/dir2\0/dir3\0\0
- * EXCLUDE=/exc1\0/exc2\0/exc3\0\0
- * CHECKSUM=sha1\0
- * ENCRYPTION=aes-256-cbc\0
- * COMPRESSION=2
- * FLAGS=1
- *
- */
 int write_options_tofile(const char* file, const struct options* opt){
 	FILE* fp = NULL;
-	char* tmp = NULL;
+	unsigned char* tmp = NULL;
+	unsigned char* tmp_old = NULL;
+	char* tmp_pw = NULL;
+	size_t tmp_len = 0;
 	size_t i;
+	int ret = 0;
 
-	if (!file || !opt){
-		log_enull();
-		return -1;
-	}
-
-	fp = fopen(file, "wb");
+	fp = create_option_file(file);
 	if (!fp){
-		log_efopen(file);
-		fclose(fp);
+		log_error("Failed to create option file");
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (add_option_tofile(fp, "PREV_BACKUP", (const unsigned char*)opt->prev_backup, opt->prev_backup ? strlen(opt->prev_backup) + 1 : 0) != 0){
+		log_warning("Failed to add PREV_BACKUP to file");
+	}
+
+	/* get length of all strings including their '\0''s */
+	tmp_len = 0;
+	for (i = 0; i < opt->directories->len; ++i){
+		tmp_len += strlen(opt->directories->strings[i]) + 1;
+	}
+	/* allocate buffer */
+	tmp = malloc(tmp_len);
+	if (!tmp){
+		log_enomem();
 		return -1;
 	}
-	fprintf(fp, "[Options]");
-	fprintf(fp, "\nVERSION=%s%c", PROG_VERSION, '\0');
-	fprintf(fp, "\nPREV=%s%c", opt->prev_backup ? opt->prev_backup : "", '\0');
-	fprintf(fp, "\nDIRECTORIES=");
+	/* save beginning of buffer */
+	tmp_old = tmp;
 	for (i = 0; i < opt->directories->len; ++i){
-		fprintf(fp, "%s%c", opt->directories->strings[i], '\0');
+		/* copy the string and its '\0' over to tmp */
+		memcpy(tmp, opt->directories->strings[i], strlen(opt->directories->strings[i]) + 1);
+		/* move tmp past the string we copied */
+		tmp += strlen(opt->directories->strings[i]) + 1;
 	}
-	fputc('\0', fp);
-	fprintf(fp, "\nEXCLUDE=");
-	for (i = 0; i < opt->exclude->len; ++i){
-		fprintf(fp, "%s%c", opt->exclude->strings[i], '\0');
+	/* restore beginning of buffer */
+	tmp = tmp_old;
+	tmp_old = NULL;
+	if (add_option_tofile(fp, "DIRECTORIES", tmp, tmp_len) != 0){
+		log_warning("Failed to add DIRECTORIES to file");
 	}
-	fputc('\0', fp);
-	fprintf(fp, "\nCHECKSUM=%s%c", EVP_MD_name(opt->hash_algorithm), '\0');
-	fprintf(fp, "\nENCRYPTION=%s%c", EVP_CIPHER_name(opt->enc_algorithm), '\0');
-	if (opt->enc_password && to_base16((const unsigned char*)opt->enc_password, strlen(opt->enc_password), &tmp) != 0){
-		log_warning("Failed to convert password to base 16");
-		free(tmp);
-		tmp = NULL;
-	}
-	fprintf(fp, "\nENC_PASSWORD=%s%c", tmp ? tmp : "", '\0');
 	free(tmp);
-	fprintf(fp, "\nCOMPRESSION=%d", opt->comp_algorithm);
-	fprintf(fp, "\nCOMP_LEVEL=%d", opt->comp_level);
-	fprintf(fp, "\nOUTPUT_DIRECTORY=%s%c", opt->output_directory ? opt->output_directory : "", '\0');
-	fprintf(fp, "\nCLOUD_PROVIDER=%d", opt->cloud_options->cp);
-	fprintf(fp, "\nCLOUD_USERNAME=%s%c", opt->cloud_options->username ? opt->cloud_options->username : "", '\0');
-	if (opt->cloud_options->password && to_base16((const unsigned char*)opt->cloud_options->password, strlen(opt->cloud_options->password), &tmp) != 0){
-		log_warning("Failed to convert password to base 16");
-		free(tmp);
-		tmp = NULL;
-	}
-	fprintf(fp, "\nCLOUD_PASSWORD=%s%c", tmp ? tmp : "", '\0');
-	free(tmp);
-	fprintf(fp, "\nCLOUD_DIRECTORY=%s%c", opt->cloud_options->upload_directory ? opt->cloud_options->upload_directory : "", '\0');
-	fprintf(fp, "\nFLAGS=%u", opt->flags.dword);
+	tmp = NULL;
 
-	if (fclose(fp) != 0){
-		log_efclose(file);
+	tmp_len = 0;
+	for (i = 0; i < opt->exclude->len; ++i){
+		tmp_len += strlen(opt->exclude->strings[i]) + 1;
 	}
-	return 0;
+	tmp = malloc(tmp_len);
+	if (!tmp){
+		log_enomem();
+		return -1;
+	}
+	tmp_old = tmp;
+	for (i = 0; i < opt->exclude->len; ++i){
+		memcpy(tmp, opt->exclude->strings[i], strlen(opt->exclude->strings[i]) + 1);
+		tmp += strlen(opt->exclude->strings[i]) + 1;
+	}
+	tmp = tmp_old;
+	tmp_old = NULL;
+	if (add_option_tofile(fp, "EXCLUDE", tmp, tmp_len) != 0){
+		log_warning("Failed to add EXCLUDE to file");
+	}
+	free(tmp);
+	tmp = NULL;
+
+	if (add_option_tofile(fp, "HASH_ALGORITHM", EVP_MD_name(opt->hash_algorithm), strlen(EVP_MD_name(opt->hash_algorithm)) + 1) != 0){
+		log_warning("Failed to add HASH_ALGORITHM to file");
+	}
+
+	if (add_option_tofile(fp, "ENC_ALGORITHM", EVP_CIPHER_name(opt->enc_algorithm), strlen(EVP_CIPHER_name(opt->enc_algorithm)) + 1) != 0){
+		log_warning("Failed to add ENC_ALGORITHM to file");
+	}
+
+	if (opt->enc_password && to_base16(opt->enc_password, strlen(opt->enc_password) + 1, &tmp_pw) != 0){
+		log_warning("Failed to convert pw to base16");
+	}
+	if (tmp_pw && add_option_tofile(fp, "ENC_PASSWORD", tmp_pw, strlen(tmp_pw) + 1) != 0){
+		log_warning("Failed to add ENC_PASSWORD to file");
+	}
+	free(tmp_pw);
+	tmp_pw = NULL;
+
+	if (add_option_tofile(fp, "COMP_ALGORITHM", &opt->comp_algorithm, sizeof(opt->comp_algorithm)) != 0){
+		log_warning("Failed to add COMP_ALGORITHM to file");
+	}
+
+	if (add_option_tofile(fp, "COMP_LEVEL", &opt->comp_level, sizeof(opt->comp_level)) != 0){
+		log_warning("Failed to add COMP_LEVEL to file");
+	}
+
+	if (add_option_tofile(fp, "OUTPUT_DIRECTORY", opt->output_directory, strlen(opt->output_directory) + 1) != 0){
+		log_warning("Failed to add OUTPUT_DIRECTORY to file");
+	}
+
+	if (add_option_tofile(fp, "CO_CP", &opt->cloud_options->cp, sizeof(opt->cloud_options->cp)) != 0){
+		log_warning("Failed to add CO_CP to file");
+	}
+
+	if (add_option_tofile(fp, "CO_USERNAME", opt->cloud_options->username, strlen(opt->cloud_options->username) + 1) != 0){
+		log_warning("Failed to add CO_USERNAME to file");
+	}
+
+	if (to_base16(opt->cloud_options->password, strlen(opt->cloud_options->password) + 1, &tmp_pw) != 0){
+		log_warning("Failed to convert cloud password to base16");
+	}
+	if (tmp_pw && add_option_tofile(fp, "CO_PASSWORD", tmp_pw, strlen(tmp_pw) + 1) != 0){
+		log_warning("Failed to add CO_PASSWORD to file");
+	}
+	free(tmp_pw);
+	tmp_pw = NULL;
+
+	if (add_option_tofile(fp, "CO_UPLOAD_DIRECTORY", opt->cloud_options->upload_directory, strlen(opt->cloud_options->upload_directory) + 1) != 0){
+		log_warning("Failed to add CO_UPLOAD_DIRECTORY to file");
+	}
+
+	if (add_option_tofile(fp, "FLAGS", &opt->flags.dword, sizeof(opt->flags.dword)) != 0){
+		log_warning("Failed to add FLAGS to file");
+	}
+
+cleanup:
+	fp ? fclose(fp) : 0;
+	free(tmp);
+	free(tmp_old);
+	free(tmp_pw);
+	return ret;
 }
 
 void free_options(struct options* opt){

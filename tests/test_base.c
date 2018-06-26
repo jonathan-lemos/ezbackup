@@ -235,7 +235,7 @@ void set_signal_handler(void){
 	}
 }
 
-void create_file(const char* name, const unsigned char* data, int len){
+void create_file(const char* name, const void* data, int len){
 	FILE* fp;
 
 	fp = fopen(name, "wb");
@@ -247,7 +247,8 @@ void create_file(const char* name, const unsigned char* data, int len){
 }
 
 /* memcmp's the contents of a file to data */
-int memcmp_file_data(const char* file, const unsigned char* data, int data_len){
+int memcmp_file_data(const char* file, const void* data, int data_len){
+	const unsigned char* ucdata = data;
 	FILE* fp;
 	int i;
 
@@ -259,9 +260,9 @@ int memcmp_file_data(const char* file, const unsigned char* data, int data_len){
 
 		c = fgetc(fp);
 		/* EOF = -1, lowest possible char */
-		if (c != data[i]){
+		if (c != ucdata[i]){
 			fclose(fp);
-			return c - data[i];
+			return c - ucdata[i];
 		}
 	}
 	/* if data_len is less than file len */

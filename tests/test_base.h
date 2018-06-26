@@ -25,8 +25,8 @@ void log_default(const char* format, ...);
 
 void set_signal_handler(void);
 
-void create_file(const char* name, const unsigned char* data, int len);
-int memcmp_file_data(const char* file, const unsigned char* data, int data_len);
+void create_file(const char* name, const void* data, int len);
+int memcmp_file_data(const char* file, const void* data, int data_len);
 int memcmp_file_file(const char* file1, const char* file2);
 int does_file_exist(const char* file);
 void setup_test_environment_basic(const char* path, char*** out, size_t* out_len);
@@ -46,6 +46,8 @@ struct unit_test{
 	const char* func_name;
 };
 int run_tests(const struct unit_test* tests, size_t len);
+
+#define CT_ASSERT(condition) ((void)sizeof(char[1 - 2 * !(condition)]))
 
 /* I KNOW THIS IS UGLY
  * this is about the point in my project where I realized that C++ and RAII would be pretty convenient right about now.
