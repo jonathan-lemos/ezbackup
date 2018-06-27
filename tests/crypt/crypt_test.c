@@ -1,4 +1,4 @@
-/* test_crypt.c -- tests crypt.c
+/* crypt_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -19,13 +19,6 @@ static const char* const sample_file_decrypt = "decrypt.txt";
 static const char* const sample_file_decrypt2 = "decrypt2.txt";
 static const char* const password = "password";
 static const unsigned char salt[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-
-static void fill_sample_data(unsigned char* ptr, size_t len){
-	size_t i;
-	for (i = 0; i < len; ++i){
-		ptr[i] = i % 10 + '0';
-	}
-}
 
 void test_crypt_encrypt(enum TEST_STATUS* status){
 	struct crypt_keys* fk = NULL;

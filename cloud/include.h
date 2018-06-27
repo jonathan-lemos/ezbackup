@@ -38,6 +38,7 @@ int co_set_cp(struct cloud_options* co, enum CLOUD_PROVIDER cp);
 enum CLOUD_PROVIDER cloud_provider_from_string(const char* str);
 const char* cloud_provider_to_string(enum CLOUD_PROVIDER cp);
 void co_free(struct cloud_options* co);
+int co_cmp(const struct cloud_options* co1, const struct cloud_options* co2);
 
 int time_menu(struct file_node** arr, size_t len);
 int cloud_upload(const char* in_file, struct cloud_options* co);

@@ -196,7 +196,7 @@ cleanup:
 	free(cwd);
 	free(last_backup_dir);
 	free(last_backup_cfg);
-	free_options(opt_tar);
+	options_free(opt_tar);
 	if (tfp_decrypt){
 		temp_fclose(tfp_decrypt);
 	}

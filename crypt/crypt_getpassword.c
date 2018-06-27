@@ -52,6 +52,7 @@ char* get_stdin_secure(const char* prompt){
 	str = calloc(1, 1);
 	if (!str){
 		log_enomem();
+		printf("\n");
 		return NULL;
 	}
 
@@ -61,6 +62,7 @@ char* get_stdin_secure(const char* prompt){
 		if (fgets(input_buffer, sizeof(input_buffer), stdin) == NULL){
 			log_error("Failed to read from stdin");
 			free(str);
+			printf("\n");
 			return NULL;
 		}
 		input_buffer[strcspn(input_buffer, "\r\n")] = '\0';
@@ -74,6 +76,7 @@ char* get_stdin_secure(const char* prompt){
 		if (!tmp){
 			log_enomem();
 			free(str);
+			printf("\n");
 			return NULL;
 		}
 		strcpy(tmp, str);
@@ -90,6 +93,7 @@ char* get_stdin_secure(const char* prompt){
 		/* while input_buffer is full (stdin still has data) */
 	}while (strlen(input_buffer) >= sizeof(input_buffer) - 1);
 
+	printf("\n");
 	return str;
 }
 

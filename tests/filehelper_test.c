@@ -4,13 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void fill_sample_data(unsigned char* ptr, size_t len){
-	size_t i;
-	for (i = 0; i < len; ++i){
-		ptr[i] = i % 10 + '0';
-	}
-}
-
 void test_read_file(enum TEST_STATUS* status){
 	const char* sample_file = "file1.txt";
 	const char* sample_file2 = "file2.txt";

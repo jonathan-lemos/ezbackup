@@ -623,6 +623,13 @@ void cleanup_test_environment(const char* path, char** files){
 	rmdir(path);
 }
 
+void fill_sample_data(unsigned char* data, size_t len){
+	size_t i;
+	for (i = 0; i < len; ++i){
+		data[i] = i % 10 + '0';
+	}
+}
+
 int run_tests(const struct unit_test* tests, size_t len){
 	size_t i;
 	int n_succeeded = 0;

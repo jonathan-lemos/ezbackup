@@ -397,7 +397,7 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "ENC_PASSWORD");
 	if (res >= 0){
-		if (from_base16(entries[res]->value, entries[res]->value_len, (void**)&opt->enc_password, NULL) != 0){
+		if (from_base16(entries[res]->value, (void**)&opt->enc_password, NULL) != 0){
 			log_warning("Failed to read ENC_PASSWORD");
 		}
 	}
@@ -461,7 +461,7 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "CO_PASSWORD");
 	if (res >= 0){
-		if (from_base16(entries[res]->value, entries[res]->value_len, (void**)&opt->cloud_options->password, NULL) != 0){
+		if (from_base16(entries[res]->value, (void**)&opt->cloud_options->password, NULL) != 0){
 			log_warning("Failed to read ENC_PASSWORD");
 		}
 	}
@@ -630,7 +630,7 @@ cleanup:
 	return ret;
 }
 
-void free_options(struct options* opt){
+void options_free(struct options* opt){
 	free(opt->prev_backup);
 	sa_free(opt->directories);
 	sa_free(opt->exclude);
@@ -638,6 +638,54 @@ void free_options(struct options* opt){
 	free(opt->output_directory);
 	co_free(opt->cloud_options);
 	free(opt);
+}
+
+int options_cmp(const struct options* opt1, const struct options* opt2){
+	if (sh_cmp_nullsafe(opt1->prev_backup, opt2->prev_backup) != 0){
+		return sh_cmp_nullsafe(opt1->prev_backup, opt2->prev_backup);
+	}
+
+	if (sa_cmp(opt1->directories, opt2->directories) != 0){
+		return sa_cmp(opt1->directories, opt2->directories);
+	}
+
+	if (sa_cmp(opt1->exclude, opt2->exclude) != 0){
+		return sa_cmp(opt1->exclude, opt2->exclude);
+	}
+
+	if (strcmp(EVP_MD_name(opt1->hash_algorithm), EVP_MD_name(opt2->hash_algorithm)) != 0){
+		return strcmp(EVP_MD_name(opt1->hash_algorithm), EVP_MD_name(opt2->hash_algorithm));
+	}
+
+	if (strcmp(EVP_CIPHER_name(opt1->enc_algorithm), EVP_CIPHER_name(opt2->enc_algorithm)) != 0){
+		return strcmp(EVP_CIPHER_name(opt1->enc_algorithm), EVP_CIPHER_name(opt2->enc_algorithm));
+	}
+
+	if (sh_cmp_nullsafe(opt1->enc_password, opt2->enc_password) != 0){
+		return sh_cmp_nullsafe(opt1->enc_password, opt2->enc_password);
+	}
+
+	if (opt1->comp_algorithm != opt2->comp_algorithm){
+		return (long)opt1->comp_algorithm - (long)opt2->comp_algorithm;
+	}
+
+	if (opt1->comp_level != opt2->comp_level){
+		return opt1->comp_level - opt2->comp_level;
+	}
+
+	if (sh_cmp_nullsafe(opt1->output_directory, opt2->output_directory) != 0){
+		return sh_cmp_nullsafe(opt1->output_directory, opt2->output_directory);
+	}
+
+	if (co_cmp(opt1->cloud_options, opt2->cloud_options) != 0){
+		return co_cmp(opt1->cloud_options, opt2->cloud_options);
+	}
+
+	if (opt1->flags.dword != opt2->flags.dword){
+		return (long)opt1->flags.dword - (long)opt2->flags.dword;
+	}
+
+	return 0;
 }
 
 int get_last_backup_file(char** out){

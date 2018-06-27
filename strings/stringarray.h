@@ -23,5 +23,6 @@ size_t sa_sanitize_directories(struct string_array* array);
 void sa_sort(struct string_array* array);
 struct string_array* sa_new(void);
 void sa_free(struct string_array* array);
+int sa_cmp(const struct string_array* sa1, const struct string_array* sa2);
 
 #endif

@@ -13,14 +13,6 @@
 #include <unistd.h>
 #include <string.h>
 
-static void fill_sample_data(unsigned char* sample_data, size_t len){
-	size_t i;
-
-	for (i = 0; i < len; ++i){
-		sample_data[i] = i % 10 + '0';
-	}
-}
-
 void test_tar_add_file(enum TEST_STATUS* status){
 	const char* sample_tar = "sample.tar";
 	const char* sample_file1 = "file1.txt";

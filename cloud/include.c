@@ -155,6 +155,22 @@ void co_free(struct cloud_options* co){
 	free(co);
 }
 
+int co_cmp(const struct cloud_options* co1, const struct cloud_options* co2){
+	if (co1->cp != co2->cp){
+		return co1->cp - co2->cp;
+	}
+	if (sh_cmp_nullsafe(co1->username, co2->username) != 0){
+		return sh_cmp_nullsafe(co1->username, co2->username);
+	}
+	if (sh_cmp_nullsafe(co1->password, co2->password) != 0){
+		return sh_cmp_nullsafe(co1->password, co2->password);
+	}
+	if (sh_cmp_nullsafe(co1->upload_directory, co2->upload_directory) != 0){
+		return sh_cmp_nullsafe(co1->upload_directory, co2->upload_directory);
+	}
+	return 0;
+}
+
 static int cmp(const void* tm1, const void* tm2){
 	return (*((struct file_node**)tm2))->time - (*((struct file_node**)tm1))->time;
 }

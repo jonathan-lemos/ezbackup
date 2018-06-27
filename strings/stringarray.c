@@ -127,3 +127,56 @@ struct string_array* sa_new(void){
 	ret->len = 0;
 	return ret;
 }
+
+struct string_array* sa_dup(const struct string_array* src){
+	struct string_array* ret;
+	size_t i;
+
+	ret = sa_new();
+	if (!ret){
+		log_enomem();
+		return NULL;
+	}
+
+	for (i = 0; i < src->len; ++i){
+		if (sa_add(ret, src->strings[i]) != 0){
+			log_enomem();
+			sa_free(ret);
+			return NULL;
+		}
+	}
+
+	return ret;
+}
+
+int sa_cmp(const struct string_array* sa1, const struct string_array* sa2){
+	struct string_array* buf1 = NULL;
+	struct string_array* buf2 = NULL;
+	size_t i;
+	int ret = 0;
+
+	if (sa1->len != sa2->len){
+		return (long)sa1->len - (long)sa2->len;
+	}
+
+	buf1 = sa_dup(sa1);
+	buf2 = sa_dup(sa2);
+
+	if (!buf1 || !buf2){
+		log_error("Failed to duplicate string_array");
+		ret = 0;
+		goto cleanup;
+	}
+
+	sa_sort(buf1);
+	sa_sort(buf2);
+
+	for (i = 0; i < sa1->len && ret == 0; ++i){
+		ret = strcmp(buf1->strings[i], buf2->strings[i]);
+	}
+
+cleanup:
+	buf1 ? sa_free(buf1) : (void)0;
+	buf2 ? sa_free(buf2) : (void)0;
+	return ret;
+}

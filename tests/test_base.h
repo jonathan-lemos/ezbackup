@@ -33,6 +33,7 @@ void setup_test_environment_basic(const char* path, char*** out, size_t* out_len
 void setup_test_environment_full(const char* path, char*** out, size_t* out_len);
 void cleanup_test_environment(const char* path, char** files);
 int pause_yn(const char* prompt);
+void fill_sample_data(unsigned char* ptr, size_t len);
 
 int test_assert(int condition, const char* file, int line, const char* msg);
 

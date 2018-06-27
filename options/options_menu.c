@@ -69,7 +69,7 @@ int menu_compressor(struct options* opt){
 		return 0;
 	}
 	opt->comp_algorithm = list_compressor[res];
-	return menu_compression_level(opt);
+	return 0;
 }
 
 int menu_checksum(struct options* opt){
@@ -469,6 +469,17 @@ int menu_cloud_main(struct options* opt){
 		}
 		sprintf(tmp, "Username (%s)", opt->cloud_options->username);
 		options_cloud_main_menu[1] = tmp;
+		tmp = NULL;
+	}
+	else{
+		tmp = malloc(sizeof("Username"));
+		if (!tmp){
+			log_enomem();
+			return -1;
+		}
+		strcpy(tmp, "Username");
+		options_cloud_main_menu[1] = tmp;
+		tmp = NULL;
 	}
 
 	do{
@@ -600,10 +611,10 @@ int menu_main_configure(struct options* opt){
 			menu_compression_main(opt);
 			break;
 		case 2:
-			menu_encryption(opt);
+			menu_directories_main(opt);
 			break;
 		case 3:
-			menu_exclude(opt);
+			menu_encryption_main(opt);
 			break;
 		case 4:
 			break;

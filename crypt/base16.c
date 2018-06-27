@@ -9,6 +9,7 @@
 #include "../log.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 int to_base16(const void* bytes, unsigned len, char** out){
 	const unsigned char* ucbytes = bytes;
@@ -48,14 +49,15 @@ int to_base16(const void* bytes, unsigned len, char** out){
 	return 0;
 }
 
-int from_base16(const char* hex, unsigned len, void** out, unsigned* len_out){
+int from_base16(const char* hex, void** out, unsigned* len_out){
 	unsigned char** ucout = (unsigned char**)out;
 	unsigned ptr;
 	unsigned hexptr;
 	unsigned c;
+	unsigned len = strlen(hex);
 	/* 2 hex digits = 1 byte */
-	out = malloc(len / 2);
-	if (!out){
+	*ucout = malloc(len / 2);
+	if (!(*ucout)){
 		log_enomem();
 		return -1;
 	}
