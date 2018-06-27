@@ -67,18 +67,6 @@ const char* sh_filename(const char* in){
 	return in;
 }
 
-const char* sh_file_name(const char* in){
-	size_t ptr = 0;
-
-	return_ifnull(in, NULL);
-
-	while ((ptr = strcspn(in, "/")) != strlen(in)){
-		in += ptr + 1;
-		ptr = 0;
-	}
-	return in;
-}
-
 int sh_starts_with(const char* haystack, const char* needle){
 	size_t i;
 

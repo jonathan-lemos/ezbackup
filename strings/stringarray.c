@@ -63,10 +63,8 @@ int sa_remove(struct string_array* array, size_t index){
 	return 0;
 }
 
-int is_directory(const char* path){
+static int is_directory(const char* path){
 	struct stat st;
-
-	return_ifnull(path, -1);
 
 	if (stat(path, &st) != 0){
 		log_estat(path);
@@ -90,6 +88,18 @@ size_t sa_sanitize_directories(struct string_array* array){
 		}
 	}
 	return n_removed;
+}
+
+int sa_contains(const struct string_array* array, const char* str){
+	size_t i;
+
+	return_ifnull(array, -1);
+	for (i = 0; i < array->len; ++i){
+		if (strcmp(array->strings[i], str) == 0){
+			return 1;
+		}
+	}
+	return 0;
 }
 
 static int cmp(const void* str1, const void* str2){

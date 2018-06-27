@@ -314,7 +314,7 @@ static char* str_duplicate(const char* in){
 }
 
 /* make_path(3, "dir1", "dir2", "file.txt") -> "dir1/dir2/file.txt" */
-static char* make_path(int n_components, ...){
+char* make_path(int n_components, ...){
 	char* ret = NULL;
 	va_list ap;
 	int i;
