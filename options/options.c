@@ -280,6 +280,7 @@ struct options* options_new(void){
 	opt->exclude = sa_new();
 	opt->hash_algorithm = EVP_sha1();
 	opt->enc_algorithm = EVP_aes_256_cbc();
+	opt->enc_password = NULL;
 	opt->comp_algorithm = COMPRESSOR_GZIP;
 	opt->comp_level = 0;
 	if (get_backup_directory(&(opt->output_directory)) != 0){
@@ -287,6 +288,7 @@ struct options* options_new(void){
 		return NULL;
 	}
 	opt->cloud_options = co_new();
+	opt->flags.dword = 0;
 	opt->flags.bits.flag_verbose = 1;
 
 	return opt;
@@ -428,6 +430,7 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "OUTPUT_DIRECTORY");
 	if (res >= 0){
+		free(opt->output_directory);
 		opt->output_directory = sh_dup(entries[res]->value);
 		if (!opt->output_directory){
 			log_warning("Failed to read output_directory for file");
@@ -447,6 +450,7 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "CO_USERNAME");
 	if (res >= 0){
+		free(opt->cloud_options->username);
 		opt->cloud_options->username = sh_dup(entries[res]->value);
 		if (!opt->cloud_options->username){
 			log_warning("Failed to read username from file");
@@ -458,6 +462,7 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "CO_PASSWORD");
 	if (res >= 0){
+		free(opt->cloud_options->password);
 		if (entries[res]->value && from_base16(entries[res]->value, (void**)&opt->cloud_options->password, NULL) != 0){
 			log_warning("Failed to read CO_PASSWORD");
 		}
@@ -471,6 +476,7 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "CO_UPLOAD_DIRECTORY");
 	if (res >= 0){
+		free(opt->cloud_options->upload_directory);
 		opt->cloud_options->upload_directory = sh_dup(entries[res]->value);
 		if (!opt->cloud_options->upload_directory){
 			log_warning("Failed to read password from file");
