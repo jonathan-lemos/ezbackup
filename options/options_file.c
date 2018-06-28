@@ -43,17 +43,20 @@ static int add_opt_entry(struct opt_entry*** entries, size_t* len, struct opt_en
 	return 0;
 }
 
-static int remove_opt_entry(struct opt_entry** entries, size_t* len, size_t index){
+/* this must be struct opt_entry*** because realloc may move the pointer
+ *
+ * remember this the next time you spend two days tracking down a memory error */
+static int remove_opt_entry(struct opt_entry*** entries, size_t* len, size_t index){
 	size_t i;
 
-	free_opt_entry(entries[index]);
+	free_opt_entry((*entries)[index]);
 	for (i = index; i < (*len) - 1; ++i){
 		entries[i] = entries[i + 1];
 	}
 
 	(*len)--;
-	entries = realloc(entries, (*len) * sizeof(*entries));
-	if (!entries){
+	(*entries) = realloc((*entries), (*len) * sizeof(*entries));
+	if (!(*entries)){
 		log_enomem();
 		(*len) = 0;
 		return -1;
@@ -62,10 +65,10 @@ static int remove_opt_entry(struct opt_entry** entries, size_t* len, size_t inde
 	return 0;
 }
 
-static int remove_null_entries(struct opt_entry** entries, size_t* len){
+static int remove_null_entries(struct opt_entry*** entries, size_t* len){
 	size_t i;
 	for (i = 0; i < *len; ++i){
-		if (!entries[i] && remove_opt_entry(entries, len, i)){
+		if (!((*entries)[i]) && remove_opt_entry(entries, len, i)){
 			log_warning("Failed to remove NULL entry from list");
 			return -1;
 		}
@@ -104,6 +107,7 @@ static struct opt_entry* read_entry(FILE* fp){
 	while ((c = fgetc(fp)) != '=' && c != EOF);
 	if (c == EOF){
 		log_info("read_entry reached EOF");
+		free_opt_entry(ret);
 		return NULL;
 	}
 	/* - 1 to ignore the '=' */
@@ -245,7 +249,7 @@ int read_option_file(const char* option_file, struct opt_entry*** out, size_t* l
 		}
 	}while (arr[arr_len - 1]);
 
-	remove_null_entries(arr, &arr_len);
+	remove_null_entries(&arr, &arr_len);
 	sort_opt_entries(arr, arr_len);
 
 	fp ? fclose(fp) : 0;

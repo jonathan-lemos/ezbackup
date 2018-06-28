@@ -321,18 +321,20 @@ struct options* options_new(void){
    */
 
 int parse_options_fromfile(const char* file, struct options** output){
-	struct options* opt = *output;
+	struct options* opt = NULL;
 	struct opt_entry** entries = NULL;
 	size_t entries_len = 0;
 	int ret = 0;
 	int res = 0;
 
-	opt = options_new();
-	if (!opt){
-		log_error("Failed to make new options object");
+	*output = options_new();
+	if (!(*output)){
+		log_enomem();
 		ret = -1;
 		goto cleanup;
 	}
+
+	opt = *output;
 
 	if (read_option_file(file, &entries, &entries_len) != 0){
 		log_error("Failed to read options file");
@@ -353,7 +355,7 @@ int parse_options_fromfile(const char* file, struct options** output){
 	if (res >= 0){
 		const char* str = entries[res]->value;
 		size_t ptr;
-		for (ptr = 0; ptr < entries[res]->value_len; ptr += strlen(str) + 1){
+		for (ptr = 0; ptr < entries[res]->value_len; ptr += strlen(&(str[ptr])) + 1){
 			if (sa_add(opt->directories, &(str[ptr])) != 0){
 				log_warning("Failed to add string to directories array");
 			}
@@ -397,8 +399,11 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "ENC_PASSWORD");
 	if (res >= 0){
-		if (from_base16(entries[res]->value, (void**)&opt->enc_password, NULL) != 0){
+		if (entries[res]->value && from_base16(entries[res]->value, (void**)&opt->enc_password, NULL) != 0){
 			log_warning("Failed to read ENC_PASSWORD");
+		}
+		else if (!entries[res]->value){
+			opt->enc_password = NULL;
 		}
 	}
 	else{
@@ -407,15 +412,7 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "COMP_ALGORITHM");
 	if (res >= 0){
-		opt->comp_algorithm = strtoul(entries[res]->value, NULL, 10);
-	}
-	else{
-		log_warning("Key COMP_ALGORITHM missing from file");
-	}
-
-	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "COMP_ALGORITHM");
-	if (res >= 0){
-		opt->comp_algorithm = strtoul(entries[res]->value, NULL, 10);
+		opt->comp_algorithm = *(int*)entries[res]->value - '0';
 	}
 	else{
 		log_warning("Key COMP_ALGORITHM missing from file");
@@ -423,7 +420,7 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "COMP_LEVEL");
 	if (res >= 0){
-		opt->comp_level = strtol(entries[res]->value, NULL, 10);
+		opt->comp_level = *(int*)entries[res]->value - '0';
 	}
 	else{
 		log_warning("Key COMP_LEVEL missing from file");
@@ -442,7 +439,7 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "CO_CP");
 	if (res >= 0){
-		opt->cloud_options->cp = strtoul(entries[res]->value, NULL, 10);
+		opt->cloud_options->cp = *(int*)entries[res]->value - '0';
 	}
 	else{
 		log_warning("Key CO_CP missing from file");
@@ -461,8 +458,11 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "CO_PASSWORD");
 	if (res >= 0){
-		if (from_base16(entries[res]->value, (void**)&opt->cloud_options->password, NULL) != 0){
-			log_warning("Failed to read ENC_PASSWORD");
+		if (entries[res]->value && from_base16(entries[res]->value, (void**)&opt->cloud_options->password, NULL) != 0){
+			log_warning("Failed to read CO_PASSWORD");
+		}
+		else if (!entries[res]->value){
+			opt->cloud_options->password = NULL;
 		}
 	}
 	else{
@@ -482,7 +482,7 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "FLAGS");
 	if (res >= 0){
-		opt->flags.dword = strtoul(entries[res]->value, NULL, 10);
+		opt->flags.dword = *(unsigned*)entries[res]->value;
 	}
 	else{
 		log_warning("Key FLAGS missing from file");
@@ -504,6 +504,7 @@ int write_options_tofile(const char* file, const struct options* opt){
 	unsigned char* tmp_old = NULL;
 	char* tmp_pw = NULL;
 	size_t tmp_len = 0;
+	int tmp_int = 0;
 	size_t i;
 	int ret = 0;
 
@@ -582,14 +583,20 @@ int write_options_tofile(const char* file, const struct options* opt){
 	if (tmp_pw && add_option_tofile(fp, "ENC_PASSWORD", tmp_pw, strlen(tmp_pw) + 1) != 0){
 		log_warning("Failed to add ENC_PASSWORD to file");
 	}
+	/* !tmp_pw needed otherwise this fires when tmp_pw is true and add_option_tofile == 0 */
+	else if (!tmp_pw && add_option_tofile(fp, "ENC_PASSWORD", NULL, 0) != 0){
+		log_warning("Failed to add ENC_PASSWORD to file");
+	}
 	free(tmp_pw);
 	tmp_pw = NULL;
 
-	if (add_option_tofile(fp, "COMP_ALGORITHM", &opt->comp_algorithm, sizeof(opt->comp_algorithm)) != 0){
+	tmp_int = opt->comp_algorithm + '0';
+	if (add_option_tofile(fp, "COMP_ALGORITHM", &tmp_int, sizeof(tmp_int)) != 0){
 		log_warning("Failed to add COMP_ALGORITHM to file");
 	}
 
-	if (add_option_tofile(fp, "COMP_LEVEL", &opt->comp_level, sizeof(opt->comp_level)) != 0){
+	tmp_int = opt->comp_level + '0';
+	if (add_option_tofile(fp, "COMP_LEVEL", &tmp_int, sizeof(tmp_int)) != 0){
 		log_warning("Failed to add COMP_LEVEL to file");
 	}
 
@@ -597,18 +604,22 @@ int write_options_tofile(const char* file, const struct options* opt){
 		log_warning("Failed to add OUTPUT_DIRECTORY to file");
 	}
 
-	if (add_option_tofile(fp, "CO_CP", &opt->cloud_options->cp, sizeof(opt->cloud_options->cp)) != 0){
+	tmp_int = opt->cloud_options->cp + '0';
+	if (add_option_tofile(fp, "CO_CP", &tmp_int, sizeof(tmp_int)) != 0){
 		log_warning("Failed to add CO_CP to file");
 	}
 
-	if (add_option_tofile(fp, "CO_USERNAME", opt->cloud_options->username, strlen(opt->cloud_options->username) + 1) != 0){
+	if (add_option_tofile(fp, "CO_USERNAME", opt->cloud_options->username, opt->cloud_options->username ? strlen(opt->cloud_options->username) + 1 : 0) != 0){
 		log_warning("Failed to add CO_USERNAME to file");
 	}
 
-	if (to_base16(opt->cloud_options->password, strlen(opt->cloud_options->password) + 1, &tmp_pw) != 0){
+	if (opt->cloud_options->password && to_base16(opt->cloud_options->password, strlen(opt->cloud_options->password) + 1, &tmp_pw) != 0){
 		log_warning("Failed to convert cloud password to base16");
 	}
 	if (tmp_pw && add_option_tofile(fp, "CO_PASSWORD", tmp_pw, strlen(tmp_pw) + 1) != 0){
+		log_warning("Failed to add CO_PASSWORD to file");
+	}
+	else if (add_option_tofile(fp, "CO_PASSWORD", NULL, 0) != 0){
 		log_warning("Failed to add CO_PASSWORD to file");
 	}
 	free(tmp_pw);

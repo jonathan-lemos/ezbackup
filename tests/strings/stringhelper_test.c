@@ -108,6 +108,7 @@ void test_sh_cmp_nullsafe(enum TEST_STATUS* status){
 	TEST_ASSERT(sh_cmp_nullsafe(test_str, fail2) < 0);
 	TEST_ASSERT(sh_cmp_nullsafe(test_str, NULL) < 0);
 	TEST_ASSERT(sh_cmp_nullsafe(NULL, test_str) > 0);
+	TEST_ASSERT(sh_cmp_nullsafe(NULL, NULL) == 0);
 
 cleanup:
 	;

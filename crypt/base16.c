@@ -55,6 +55,10 @@ int from_base16(const char* hex, void** out, unsigned* len_out){
 	unsigned hexptr;
 	unsigned c;
 	unsigned len = strlen(hex);
+
+	return_ifnull(hex, -1);
+	return_ifnull(out, -1);
+
 	/* 2 hex digits = 1 byte */
 	*ucout = malloc(len / 2);
 	if (!(*ucout)){

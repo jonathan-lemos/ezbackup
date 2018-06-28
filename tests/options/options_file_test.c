@@ -100,6 +100,8 @@ void test_read_option_file(enum TEST_STATUS* status){
 	create_file(path, data, size);
 	TEST_ASSERT(read_option_file(path, &entries, &entries_len) == 0);
 
+	TEST_ASSERT(entries_len == 2);
+
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "KEY1");
 	TEST_ASSERT(res >= 0);
 	TEST_ASSERT(memcmp(entries[res]->value, "hello", sizeof("hello")) == 0);

@@ -105,9 +105,9 @@ cleanup:
 void test_parse_options_menu(enum TEST_STATUS* status){
 	struct options* opt = NULL;
 
-	TEST_ASSERT(parse_options_menu(&opt) == 0);
+	TEST_ASSERT(parse_options_menu(&opt) != OP_INVALID);
 
-	TEST_ASSERT(write_options_tofile("/dev/stdout", opt) == 0);
+	TEST_ASSERT(write_options_tofile("options.txt", opt) == 0);
 	TEST_ASSERT(pause_yn("Is the above output correct (Y/N)?") == 0);
 
 cleanup:

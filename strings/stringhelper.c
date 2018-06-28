@@ -114,6 +114,9 @@ char* sh_getcwd(void){
 }
 
 int sh_cmp_nullsafe(const char* str1, const char* str2){
+	if (str1 == NULL && str2 == NULL){
+		return 0;
+	}
 	if ((str1 == NULL) != (str2 == NULL)){
 		return str1 == NULL ? 1 : -1;
 	}

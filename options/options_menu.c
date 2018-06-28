@@ -368,16 +368,16 @@ int menu_exclude(struct options* opt){
 }
 
 int menu_output_directory(struct options* opt){
-	char* tmp;
+	char* tmp = NULL;
 	if (opt->output_directory){
 		printf("Old directory: %s\n", opt->output_directory);
-		free(opt->output_directory);
 	}
 	tmp = readline("Enter the output directory:");
-	if (strcmp(tmp, "") == 0){
+	if (strlen(tmp) == 0){
 		free(tmp);
 	}
 	else{
+		free(opt->output_directory);
 		opt->output_directory = tmp;
 	}
 	return 0;
@@ -502,7 +502,7 @@ int menu_cloud_main(struct options* opt){
 		}
 	}while (res != 3);
 
-	free(tmp);
+	free(options_cloud_main_menu[1]);
 	return 0;
 }
 

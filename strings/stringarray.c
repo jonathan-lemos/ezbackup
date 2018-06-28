@@ -29,13 +29,6 @@ int sa_add(struct string_array* array, const char* str){
 
 	array->strings[array->len - 1] = sh_dup(str);
 
-	array->strings[array->len - 1] = malloc(strlen(str) + 1);
-	if (!array->strings[array->len - 1]){
-		log_enomem();
-		return -1;
-	}
-
-	strcpy(array->strings[array->len - 1], str);
 	return 0;
 }
 
@@ -49,6 +42,8 @@ int sa_remove(struct string_array* array, size_t index){
 		log_einval_u(index);
 		return -1;
 	}
+
+	free(array->strings[index]);
 
 	for (i = index; i < array->len - 1; ++i){
 		array->strings[i] = array->strings[i + 1];
