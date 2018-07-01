@@ -6,6 +6,7 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
+#define __ZIP_INTERNAL
 #include "zip.h"
 #include "zip_file.h"
 #include "../log.h"
@@ -624,3 +625,5 @@ cleanup:
 	fp_out ? fclose(fp_out) : 0;
 	return ret;
 }
+
+#undef __ZIP_INTERNAL

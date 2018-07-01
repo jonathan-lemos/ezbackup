@@ -172,7 +172,7 @@ static int write_entry(FILE* fp, struct opt_entry* entry){
 FILE* create_option_file(const char* path){
 	FILE* fp;
 
-	fp = fopen(path, "wb");
+	fp = fopen(path, "w");
 	if (!fp){
 		log_efopen(path);
 		return NULL;
@@ -228,7 +228,7 @@ int read_option_file(const char* option_file, struct opt_entry*** out, size_t* l
 	return_ifnull(out, -1);
 	return_ifnull(len_out, -1);
 
-	fp = fopen(option_file, "rb");
+	fp = fopen(option_file, "r");
 	if (!fp){
 		log_efopen(option_file);
 		ret = -1;

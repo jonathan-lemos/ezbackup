@@ -9,6 +9,10 @@
 #ifndef __COMPRESSION_ZIPFILE_H
 #define __COMPRESSION_ZIPFILE_H
 
+#ifndef __ZIP_INTERNAL
+#error "Include zip.h, not zip_file.h"
+#endif
+
 #include "zip.h"
 #include <zlib.h>
 #include <bzlib.h>
