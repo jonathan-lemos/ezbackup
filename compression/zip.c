@@ -483,6 +483,10 @@ int zip_compress(const char* infile, const char* outfile, enum COMPRESSOR c_type
 		return lz4_compress(infile, outfile, compression_level, flags);
 	}
 
+	if (compression_level == 0){
+		compression_level = -1;
+	}
+
 	fp_in = fopen(infile, "rb");
 	if (!fp_in){
 		log_efopen(infile);

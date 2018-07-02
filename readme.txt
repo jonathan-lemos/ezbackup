@@ -1,10 +1,13 @@
 Dependencies:
 
 openssl
-libarchive
 ncurses
 ncurses menu
 libedit
+zlib
+bzlib
+liblzma
+liblz4
 meganz/sdk
 	libcurl
 	c-ares
@@ -29,3 +32,8 @@ Insert the following 2 lines in [sdk_directory]/src/posix/net.cpp:
 >>>>156		delete [] sslMutexes;
 >>>>157		sslMutexes = NULL;
     158	}
+
+TODO:
+make display_dialog() work within display_menu() like it should
+compression flags
+license bs
