@@ -14,10 +14,17 @@
 #endif
 
 #include "zip.h"
-#include <zlib.h>
-#include <bzlib.h>
-#include <lzma.h>
 #include <stdio.h>
+
+#ifndef NO_GZIP_SUPPORT
+#include <zlib.h>
+#endif
+#ifndef NO_BZIP2_SUPPORT
+#include <bzlib.h>
+#endif
+#ifndef NO_XZ_SUPPORT
+#include <lzma.h>
+#endif
 
 struct ZIP_FILE{
 	FILE* fp;

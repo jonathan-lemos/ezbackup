@@ -11,7 +11,7 @@ CC=gcc
 CXX=g++
 CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 CXXFLAGS=-Wall -Wextra -pedantic -std=c++14 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
-LINKFLAGS=-lssl -lcrypto -lmenu -larchive -lncurses -lmega -lstdc++ -ledit
+LINKFLAGS=-lssl -lcrypto -lmenu -lncurses -lmega -lstdc++ -ledit -lz -lbz2 -llzma -llz4
 DBGFLAGS=-g -rdynamic -Werror
 CXXDBGFLAGS=-g -rdynamic -Werror
 RELEASEFLAGS=-O3

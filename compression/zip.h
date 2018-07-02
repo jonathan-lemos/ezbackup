@@ -29,10 +29,9 @@ enum COMPRESSOR{
 #define GZIP_HUFFMAN_ONLY (0x1)
 #define GZIP_FILTERED (0x2)
 #define GZIP_RLE (0x4)
+#define GZIP_LOWMEM (0x8)
 
 #define XZ_EXTREME (0x1)
-
-#define LZ4_DOUBLE_BUFFER (0x1)
 
 int zip_compress(const char* infile, const char* outfile, enum COMPRESSOR c_type, int compression_level, unsigned flags);
 int zip_decompress(const char* infile, const char* outfile, enum COMPRESSOR c_type, unsigned flags);

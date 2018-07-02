@@ -15,8 +15,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+
+#ifndef NO_GZIP_SUPPORT
 #include <zlib.h>
+#endif
+#ifndef NO_BZIP2_SUPPORT
+#include <bzlib.h>
+#endif
+#ifndef NO_XZ_SUPPORT
 #include <lzma.h>
+#endif
+#ifndef NO_LZ4_SUPPORT
+#include "zip_lz4.h"
+#endif
 
 static void* zalloc(void* q, unsigned n, unsigned m){
 	(void)q;
@@ -468,6 +479,10 @@ int zip_compress(const char* infile, const char* outfile, enum COMPRESSOR c_type
 	FILE* fp_in = NULL;
 	int ret = 0;
 
+	if (c_type == COMPRESSOR_LZ4){
+		return lz4_compress(infile, outfile, compression_level, flags);
+	}
+
 	fp_in = fopen(infile, "rb");
 	if (!fp_in){
 		log_efopen(infile);
@@ -599,6 +614,10 @@ int zip_decompress(const char* infile, const char* outfile, enum COMPRESSOR c_ty
 	struct ZIP_FILE* zfp = NULL;
 	FILE* fp_out = NULL;
 	int ret = 0;
+
+	if (c_type == COMPRESSOR_LZ4){
+		return lz4_decompress(infile, outfile, flags);
+	}
 
 	fp_out = fopen(outfile, "wb");
 	if (!fp_out){
