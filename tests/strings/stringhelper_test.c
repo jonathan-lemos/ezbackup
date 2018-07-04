@@ -39,6 +39,36 @@ cleanup:
 	free(test);
 }
 
+void test_sh_concat_path(enum TEST_STATUS* status){
+	const char* target_str = "dir1/dir2/file.txt";
+	const char* dir1 = "dir1";
+	const char* sdir1 = "dir1/";
+	const char* dir2 = "dir2";
+	const char* sdir2 = "/dir2/";
+	const char* file = "file.txt";
+	const char* sfile = "/file.txt";
+
+	char* tmp;
+
+	tmp = sh_concat_path(sh_dup(dir1), dir2);
+	tmp = sh_concat_path(tmp, file);
+	TEST_ASSERT(strcmp(tmp, target_str) == 0);
+	TEST_FREE(tmp, free);
+
+	tmp = sh_concat_path(sh_concat_path(sh_dup(sdir1), dir2), sfile);
+	TEST_ASSERT(strcmp(tmp, target_str) == 0);
+	TEST_FREE(tmp, free);
+
+	tmp = sh_dup(sdir1);
+	tmp = sh_concat_path(tmp, sdir2);
+	tmp = sh_concat_path(tmp, file);
+	TEST_ASSERT(strcmp(tmp, target_str) == 0);
+	TEST_FREE(tmp, free);
+
+cleanup:
+	free(tmp);
+}
+
 void test_sh_filename(enum TEST_STATUS* status){
 	const char* test_path = "/home/equifax/passwords.txt";
 	const char* target_filename = "passwords.txt";
@@ -118,6 +148,7 @@ int main(void){
 	struct unit_test tests[] = {
 		MAKE_TEST(test_sh_dup),
 		MAKE_TEST(test_sh_concat),
+		MAKE_TEST(test_sh_concat_path),
 		MAKE_TEST(test_sh_filename),
 		MAKE_TEST(test_sh_file_ext),
 		MAKE_TEST(test_sh_starts_with),

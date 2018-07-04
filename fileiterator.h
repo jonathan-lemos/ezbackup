@@ -19,6 +19,7 @@
 struct fi_stack* fi_start(const char* dir);
 char* fi_next(struct fi_stack* fis);
 int fi_skip_current_dir(struct fi_stack* fis);
+const char* fi_directory_name(const struct fi_stack* fis);
 void fi_end(struct fi_stack* fis);
 
 #endif

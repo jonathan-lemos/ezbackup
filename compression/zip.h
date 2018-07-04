@@ -41,5 +41,6 @@ enum COMPRESSOR{
 
 int zip_compress(const char* infile, const char* outfile, enum COMPRESSOR c_type, int compression_level, unsigned flags);
 int zip_decompress(const char* infile, const char* outfile, enum COMPRESSOR c_type, unsigned flags);
+const char* get_compression_extension(enum COMPRESSOR comp);
 
 #endif

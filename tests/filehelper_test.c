@@ -3,6 +3,8 @@
 #include "../log.h"
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
 
 void test_read_file(enum TEST_STATUS* status){
 	const char* sample_file = "file1.txt";
@@ -220,6 +222,24 @@ cleanup:
 	remove(sample_file2);
 }
 
+void test_exists(enum TEST_STATUS* status){
+	const char* dir = "dir";
+	const char* file = "file";
+	const unsigned char data[4] = { 't', 'e', 's', 't' };
+
+	create_file(file, data, sizeof(data));
+	TEST_ASSERT(mkdir(dir, 0755) == 0);
+
+	TEST_ASSERT(directory_exists(dir));
+	TEST_ASSERT(!directory_exists("noexist"));
+	TEST_ASSERT(file_exists(file));
+	TEST_ASSERT(!file_exists("noexist.txt"));
+
+cleanup:
+	rmdir(dir);
+	remove(file);
+}
+
 int main(void){
 	struct unit_test tests[] = {
 		MAKE_TEST(test_read_file),
@@ -227,7 +247,8 @@ int main(void){
 		MAKE_TEST(test_file_opened_for_reading),
 		MAKE_TEST(test_file_opened_for_writing),
 		MAKE_TEST(test_copy_file),
-		MAKE_TEST(test_rename_file)
+		MAKE_TEST(test_rename_file),
+		MAKE_TEST(test_exists)
 	};
 
 	log_setlevel(LEVEL_INFO);

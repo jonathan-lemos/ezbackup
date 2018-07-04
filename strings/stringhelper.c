@@ -43,6 +43,23 @@ char* sh_concat(char* in, const char* extension){
 	return in;
 }
 
+char* sh_concat_path(char* in, const char* extension){
+	return_ifnull(in, NULL);
+	return_ifnull(extension, NULL);
+
+	if (in[strlen(in) - 1] != '/' && extension[0] != '/' && (in = sh_concat(in, "/")) == NULL){
+		log_error("Failed to concatenate trailing slash to in");
+		return NULL;
+	}
+
+	if ((in = sh_concat(in, extension)) == NULL){
+		log_error("Failed to concatenate extension to in");
+		return NULL;
+	}
+
+	return in;
+}
+
 const char* sh_file_ext(const char* in){
 	size_t ptr = 0;
 

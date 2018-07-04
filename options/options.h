@@ -10,7 +10,7 @@
 #define __OPTIONS_H
 
 /* compressor */
-#include "../maketar.h"
+#include "../compression/zip.h"
 #include "../cloud/include.h"
 #include "../strings/stringarray.h"
 #include <openssl/evp.h>

@@ -170,6 +170,10 @@ int fi_skip_current_dir(struct fi_stack* fis){
 	return directory_pop(fis);
 }
 
+const char* fi_directory_name(const struct fi_stack* fis){
+	return fis && fis->dir_stack_len > 0 ? directory_peek(fis)->name : NULL;
+}
+
 void fi_end(struct fi_stack* fis){
 	size_t i;
 	if (!fis->dir_stack){

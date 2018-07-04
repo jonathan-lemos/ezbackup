@@ -11,10 +11,10 @@
 
 #include <openssl/evp.h>
 
-int easy_encrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorithm, int verbose);
-int easy_decrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorithm, int verbose);
-int easy_encrypt_inplace(const char* in_out, const EVP_CIPHER* enc_algorithm, int verbose);
-int easy_decrypt_inplace(const char* in_out, const EVP_CIPHER* enc_algorithm, int verbose);
+int easy_encrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorithm, int verbose, const char* password);
+int easy_decrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorithm, int verbose, const char* password);
+int easy_encrypt_inplace(const char* in_out, const EVP_CIPHER* enc_algorithm, int verbose, const char* password);
+int easy_decrypt_inplace(const char* in_out, const EVP_CIPHER* enc_algorithm, int verbose, const char* password);
 
 
 #endif

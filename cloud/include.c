@@ -213,73 +213,6 @@ int time_menu(struct file_node** arr, size_t len){
 	return res;
 }
 
-int get_parent_dirs(const char* in, char*** out, size_t* out_len){
-	char* dir = NULL;
-	char* dir_tok = NULL;
-	int ret = 0;
-
-	return_ifnull(in, -1);
-	return_ifnull(out, -1);
-	return_ifnull(out_len, -1);
-
-	*out = NULL;
-	*out_len = 0;
-
-	dir = malloc(strlen(in) + 1);
-	strcpy(dir, in);
-	dir_tok = strtok(dir, "/");
-	while (dir_tok != NULL){
-		size_t len_prev = 0;
-
-		if (*out_len >= 1){
-			len_prev = strlen((*out)[*out_len - 1]);
-		}
-		else{
-			len_prev = 0;
-		}
-
-		(*out_len)++;
-		*out = realloc(*out, *out_len * sizeof(**out));
-		if (!(*out)){
-			(*out_len)--;
-			log_enomem();
-			ret = -1;
-			goto cleanup_freeout;
-		}
-
-		(*out)[*out_len - 1] = malloc(len_prev + strlen(dir_tok) + 2);
-		if (!(*out)[*out_len - 1]){
-			(*out_len)--;
-			log_enomem();
-			ret = -1;
-			goto cleanup_freeout;
-		}
-
-		(*out)[*out_len - 1][0] = '\0';
-		if (*out_len > 1){
-			strcat((*out)[*out_len - 1], (*out)[*out_len - 2]);
-		}
-		strcat((*out)[*out_len - 1], "/");
-		strcat((*out)[*out_len - 1], dir_tok);
-
-		dir_tok = strtok(NULL, "/");
-	}
-
-	free(dir);
-	return ret;
-
-cleanup_freeout:
-	free(dir);
-	if (*out){
-		size_t i;
-		for (i = 0; i < (*out_len); ++i){
-			free((*out)[i]);
-		}
-		free(*out);
-	}
-	return ret;
-}
-
 char* get_default_out_file(const char* full_path){
 	int cwd_len = 256;
 	char* cwd;
@@ -338,8 +271,7 @@ void free_file_nodes(struct file_node** nodes, size_t len){
 }
 
 int mega_upload(const char* file, const char* upload_dir, const char* username, const char* password){
-	char** parent_dirs = NULL;
-	size_t parent_dirs_len = 0;
+	struct string_array* arr = NULL;
 	MEGAhandle* mh = NULL;
 	int ret = 0;
 	size_t i;
@@ -353,14 +285,14 @@ int mega_upload(const char* file, const char* upload_dir, const char* username, 
 		goto cleanup;
 	}
 
-	if (get_parent_dirs(upload_dir, &parent_dirs, &parent_dirs_len) != 0){
+	if ((arr = sa_get_parent_dirs(upload_dir)) == NULL){
 		log_debug("Failed to determine parent directories");
 		ret = -1;
 		goto cleanup;
 	}
 
-	for (i = 0; i < parent_dirs_len; ++i){
-		if (MEGAmkdir(parent_dirs[i], mh) < 0){
+	for (i = 0; i < arr->len; ++i){
+		if (MEGAmkdir(arr->strings[i], mh) < 0){
 			log_debug("Failed to create directory on MEGA");
 			ret = -1;
 			goto cleanup;
@@ -387,12 +319,7 @@ cleanup:
 		ret = -1;
 	}
 
-	if (parent_dirs){
-		for (i = 0; i < parent_dirs_len; ++i){
-			free(parent_dirs[i]);
-		}
-		free(parent_dirs);
-	}
+	arr ? sa_free(arr) : (void)0;
 	return ret;
 }
 

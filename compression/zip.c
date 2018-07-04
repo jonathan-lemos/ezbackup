@@ -483,6 +483,10 @@ int zip_compress(const char* infile, const char* outfile, enum COMPRESSOR c_type
 		return lz4_compress(infile, outfile, compression_level, flags);
 	}
 
+	if (c_type == COMPRESSOR_NONE){
+		return copy_file(infile, outfile);
+	}
+
 	if (compression_level == 0){
 		compression_level = -1;
 	}
@@ -623,6 +627,10 @@ int zip_decompress(const char* infile, const char* outfile, enum COMPRESSOR c_ty
 		return lz4_decompress(infile, outfile, flags);
 	}
 
+	if (c_type == COMPRESSOR_NONE){
+		return copy_file(infile, outfile);
+	}
+
 	fp_out = fopen(outfile, "wb");
 	if (!fp_out){
 		log_efopen(outfile);
@@ -647,6 +655,24 @@ cleanup:
 	zfp ? zip_close(zfp) : 0;
 	fp_out ? fclose(fp_out) : 0;
 	return ret;
+}
+
+const char* get_compression_extension(enum COMPRESSOR comp){
+	switch (comp){
+		case COMPRESSOR_GZIP:
+			return ".gz";
+		case COMPRESSOR_BZIP2:
+			return ".bz2";
+		case COMPRESSOR_XZ:
+			return ".xz";
+		case COMPRESSOR_LZ4:
+			return ".lz4";
+		case COMPRESSOR_NONE:
+			return "";
+		default:
+			log_einval(comp);
+			return NULL;
+	}
 }
 
 #undef __ZIP_INTERNAL

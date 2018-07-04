@@ -210,3 +210,25 @@ int rename_file(const char* _old, const char* _new){
 
 	return res;
 }
+
+int directory_exists(const char* path){
+	struct stat st;
+	if (lstat(path, &st) != 0){
+		if (errno != ENOENT && errno != ENOTDIR){
+			log_estat(path);
+		}
+		return 0;
+	}
+	return S_ISDIR(st.st_mode);
+}
+
+int file_exists(const char* path){
+	struct stat st;
+	if (lstat(path, &st) != 0){
+		if (errno != ENOENT && errno != ENOTDIR){
+			log_estat(path);
+		}
+		return 0;
+	}
+	return S_ISREG(st.st_mode);
+}

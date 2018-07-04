@@ -32,5 +32,7 @@ uint64_t get_file_size_fp(FILE* fp);
 uint64_t get_file_size(const char* file);
 int copy_file(const char* _old, const char* _new);
 int rename_file(const char* _old, const char* _new);
+int directory_exists(const char* path);
+int file_exists(const char* path);
 
 #endif

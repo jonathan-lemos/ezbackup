@@ -32,7 +32,6 @@ int sa_add(struct string_array* array, const char* str){
 	return 0;
 }
 
-
 int sa_remove(struct string_array* array, size_t index){
 	size_t i;
 
@@ -184,4 +183,32 @@ cleanup:
 	buf1 ? sa_free(buf1) : (void)0;
 	buf2 ? sa_free(buf2) : (void)0;
 	return ret;
+}
+
+struct string_array* sa_get_parent_dirs(const char* directory){
+	char* dir = NULL;
+	char* dir_tok = NULL;
+	struct string_array* arr = NULL;
+
+	dir = sh_dup(directory);
+	if (!dir){
+		log_error("Failed to sh_dup directory");
+		return NULL;
+	}
+	dir_tok = strtok(dir, "/");
+	while (dir_tok != NULL){
+		if (sa_add(arr, dir) != 0){
+			log_error("Failed to add dir to arr");
+			goto cleanup_freeout;
+		}
+		dir_tok = strtok(NULL, "/");
+	}
+
+	free(dir);
+	return arr;
+
+cleanup_freeout:
+	free(dir);
+	arr ? sa_free(arr) : (void)0;
+	return NULL;
 }
