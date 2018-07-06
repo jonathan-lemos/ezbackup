@@ -22,7 +22,7 @@
 #define RED_STR "\033[91m"
 #define YELLOW_STR "\033[93m"
 #define GREEN_STR "\033[92m"
-#define BLUE_STR "\033[96m"
+#define BLUE_STR "\033[94m"
 
 #elif defined (DISABLE_COLORS)
 
@@ -253,7 +253,9 @@ int memcmp_file_data(const char* file, const void* data, int data_len){
 	int i;
 
 	fp = fopen(file, "rb");
-	INTERNAL_ERROR_IF_FALSE(fp);
+	if (!fp){
+		return -1;
+	}
 
 	for (i = 0; i < data_len; ++i){
 		int c;
@@ -640,19 +642,20 @@ int run_tests(const struct unit_test* tests, size_t len){
 		if (setjmp(s_jumpbuffer)){
 			/* take appropriate action based on the signal */
 			handle_signal();
-			log_red("Test %lu of %lu (%s) crashed", i + 1, len, tests[i].func_name);
+			log_red("Test %lu of %lu (%s) crashed\n", i + 1, len, tests[i].func_name);
 			n_failed++;
 			printf("\n");
 			continue;
 		}
 		/* execute the test and see if it returns TEST_SUCCESS or not */
+		log_blue("Starting test %lu of %lu (%s)\n", i + 1, len, tests[i].func_name);
 		tests[i].func(&status);
 		if (status == TEST_SUCCESS){
-			log_green("Test %lu of %lu (%s) succeeded", i + 1, len, tests[i].func_name);
+			log_green("Test %lu of %lu (%s) succeeded\n", i + 1, len, tests[i].func_name);
 			n_succeeded++;
 		}
 		else{
-			log_red("Test %lu of %lu (%s) failed", i + 1, len, tests[i].func_name);
+			log_red("Test %lu of %lu (%s) failed\n", i + 1, len, tests[i].func_name);
 			n_failed++;
 		}
 

@@ -6,38 +6,23 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-/* prototypes */
 #include "options.h"
-
 #include "options_menu.h"
-
 #include "options_file.h"
-/* errors */
 #include "../log.h"
-#include <errno.h>
-
 #include "../crypt/base16.h"
-
 #include "../filehelper.h"
-
 #include "../strings/stringhelper.h"
-/* printf */
-#include <stdio.h>
-/* strcmp */
-#include <string.h>
-/* malloc */
-#include <stdlib.h>
-
-/* char* to EVP_MD(*)(void) */
-#include <openssl/evp.h>
-/* command-line tab completion */
+#include "../compression/zip.h"
 #include "../readline_include.h"
-/* is_directory() */
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <openssl/evp.h>
 #include <sys/stat.h>
-/* get home directory */
 #include <unistd.h>
 #include <pwd.h>
-#include <termios.h>
 
 #ifndef PROG_NAME
 #define PROG_NAME NULL

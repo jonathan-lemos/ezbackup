@@ -47,9 +47,13 @@ char* sh_concat_path(char* in, const char* extension){
 	return_ifnull(in, NULL);
 	return_ifnull(extension, NULL);
 
-	if (in[strlen(in) - 1] != '/' && extension[0] != '/' && (in = sh_concat(in, "/")) == NULL){
+	if (in[strlen(in) - 1] != '/' && (in = sh_concat(in, "/")) == NULL){
 		log_error("Failed to concatenate trailing slash to in");
 		return NULL;
+	}
+
+	if (extension[0] == '/'){
+		extension++;
 	}
 
 	if ((in = sh_concat(in, extension)) == NULL){
@@ -131,11 +135,49 @@ char* sh_getcwd(void){
 }
 
 int sh_cmp_nullsafe(const char* str1, const char* str2){
-	if (str1 == NULL && str2 == NULL){
+	if (!str1 && !str2){
 		return 0;
 	}
-	if ((str1 == NULL) != (str2 == NULL)){
+	if ((!str1) != (!str2)){
 		return str1 == NULL ? 1 : -1;
 	}
 	return strcmp(str1, str2);
+}
+
+int sh_ncasecmp(const char* str1, const char* str2){
+	char* s1 = NULL;
+	char* s2 = NULL;
+	int res;
+	size_t i;
+
+	if (!str1 || !str2){
+		return sh_cmp_nullsafe(str1, str2);
+	}
+
+	s1 = sh_dup(str1);
+	s2 = sh_dup(str2);
+	if (!s1 || !s2){
+		free(s1);
+		free(s2);
+		log_error("Failed to duplicate one or more strings");
+		return 0;
+	}
+
+	for (i = 0; i < strlen(s1); ++i){
+		if (s1[i] >= 'A' && s1[i] <= 'Z'){
+			s1[i] += 'a' - 'A';
+		}
+	}
+
+	for (i = 0; i < strlen(s2); ++i){
+		if (s2[i] >= 'A' && s2[i] <= 'Z'){
+			s2[i] += 'a' - 'A';
+		}
+	}
+
+	res = strcmp(s1, s2);
+
+	free(s1);
+	free(s2);
+	return res;
 }

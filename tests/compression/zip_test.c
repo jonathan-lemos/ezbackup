@@ -24,6 +24,7 @@ void test_compress_gzip(enum TEST_STATUS* status){
 	TEST_ASSERT(zip_compress(file, arch, COMPRESSOR_GZIP, 3, GZIP_NORMAL) == 0);
 
 	remove(file);
+	printf("%s\n", system_cmd);
 	system(system_cmd);
 	TEST_ASSERT(memcmp_file_data(file, data, sizeof(data)) == 0);
 
@@ -43,6 +44,7 @@ void test_compress_bzip2(enum TEST_STATUS* status){
 	TEST_ASSERT(zip_compress(file, arch, COMPRESSOR_BZIP2, 3, BZIP2_NORMAL) == 0);
 
 	remove(file);
+	printf("%s\n", system_cmd);
 	system(system_cmd);
 	TEST_ASSERT(memcmp_file_data(file, data, sizeof(data)) == 0);
 
@@ -63,6 +65,7 @@ void test_compress_xz(enum TEST_STATUS* status){
 
 	remove(file);
 	system(system_cmd);
+	printf("%s\n", system_cmd);
 	TEST_ASSERT(memcmp_file_data(file, data, sizeof(data)) == 0);
 
 cleanup:
@@ -81,6 +84,7 @@ void test_compress_lz4(enum TEST_STATUS* status){
 	TEST_ASSERT(zip_compress(file, arch, COMPRESSOR_LZ4, 3, LZ4_NORMAL) == 0);
 
 	remove(file);
+	printf("%s\n", system_cmd);
 	system(system_cmd);
 	TEST_ASSERT(memcmp_file_data(file, data, sizeof(data)) == 0);
 
@@ -97,6 +101,7 @@ void test_decompress_gzip(enum TEST_STATUS* status){
 
 	fill_sample_data(data, sizeof(data));
 	create_file(file, data, sizeof(data));
+	printf("%s\n", system_cmd);
 	system(system_cmd);
 
 	remove(file);
@@ -116,6 +121,7 @@ void test_decompress_bzip2(enum TEST_STATUS* status){
 
 	fill_sample_data(data, sizeof(data));
 	create_file(file, data, sizeof(data));
+	printf("%s\n", system_cmd);
 	system(system_cmd);
 
 	remove(file);
@@ -135,6 +141,7 @@ void test_decompress_xz(enum TEST_STATUS* status){
 
 	fill_sample_data(data, sizeof(data));
 	create_file(file, data, sizeof(data));
+	printf("%s\n", system_cmd);
 	system(system_cmd);
 
 	remove(file);
@@ -154,6 +161,7 @@ void test_decompress_lz4(enum TEST_STATUS* status){
 
 	fill_sample_data(data, sizeof(data));
 	create_file(file, data, sizeof(data));
+	printf("%s\n", system_cmd);
 	system(system_cmd);
 
 	remove(file);

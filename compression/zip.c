@@ -10,7 +10,9 @@
 #include "zip.h"
 #include "zip_file.h"
 #include "../log.h"
+#define BUFFER_LEN (32)
 #include "../filehelper.h"
+#include "../strings/stringhelper.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -398,7 +400,7 @@ static int zip_compress_write(FILE* fp_in, struct ZIP_FILE* zfp){
 		int res = 0;
 
 		avail_in = read_file(fp_in, inbuf, sizeof(inbuf));
-		if (avail_in == 0){
+		if (avail_in == 0 || feof(fp_in)){
 			switch (zfp->c_type){
 #ifndef NO_GZIP_SUPPORT
 			case COMPRESSOR_GZIP:
@@ -425,10 +427,11 @@ static int zip_compress_write(FILE* fp_in, struct ZIP_FILE* zfp){
 		case COMPRESSOR_GZIP:
 			zfp->strm.zstrm.next_in = inbuf;
 			zfp->strm.zstrm.avail_in = avail_in;
+			zfp->strm.zstrm.next_out = outbuf;
 			zfp->strm.zstrm.avail_out = sizeof(outbuf);
 			res = deflate(&(zfp->strm.zstrm), action);
 			if (res != Z_OK && res != Z_STREAM_END){
-				log_error("gzip write error");
+				log_error_ex("gzip write error (%d)", res);
 				return -1;
 			}
 			avail_out = zfp->strm.zstrm.avail_out;
@@ -438,10 +441,11 @@ static int zip_compress_write(FILE* fp_in, struct ZIP_FILE* zfp){
 		case COMPRESSOR_BZIP2:
 			zfp->strm.bzstrm.next_in = (char*)inbuf;
 			zfp->strm.bzstrm.avail_in = avail_in;
+			zfp->strm.bzstrm.next_out = (char*)outbuf;
 			zfp->strm.bzstrm.avail_out = sizeof(outbuf);
 			res = BZ2_bzCompress(&(zfp->strm.bzstrm), action);
-			if (res != BZ_OK && res != BZ_STREAM_END){
-				log_error("bzip2 write error");
+			if (res != BZ_OK && res != BZ_RUN_OK && res != BZ_FLUSH_OK && res != BZ_FINISH_OK && res != BZ_STREAM_END){
+				log_error_ex("bzip2 write error (%d)", res);
 				return -1;
 			}
 			avail_out = zfp->strm.bzstrm.avail_out;
@@ -451,10 +455,11 @@ static int zip_compress_write(FILE* fp_in, struct ZIP_FILE* zfp){
 		case COMPRESSOR_XZ:
 			zfp->strm.xzstrm.next_in = inbuf;
 			zfp->strm.xzstrm.avail_in = avail_in;
+			zfp->strm.xzstrm.next_out = outbuf;
 			zfp->strm.xzstrm.avail_out = sizeof(outbuf);
 			res = lzma_code(&(zfp->strm.xzstrm), action);
 			if (res != LZMA_OK && res != LZMA_STREAM_END){
-				log_error("xz write error");
+				log_error_ex("xz write error (%d)", res);
 				return -1;
 			}
 			avail_out = zfp->strm.xzstrm.avail_out;
@@ -470,7 +475,7 @@ static int zip_compress_write(FILE* fp_in, struct ZIP_FILE* zfp){
 			log_efwrite("file");
 			return -1;
 		}
-	}while (avail_in != 0 && avail_out == 0);
+	}while (avail_in != 0);
 	return 0;
 }
 
@@ -523,87 +528,130 @@ static int zip_decompress_read(struct ZIP_FILE* zfp, FILE* fp_out){
 	int avail_in = 0;
 	int avail_out = 0;
 	int action;
+	size_t write_len = 0;
+	int res = 0;
+	int res_stream_end = 0;
 
 	switch (zfp->c_type){
+#ifndef NO_GZIP_SUPPORT
 	case COMPRESSOR_GZIP:
+		res_stream_end = Z_STREAM_END;
 		zfp->strm.zstrm.next_in = NULL;
 		zfp->strm.zstrm.avail_in = 0;
 		zfp->strm.zstrm.next_out = outbuf;
 		zfp->strm.zstrm.avail_out = sizeof(outbuf);
 		action = Z_NO_FLUSH;
 		break;
+#endif
+#ifndef NO_BZIP2_SUPPORT
 	case COMPRESSOR_BZIP2:
+		res_stream_end = BZ_STREAM_END;
 		zfp->strm.bzstrm.next_in = NULL;
 		zfp->strm.bzstrm.avail_in = 0;
 		zfp->strm.bzstrm.next_out = (char*)outbuf;
 		zfp->strm.bzstrm.avail_out = sizeof(outbuf);
 		action = BZ_RUN;
 		break;
+#endif
+#ifndef NO_XZ_SUPPORT
 	case COMPRESSOR_XZ:
+		res_stream_end = LZMA_STREAM_END;
 		zfp->strm.xzstrm.next_in = NULL;
 		zfp->strm.xzstrm.avail_in = 0;
 		zfp->strm.xzstrm.next_out = outbuf;
 		zfp->strm.xzstrm.avail_out = sizeof(outbuf);
 		action = LZMA_RUN;
 		break;
+#endif
 	default:
 		log_error("unsupported");
 		return -1;
 	}
 
 	do{
-		size_t write_len;
-		int res = 0;
-
-		avail_in = read_file(zfp->fp, inbuf, sizeof(inbuf));
 		if (avail_in == 0){
+			avail_in = read_file(zfp->fp, inbuf, sizeof(inbuf));
+			if (avail_in == 0 || feof(zfp->fp)){
+				switch (zfp->c_type){
+				case COMPRESSOR_GZIP:
+					action = Z_FINISH;
+					break;
+				case COMPRESSOR_BZIP2:
+					action = BZ_FINISH;
+					break;
+				case COMPRESSOR_XZ:
+					action = LZMA_FINISH;
+					break;
+				default:
+					;
+				}
+			}
+
 			switch (zfp->c_type){
+#ifndef NO_GZIP_SUPPORT
 			case COMPRESSOR_GZIP:
-				action = Z_FINISH;
+				zfp->strm.zstrm.next_in = inbuf;
+				zfp->strm.zstrm.avail_in = avail_in;
 				break;
+#endif
+#ifndef NO_BZIP2_SUPPORT
 			case COMPRESSOR_BZIP2:
-				action = BZ_FINISH;
+				zfp->strm.bzstrm.next_in = (char*)inbuf;
+				zfp->strm.bzstrm.avail_in = avail_in;
 				break;
+#endif
+#ifndef NO_XZ_SUPPORT
 			case COMPRESSOR_XZ:
-				action = LZMA_FINISH;
+				zfp->strm.xzstrm.next_in = inbuf;
+				zfp->strm.xzstrm.avail_in = avail_in;
 				break;
+#endif
 			default:
-				;
+				log_fatal("unsupported");
+				return -1;
 			}
 		}
 
 		switch (zfp->c_type){
+#ifndef NO_GZIP_SUPPORT
 		case COMPRESSOR_GZIP:
-			zfp->strm.zstrm.next_in = inbuf;
-			zfp->strm.zstrm.avail_in = avail_in;
+			zfp->strm.zstrm.next_out = outbuf;
 			zfp->strm.zstrm.avail_out = sizeof(outbuf);
 			res = inflate(&(zfp->strm.zstrm), action);
-			if (res != Z_OK && res != Z_STREAM_END){
-				log_error("gzip write error");
+			if (res != Z_OK && res != Z_STREAM_END && res != Z_BUF_ERROR){
+				log_error_ex("gzip read error (%d)", res);
 				return -1;
 			}
+			avail_in = zfp->strm.zstrm.avail_in;
 			avail_out = zfp->strm.zstrm.avail_out;
 			break;
+#endif
+#ifndef NO_BZIP2_SUPPORT
 		case COMPRESSOR_BZIP2:
-			zfp->strm.bzstrm.next_in = (char*)inbuf;
-			zfp->strm.bzstrm.avail_in = avail_in;
+			zfp->strm.bzstrm.next_out = (char*)outbuf;
 			zfp->strm.bzstrm.avail_out = sizeof(outbuf);
-			if (BZ2_bzDecompress(&(zfp->strm.bzstrm)) != BZ_OK){
-				log_error("bzip2 write error");
+			res = BZ2_bzDecompress(&(zfp->strm.bzstrm));
+			if (res != BZ_OK && res != BZ_STREAM_END){
+				log_error_ex("bzip2 read error (%d)", res);
 				return -1;
 			}
+			avail_in = zfp->strm.xzstrm.avail_in;
 			avail_out = zfp->strm.bzstrm.avail_out;
 			break;
+#endif
+#ifndef NO_XZ_SUPPORT
 		case COMPRESSOR_XZ:
-			zfp->strm.xzstrm.next_in = inbuf;
-			zfp->strm.xzstrm.avail_in = avail_in;
+			zfp->strm.xzstrm.next_out = outbuf;
 			zfp->strm.xzstrm.avail_out = sizeof(outbuf);
-			if (lzma_code(&(zfp->strm.xzstrm), action) != LZMA_OK){
-				log_error("xz write error");
+			res = lzma_code(&(zfp->strm.xzstrm), action);
+			if (res != LZMA_OK && res != LZMA_STREAM_END){
+				log_error_ex("xz read error (%d)", res);
 				return -1;
 			}
+			avail_in = zfp->strm.xzstrm.avail_in;
 			avail_out = zfp->strm.xzstrm.avail_out;
 			break;
+#endif
 		default:
 			log_fatal("unsupported");
 			return -1;
@@ -614,7 +662,7 @@ static int zip_decompress_read(struct ZIP_FILE* zfp, FILE* fp_out){
 			log_efwrite("file");
 			return -1;
 		}
-	}while (avail_in != 0 && avail_out == 0);
+	}while (res != res_stream_end);
 	return 0;
 }
 
@@ -659,20 +707,47 @@ cleanup:
 
 const char* get_compression_extension(enum COMPRESSOR comp){
 	switch (comp){
-		case COMPRESSOR_GZIP:
-			return ".gz";
-		case COMPRESSOR_BZIP2:
-			return ".bz2";
-		case COMPRESSOR_XZ:
-			return ".xz";
-		case COMPRESSOR_LZ4:
-			return ".lz4";
-		case COMPRESSOR_NONE:
-			return "";
-		default:
-			log_einval(comp);
-			return NULL;
+	case COMPRESSOR_GZIP:
+		return ".gz";
+	case COMPRESSOR_BZIP2:
+		return ".bz2";
+	case COMPRESSOR_XZ:
+		return ".xz";
+	case COMPRESSOR_LZ4:
+		return ".lz4";
+	case COMPRESSOR_NONE:
+		return "";
+	default:
+		log_einval(comp);
+		return NULL;
 	}
+}
+
+enum COMPRESSOR get_compressor_byname(const char* name){
+	if (sh_ncasecmp(name, "gzip") == 0 ||
+			sh_ncasecmp(name, "gz") == 0){
+		return COMPRESSOR_GZIP;
+	}
+	if (sh_ncasecmp(name, "bzip2") == 0 ||
+			sh_ncasecmp(name, "bzip") == 0 ||
+			sh_ncasecmp(name, "bz2") == 0 ||
+			sh_ncasecmp(name, "bz") == 0){
+		return COMPRESSOR_BZIP2;
+	}
+	if (sh_ncasecmp(name, "xz") == 0 ||
+			sh_ncasecmp(name, "lzma2") == 0 ||
+			sh_ncasecmp(name, "lzma") == 0){
+		return COMPRESSOR_XZ;
+	}
+	if (sh_ncasecmp(name, "lz4") == 0){
+		return COMPRESSOR_LZ4;
+	}
+	if (sh_ncasecmp(name, "none") == 0 ||
+			sh_ncasecmp(name, "off") == 0 ||
+			sh_ncasecmp(name, "no") == 0){
+		return COMPRESSOR_NONE;
+	}
+	return COMPRESSOR_INVALID;
 }
 
 #undef __ZIP_INTERNAL

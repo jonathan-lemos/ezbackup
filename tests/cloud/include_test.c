@@ -61,26 +61,6 @@ cleanup:
 	;
 }
 
-void test_get_parent_dirs(enum TEST_STATUS* status){
-	const char* dir = "/dir1/dir2/dir3";
-	char** out = NULL;
-	size_t out_len = 0;
-	size_t i;
-
-	TEST_ASSERT(get_parent_dirs(dir, &out, &out_len) == 0);
-
-	TEST_ASSERT(out_len == 3);
-	TEST_ASSERT(strcmp(out[0], "/dir1") == 0);
-	TEST_ASSERT(strcmp(out[1], "/dir1/dir2") == 0);
-	TEST_ASSERT(strcmp(out[2], "/dir1/dir2/dir3") == 0);
-
-cleanup:
-	for (i = 0; i < out_len; ++i){
-		free(out[i]);
-	}
-	free(out);
-}
-
 void test_cloud_download_mega(enum TEST_STATUS* status){
 	const char* file = "file1.txt";
 	const char* data = "xyzzy";
@@ -118,7 +98,6 @@ int main(void){
 	struct unit_test tests[] = {
 		MAKE_TEST(test_co),
 		MAKE_TEST(test_time_menu),
-		MAKE_TEST(test_get_parent_dirs),
 		MAKE_TEST(test_cloud_download_mega)
 	};
 

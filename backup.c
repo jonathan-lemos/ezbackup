@@ -7,7 +7,6 @@
  */
 
 #include "backup.h"
-#include "backup_name.h"
 #include "filehelper.h"
 #include "crypt/crypt_easy.h"
 #include "fileiterator.h"
@@ -17,15 +16,13 @@
 #include "strings/stringhelper.h"
 #include "strings/stringarray.h"
 #include "compression/zip.h"
-#include <sys/resource.h>
 #include <errno.h>
-#include <unistd.h>
 #include <string.h>
 #include <time.h>
 
 #define UNUSED(x) ((void)x)
 
-int create_internal_directories(const char* output_dir, char** dir_files, char** dir_deltas){
+static int create_internal_directories(const char* output_dir, char** dir_files, char** dir_deltas){
 	int ret = 0;
 
 	return_ifnull(dir_files, -1);
@@ -84,7 +81,51 @@ static int mkdir_recursive(const char* dir){
 	return 0;
 }
 
-static int copy_single_file(const char* file, const char* file_dir, const char* delta_dir, enum COMPRESSOR c_type, int compression_level, unsigned c_flags, const EVP_CIPHER* enc_algorithm, const char* enc_password){
+static int make_internal_subdirectories(const char* file_dir, const char* delta_dir, const struct string_array* directories, const struct string_array* exclude){
+	size_t i;
+	for (i = 0; i < directories->len; ++i){
+		struct fi_stack* fis;
+		char* tmp;
+		size_t j;
+
+		fis = fi_start(directories->strings[i]);
+		if (!fis){
+			log_warning_ex("Failed to fi_start in directory %s", directories->strings[i]);
+		}
+		for (j = 0; j < exclude->len; ++j){
+			if (sh_starts_with(directories->strings[i], exclude->strings[j])){
+				fi_skip_current_dir(fis);
+				break;
+			}
+		}
+		if (j != exclude->len){
+			continue;
+		}
+
+		while ((tmp = fi_next(fis)) != NULL){
+			char* file_subdir = sh_concat_path(sh_dup(file_dir), fi_directory_name(fis));
+			char* delta_subdir = sh_concat_path(sh_dup(delta_dir), fi_directory_name(fis));
+
+			free(tmp);
+
+			if (!file_subdir || !delta_subdir){
+				log_warning("Could not determine the path for one or more subdirectories");
+				continue;
+			}
+
+			if (mkdir_recursive(file_subdir) != 0){
+				log_warning_ex("Failed to create file subdirectory at %s", file_subdir);
+			}
+
+			if (mkdir_recursive(delta_subdir) != 0){
+				log_warning_ex("Failed to create delta subdirectory at %s", delta_subdir);
+			}
+		}
+	}
+	return 0;
+}
+
+static int copy_single_file(const char* file, const char* file_dir, const char* delta_dir, enum COMPRESSOR c_type, int compression_level, unsigned c_flags, const EVP_CIPHER* enc_algorithm, const char* enc_password, int verbose){
 	char* path_files = NULL;
 	char* path_delta = NULL;
 	char buf[64];
@@ -111,7 +152,11 @@ static int copy_single_file(const char* file, const char* file_dir, const char* 
 		goto cleanup;
 	}
 
-	if (enc_algorithm && easy_encrypt_inplace(
+	if (enc_algorithm && easy_encrypt_inplace(path_files, enc_algorithm, verbose, enc_password) != 0){
+		log_error("Failed to encrypt file");
+		ret = -1;
+		goto cleanup;
+	}
 
 cleanup:
 	free(path_files);
@@ -119,8 +164,7 @@ cleanup:
 	return ret;
 }
 
-int copy_files(const struct options* opt, const char* dir_files, const char* dir_deltas, FILE* fp_checksum, FILE* fp_checksum_prev){
-	int ret = 0;
+static int copy_files(const struct options* opt, const char* dir_files, const char* dir_deltas, FILE* fp_checksum, FILE* fp_checksum_prev){
 	size_t i;
 
 	for (i = 0; i < opt->directories->len; ++i){
@@ -147,7 +191,7 @@ int copy_files(const struct options* opt, const char* dir_files, const char* dir
 				log_info_ex("File %s was unchanged", tmp);
 			}
 			else if (res == 0){
-				if (copy_single_file(tmp, dir_files, dir_deltas, opt->comp_algorithm, opt->comp_level, 0, opt->enc_algorithm, opt->enc_password) != 0){
+				if (copy_single_file(tmp, dir_files, dir_deltas, opt->comp_algorithm, opt->comp_level, 0, opt->enc_algorithm, opt->enc_password, opt->flags.bits.flag_verbose) != 0){
 					log_warning_ex2("Failed to copy %s to %s", tmp, dir_files);
 				}
 			}
@@ -159,9 +203,7 @@ int copy_files(const struct options* opt, const char* dir_files, const char* dir
 		}
 		fi_end(fis);
 	}
-
-cleanup:
-	return ret;
+	return 0;
 }
 
 int backup(const struct options* opt){
@@ -207,6 +249,12 @@ int backup(const struct options* opt){
 			ret = -1;
 			goto cleanup;
 		}
+	}
+
+	if (make_internal_subdirectories(dir_files, dir_deltas, opt->directories, opt->exclude) != 0){
+		log_error("Failed to make internal subdirectories");
+		ret = -1;
+		goto cleanup;
 	}
 
 	if (copy_files(opt, dir_files, dir_deltas, fp_checksum, fp_checksum_prev) != 0){

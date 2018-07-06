@@ -134,13 +134,32 @@ cleanup:
 	sa_fail2 ? sa_free(sa_fail2) : (void)0;
 }
 
+void test_sa_get_parent_dirs(enum TEST_STATUS* status){
+	const char* base_str = "/dir1/dir2/dir3";
+	const char* match1 = "/dir1";
+	const char* match2 = "/dir1/dir2";
+	const char* match3 = "/dir1/dir2/dir3";
+	struct string_array* sa = NULL;
+
+	sa = sa_get_parent_dirs(base_str);
+	TEST_ASSERT(sa);
+
+	TEST_ASSERT(strcmp(sa->strings[0], match1) == 0);
+	TEST_ASSERT(strcmp(sa->strings[1], match2) == 0);
+	TEST_ASSERT(strcmp(sa->strings[2], match3) == 0);
+
+cleanup:
+	sa_free(sa);
+}
+
 int main(void){
 	struct unit_test tests[] = {
 		MAKE_TEST(test_sa_add),
 		MAKE_TEST(test_sa_contains),
 		MAKE_TEST(test_sa_sanitize_directories),
 		MAKE_TEST(test_sa_sort),
-		MAKE_TEST(test_sa_cmp)
+		MAKE_TEST(test_sa_cmp),
+		MAKE_TEST(test_sa_get_parent_dirs)
 	};
 
 	log_setlevel(LEVEL_INFO);

@@ -21,8 +21,8 @@ void test_easy_encrypt(enum TEST_STATUS* status){
 	fill_sample_data(data, sizeof(data));
 	create_file(file, data, sizeof(data));
 
-	TEST_ASSERT(easy_encrypt(file, file_crypt, EVP_aes_256_cbc(), 1) == 0);
-	TEST_ASSERT(easy_decrypt(file_crypt, file_decrypt, EVP_aes_256_cbc(), 1) == 0);
+	TEST_ASSERT(easy_encrypt(file, file_crypt, EVP_aes_256_cbc(), 1, "hunter2") == 0);
+	TEST_ASSERT(easy_decrypt(file_crypt, file_decrypt, EVP_aes_256_cbc(), 1, "hunter2") == 0);
 	TEST_ASSERT(memcmp_file_file(file, file_decrypt) == 0);
 
 cleanup:
@@ -38,8 +38,8 @@ void test_easy_encrypt_inplace(enum TEST_STATUS* status){
 	fill_sample_data(data, sizeof(data));
 	create_file(file, data, sizeof(data));
 
-	TEST_ASSERT(easy_encrypt_inplace(file, EVP_aes_256_cbc(), 1) == 0);
-	TEST_ASSERT(easy_decrypt_inplace(file, EVP_aes_256_cbc(), 1) == 0);
+	TEST_ASSERT(easy_encrypt_inplace(file, EVP_aes_256_cbc(), 1, "hunter2") == 0);
+	TEST_ASSERT(easy_decrypt_inplace(file, EVP_aes_256_cbc(), 1, "hunter2") == 0);
 
 cleanup:
 	remove(file);

@@ -195,12 +195,33 @@ struct string_array* sa_get_parent_dirs(const char* directory){
 		log_error("Failed to sh_dup directory");
 		return NULL;
 	}
+
+	arr = sa_new();
+	if (!arr){
+		log_error("Failed to create new string array");
+		goto cleanup_freeout;
+	}
+
 	dir_tok = strtok(dir, "/");
 	while (dir_tok != NULL){
-		if (sa_add(arr, dir) != 0){
+		char* tmp;
+		if (arr->len == 0){
+			if (directory[0] == '/'){
+				tmp = sh_concat(sh_dup("/"), dir_tok);
+			}
+			else{
+				tmp = sh_dup(dir_tok);
+			}
+		}
+		else{
+			tmp = sh_concat_path(sh_dup(arr->strings[arr->len - 1]), dir_tok);
+		}
+		if (sa_add(arr, tmp) != 0){
 			log_error("Failed to add dir to arr");
+			free(tmp);
 			goto cleanup_freeout;
 		}
+		free(tmp);
 		dir_tok = strtok(NULL, "/");
 	}
 

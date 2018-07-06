@@ -18,5 +18,6 @@ const char* sh_file_ext(const char* in);
 int sh_starts_with(const char* haystack, const char* needle);
 char* sh_getcwd(void);
 int sh_cmp_nullsafe(const char* str1, const char* str2);
+int sh_ncasecmp(const char* str1, const char* str2);
 
 #endif
