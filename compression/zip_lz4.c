@@ -124,7 +124,12 @@ int lz4_compress(const char* infile, const char* outfile, int compression_level,
 		goto cleanup;
 	}
 
-	compression_level += 3;
+	if (compression_level >= 1 && compression_level <= 9){
+		compression_level += 3;
+	}
+	else{
+		compression_level = 0;
+	}
 	if (lz4_compress_write(fp_in, fp_out, compression_level, ctx) != 0){
 		log_error("Error compressing file");
 		ret = -1;
