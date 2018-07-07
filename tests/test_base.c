@@ -663,7 +663,7 @@ int run_tests(const struct unit_test* tests, size_t len){
 	}
 	printf("\nResults: \n");
 	log_green("%d of %lu succeeded.\n", n_succeeded, len);
-	log_red("%d of %lu failed.\n", n_failed, len);
+	n_failed == 0 ? log_blue("%d of %lu failed.\n", n_failed, len) : log_red("%d of %lu failed.\n", n_failed, len);
 	/* returns 0 if no failures */
 	return n_failed;
 }

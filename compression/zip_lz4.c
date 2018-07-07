@@ -151,7 +151,7 @@ static int lz4_decompress_internal(FILE* fp_in, FILE* fp_out, unsigned char* inb
 	unsigned char* in_end = inbuf + sizeof(inbuf);
 	unsigned char* outbuf = NULL;
 	size_t in_len = 0;
-	size_t res;
+	size_t res = 1;
 	int first_chunk = 1;
 
 	outbuf = malloc(block_size);
