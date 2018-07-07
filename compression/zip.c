@@ -59,7 +59,7 @@ static struct ZIP_FILE* gzip_open(const char* file, const char* mode){
 	ret->write = strchr(mode, 'w') != NULL;
 
 	if (ret->write){
-		int compression_level = -1;
+		int compression_level = Z_DEFAULT_COMPRESSION;
 		int i;
 		int strategy = Z_DEFAULT_STRATEGY;
 		if (strchr(mode, 'f') != NULL){
@@ -130,7 +130,7 @@ static struct ZIP_FILE* bzip2_open(const char* file, const char* mode){
 	ret->write = strchr(mode, 'w') != NULL;
 
 	if (ret->write){
-		int compression_level = -1;
+		int compression_level = 9;
 		int i;
 
 		for (i = 0; i <= 9; ++i){
@@ -190,7 +190,7 @@ static struct ZIP_FILE* xz_open(const char* file, const char* mode){
 	ret->write = strchr(mode, 'w') != NULL;
 
 	if (ret->write){
-		uint32_t compression_level = -1;
+		uint32_t compression_level = 3;
 		int i;
 
 		for (i = 0; i <= 9; ++i){
@@ -245,7 +245,7 @@ static struct ZIP_FILE* zip_open(const char* file, int write, enum COMPRESSOR c_
 
 	truemode[0] = write ? 'w' : 'r';
 	truemode[1] = 'b';
-	if (compression_level >= 0 && compression_level <= 9){
+	if (compression_level >= 1 && compression_level <= 9){
 		truemode[modeptr] = compression_level + '0';
 		modeptr++;
 	}
@@ -573,15 +573,21 @@ static int zip_decompress_read(struct ZIP_FILE* zfp, FILE* fp_out){
 			avail_in = read_file(zfp->fp, inbuf, sizeof(inbuf));
 			if (avail_in == 0 || feof(zfp->fp)){
 				switch (zfp->c_type){
+#ifndef NO_GZIP_SUPPORT
 				case COMPRESSOR_GZIP:
 					action = Z_FINISH;
 					break;
+#endif
+#ifndef NO_BZIP2_SUPPORT
 				case COMPRESSOR_BZIP2:
 					action = BZ_FINISH;
 					break;
+#endif
+#ifndef NO_XZ_SUPPORT
 				case COMPRESSOR_XZ:
 					action = LZMA_FINISH;
 					break;
+#endif
 				default:
 					;
 				}
@@ -707,14 +713,22 @@ cleanup:
 
 const char* get_compression_extension(enum COMPRESSOR comp){
 	switch (comp){
+#ifndef NO_GZIP_SUPPORT
 	case COMPRESSOR_GZIP:
 		return ".gz";
+#endif
+#ifndef NO_BZIP2_SUPPORT
 	case COMPRESSOR_BZIP2:
 		return ".bz2";
+#endif
+#ifndef NO_XZ_SUPPORT
 	case COMPRESSOR_XZ:
 		return ".xz";
+#endif
+#ifndef NO_LZ4_SUPPORT
 	case COMPRESSOR_LZ4:
 		return ".lz4";
+#endif
 	case COMPRESSOR_NONE:
 		return "";
 	default:

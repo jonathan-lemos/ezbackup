@@ -11,6 +11,7 @@
 #include "zip_lz4.h"
 #include "zip.h"
 #include "../log.h"
+/* #define BUFFER_LEN (64) */
 #include "../filehelper.h"
 #include <lz4.h>
 #include <lz4hc.h>
@@ -21,9 +22,10 @@
 
 static int lz4_compress_write(FILE* fp_in, FILE* fp_out, int compression_level, LZ4F_compressionContext_t ctx){
 	unsigned char inbuf[BUFFER_LEN];
-	unsigned char outbuf[BUFFER_LEN];
-	int len_in = 0;
-	int len_out = 0;
+	unsigned char* outbuf = NULL;
+	size_t outbuf_len = 0;
+	size_t len_in = 0;
+	size_t len_out = 0;
 	size_t len;
 	LZ4F_preferences_t prefs = {
 		{ LZ4F_max256KB, LZ4F_blockLinked, LZ4F_noContentChecksum, LZ4F_frame,
@@ -33,51 +35,62 @@ static int lz4_compress_write(FILE* fp_in, FILE* fp_out, int compression_level, 
 		0, /* favor decompression speed = 0 */
 		{0, 0, 0} /* reserved */
 	};
-	prefs.compressionLevel = compression_level + 3;
+	prefs.compressionLevel = compression_level;
 
-	len = LZ4F_compressBegin(ctx, outbuf, sizeof(outbuf), &prefs);
+	outbuf_len = LZ4F_compressBound(sizeof(inbuf), &prefs);
+	outbuf = malloc(LZ4F_compressBound(outbuf_len, &prefs));
+	if (!outbuf){
+		log_enomem();
+		return -1;
+	}
+
+	len = LZ4F_compressBegin(ctx, outbuf, outbuf_len, &prefs);
 	if (LZ4F_isError(len)){
-		log_error("Failed to write LZ4 header");
+		log_error_ex("Failed to write LZ4 header (%s)", LZ4F_getErrorName(len));
+		free(outbuf);
 		return -1;
 	}
 	if (fwrite(outbuf, 1, len, fp_out) != len){
 		log_efwrite("lz4 output");
+		free(outbuf);
 		return -1;
 	}
 
 	do{
 		len_in = fread(inbuf, 1, sizeof(inbuf), fp_in);
-		if (len_in < 0){
-			log_efread("lz4 input");
-			return -1;
-		}
-		else if (len_in == 0){
+		if (len_in == 0){
 			break;
 		}
 
-		len_out = LZ4F_compressUpdate(ctx, outbuf, sizeof(outbuf), inbuf, len_in, NULL);
+		len_out = LZ4F_compressUpdate(ctx, outbuf, outbuf_len, inbuf, len_in, NULL);
 		if (LZ4F_isError(len_out)){
-			log_error("LZ4 compression error");
+			log_error_ex("LZ4 compression error (%s)", LZ4F_getErrorName(len_out));
+			free(outbuf);
 			return -1;
 		}
 
-		if ((int)fwrite(outbuf, 1, len_out, fp_out) != len_out){
+		if (fwrite(outbuf, 1, len_out, fp_out) != len_out){
 			log_efwrite("lz4 output");
+			free(outbuf);
 			return -1;
 		}
-	}while (len_out > 0);
 
-	len_out = LZ4F_compressEnd(ctx, outbuf, sizeof(outbuf), NULL);
+	}while (len_in > 0);
+
+	len_out = LZ4F_compressEnd(ctx, outbuf, outbuf_len, NULL);
 	if (LZ4F_isError(len_out)){
 		log_error("Failed to finish lz4 output");
+		free(outbuf);
 		return -1;
 	}
 
-	if ((int)fwrite(ctx, 1, len_out, fp_out) != len_out){
+	if (fwrite(outbuf, 1, len_out, fp_out) != len_out){
 		log_efwrite("lz4 output");
+		free(outbuf);
 		return -1;
 	}
 
+	free(outbuf);
 	return 0;
 }
 
@@ -111,6 +124,7 @@ int lz4_compress(const char* infile, const char* outfile, int compression_level,
 		goto cleanup;
 	}
 
+	compression_level += 3;
 	if (lz4_compress_write(fp_in, fp_out, compression_level, ctx) != 0){
 		log_error("Error compressing file");
 		ret = -1;
@@ -142,22 +156,24 @@ static int lz4_decompress_internal(FILE* fp_in, FILE* fp_out, size_t block_size,
 	}
 
 	do{
-		in_len = first_chunk ? initial_read_len : fread(inbuf, 1, sizeof(inbuf), fp_in);
-		if (in_len == 0){
-			continue;
-		}
+		size_t res;
 
+		in_len = first_chunk ? initial_read_len : fread(inbuf, 1, sizeof(inbuf), fp_in);
 		first_chunk = 0;
+		if (in_len == 0){
+			break;
+		}
 
 		in_ptr = inbuf + header_len;
 		header_len = 0;
+		in_end = in_ptr + in_len;
 
-		while (in_ptr < in_end){
+		while (in_ptr < in_end && res != 0){
 			size_t out_size = block_size;
 			size_t in_ptr_len = in_end - in_ptr;
-			size_t res = LZ4F_decompress(dctx, outbuf, &out_size, in_ptr, &in_ptr_len, NULL);
+			res = LZ4F_decompress(dctx, outbuf, &out_size, in_ptr, &in_ptr_len, NULL);
 			if (LZ4F_isError(res)){
-				log_error("LZ4 decompression error");
+				log_error_ex("LZ4 decompression error (%s)", LZ4F_getErrorName(res));
 				free(outbuf);
 				return -1;
 			}
@@ -177,7 +193,7 @@ static int lz4_decompress_internal(FILE* fp_in, FILE* fp_out, size_t block_size,
 }
 
 static int lz4_decompress_read(FILE* fp_in, FILE* fp_out, LZ4F_dctx* dctx){
-	unsigned char inbuf[LZ4F_HEADER_SIZE_MAX];
+	unsigned char inbuf[BUFFER_LEN];
 	size_t block_size = 0;
 	size_t in_len = 0;
 	size_t header_len = 0;
@@ -255,7 +271,7 @@ int lz4_decompress(const char* infile, const char* outfile, unsigned flags){
 	}
 
 	if (lz4_decompress_read(fp_in, fp_out, dctx) != 0){
-		log_error("Error compressing file");
+		log_error("Error decompressing file");
 		ret = -1;
 		goto cleanup;
 	}
