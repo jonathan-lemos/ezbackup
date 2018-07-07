@@ -38,3 +38,5 @@ make display_dialog() work within display_menu() like it should
 compression flags
 license bs
 remove redundant directories/excludes
+restore functionality
+public/private key functionality

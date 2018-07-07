@@ -146,12 +146,12 @@ cleanup:
 	return ret;
 }
 
-static int lz4_decompress_internal(FILE* fp_in, FILE* fp_out, size_t block_size, size_t initial_read_len, size_t header_len, LZ4F_dctx* dctx){
-	unsigned char inbuf[BUFFER_LEN];
+static int lz4_decompress_internal(FILE* fp_in, FILE* fp_out, unsigned char* inbuf, size_t inbuf_len, size_t block_size, size_t initial_read_len, size_t header_len, LZ4F_dctx* dctx){
 	unsigned char* in_ptr = inbuf;
 	unsigned char* in_end = inbuf + sizeof(inbuf);
 	unsigned char* outbuf = NULL;
 	size_t in_len = 0;
+	size_t res;
 	int first_chunk = 1;
 
 	outbuf = malloc(block_size);
@@ -161,11 +161,10 @@ static int lz4_decompress_internal(FILE* fp_in, FILE* fp_out, size_t block_size,
 	}
 
 	do{
-		size_t res;
-
-		in_len = first_chunk ? initial_read_len : fread(inbuf, 1, sizeof(inbuf), fp_in);
+		in_len = first_chunk ? initial_read_len : fread(inbuf, 1, inbuf_len, fp_in);
 		first_chunk = 0;
 		if (in_len == 0){
+			log_warning("Unexpected end of input file");
 			break;
 		}
 
@@ -183,7 +182,7 @@ static int lz4_decompress_internal(FILE* fp_in, FILE* fp_out, size_t block_size,
 				return -1;
 			}
 
-			if (fwrite(outbuf, 1, out_size, fp_out) != 0){
+			if (fwrite(outbuf, 1, out_size, fp_out) != out_size){
 				log_efwrite("output file");
 				free(outbuf);
 				return -1;
@@ -191,7 +190,7 @@ static int lz4_decompress_internal(FILE* fp_in, FILE* fp_out, size_t block_size,
 
 			in_ptr += in_ptr_len;
 		}
-	}while (in_len > 0);
+	}while (res != 0);
 
 	free(outbuf);
 	return 0;
@@ -237,7 +236,7 @@ static int lz4_decompress_read(FILE* fp_in, FILE* fp_out, LZ4F_dctx* dctx){
 		return -1;
 	}
 
-	if (lz4_decompress_internal(fp_in, fp_out, block_size, in_len, header_len, dctx) != 0){
+	if (lz4_decompress_internal(fp_in, fp_out, inbuf, sizeof(inbuf), block_size, in_len, header_len, dctx) != 0){
 		log_error("Failed to decompress data");
 		return -1;
 	}
