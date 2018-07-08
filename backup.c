@@ -9,6 +9,7 @@
 #include "backup.h"
 #include "filehelper.h"
 #include "crypt/crypt_easy.h"
+#include "crypt/crypt_getpassword.h"
 #include "fileiterator.h"
 #include "log.h"
 #include "checksum.h"
@@ -92,21 +93,24 @@ static int make_internal_subdirectories(const char* file_dir, const char* delta_
 		if (!fis){
 			log_warning_ex("Failed to fi_start in directory %s", directories->strings[i]);
 		}
-		for (j = 0; j < exclude->len; ++j){
-			if (sh_starts_with(directories->strings[i], exclude->strings[j])){
-				fi_skip_current_dir(fis);
-				break;
-			}
-		}
-		if (j != exclude->len){
-			continue;
-		}
 
 		while ((tmp = fi_next(fis)) != NULL){
 			char* file_subdir = sh_concat_path(sh_dup(file_dir), fi_directory_name(fis));
 			char* delta_subdir = sh_concat_path(sh_dup(delta_dir), fi_directory_name(fis));
 
 			free(tmp);
+
+			for (j = 0; j < exclude->len; ++j){
+				if (sh_starts_with(fi_directory_name(fis), exclude->strings[j])){
+					fi_skip_current_dir(fis);
+					break;
+				}
+			}
+			if (j != exclude->len){
+				free(file_subdir);
+				free(delta_subdir);
+				continue;
+			}
 
 			if (!file_subdir || !delta_subdir){
 				log_warning("Could not determine the path for one or more subdirectories");
@@ -120,7 +124,11 @@ static int make_internal_subdirectories(const char* file_dir, const char* delta_
 			if (mkdir_recursive(delta_subdir) != 0){
 				log_warning_ex("Failed to create delta subdirectory at %s", delta_subdir);
 			}
+
+			free(file_subdir);
+			free(delta_subdir);
 		}
+		fi_end(fis);
 	}
 	return 0;
 }
@@ -165,7 +173,19 @@ cleanup:
 }
 
 static int copy_files(const struct options* opt, const char* dir_files, const char* dir_deltas, FILE* fp_checksum, FILE* fp_checksum_prev){
+	char* password = NULL;
 	size_t i;
+
+	if (opt->enc_algorithm && !opt->enc_password){
+		int res;
+
+		while ((res = crypt_getpassword("Enter  encryption password:", "Verify encryption password:", &password)) > 0);
+
+		if (res < 0){
+			log_error("Failed to read encryption password from terminal");
+			return -1;
+		}
+	}
 
 	for (i = 0; i < opt->directories->len; ++i){
 		struct fi_stack* fis = NULL;
@@ -179,11 +199,14 @@ static int copy_files(const struct options* opt, const char* dir_files, const ch
 		while ((tmp = fi_next(fis)) != NULL){
 			size_t j;
 			for (j = 0; j < opt->exclude->len; ++j){
-				if (sh_starts_with(tmp, opt->exclude->strings[i])){
+				if (sh_starts_with(tmp, opt->exclude->strings[j])){
 					fi_skip_current_dir(fis);
-					free(tmp);
-					continue;
+					break;
 				}
+			}
+			if (j != opt->exclude->len){
+				free(tmp);
+				continue;
 			}
 
 			res = add_checksum_to_file(tmp, opt->hash_algorithm, fp_checksum, fp_checksum_prev);
@@ -191,8 +214,11 @@ static int copy_files(const struct options* opt, const char* dir_files, const ch
 				log_info_ex("File %s was unchanged", tmp);
 			}
 			else if (res == 0){
-				if (copy_single_file(tmp, dir_files, dir_deltas, opt->comp_algorithm, opt->comp_level, 0, opt->enc_algorithm, opt->enc_password, opt->flags.bits.flag_verbose) != 0){
+				if (copy_single_file(tmp, dir_files, dir_deltas, opt->comp_algorithm, opt->comp_level, 0, opt->enc_algorithm, password ? password : opt->enc_password, opt->flags.bits.flag_verbose) != 0){
 					log_warning_ex2("Failed to copy %s to %s", tmp, dir_files);
+				}
+				else{
+					printf("%s\n", tmp);
 				}
 			}
 			else{
@@ -203,6 +229,8 @@ static int copy_files(const struct options* opt, const char* dir_files, const ch
 		}
 		fi_end(fis);
 	}
+
+	free(password);
 	return 0;
 }
 
@@ -215,6 +243,12 @@ int backup(const struct options* opt){
 	FILE* fp_checksum_prev = NULL;
 	char buf[64];
 	int ret = 0;
+
+	if (mkdir_recursive(opt->output_directory) != 0){
+		log_error("Failed to create output directory");
+		ret = -1;
+		goto cleanup;
+	}
 
 	if (create_internal_directories(opt->output_directory, &dir_files, &dir_deltas) != 0){
 		log_error("Failed to create internal directories");
@@ -230,6 +264,10 @@ int backup(const struct options* opt){
 		log_error("Could not determine checksum locations");
 		ret = -1;
 		goto cleanup;
+	}
+
+	if (file_exists(checksum_path) && rename_file(checksum_path, checksum_prev_path) != 0){
+		log_warning_ex("Failed to backup old checksum file to %s", checksum_prev_path);
 	}
 
 	fp_checksum = fopen(checksum_path, "wb");
@@ -261,6 +299,13 @@ int backup(const struct options* opt){
 		log_error("Error copying files to their destinations");
 		ret = -1;
 		goto cleanup;
+	}
+
+	fclose(fp_checksum);
+	fp_checksum = NULL;
+
+	if (sort_checksum_file(checksum_path) != 0){
+		log_warning("Failed to sort checksum file");
 	}
 
 cleanup:

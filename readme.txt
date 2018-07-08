@@ -40,3 +40,5 @@ license bs
 remove redundant directories/excludes
 restore functionality
 public/private key functionality
+encrypt checksum file/make sure same password is used between backups
+compression progress bars

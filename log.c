@@ -31,13 +31,13 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
 		fprintf(stderr, "[%sERROR%s](%s:%d): ", COLOR_RED, COLOR_NORMAL, file, line);
 		break;
 	case LEVEL_WARNING:
-		fprintf(stderr, "[%sWARN%s] (%s:%d): ", COLOR_YELLOW, COLOR_NORMAL, file, line);
+		fprintf(stderr, "[%sWARN %s](%s:%d): ", COLOR_YELLOW, COLOR_NORMAL, file, line);
 		break;
 	case LEVEL_DEBUG:
 		fprintf(stderr, "[%sDEBUG%s](%s:%d): ", COLOR_CYAN, COLOR_NORMAL, file, line);
 		break;
 	case LEVEL_INFO:
-		fprintf(stderr, "[%sINFO%s] (%s:%d): ", COLOR_GREEN, COLOR_NORMAL, file, line);
+		fprintf(stderr, "[%sINFO %s](%s:%d): ", COLOR_GREEN, COLOR_NORMAL, file, line);
 		break;
 	default:
 		break;

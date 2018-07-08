@@ -276,31 +276,32 @@ int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, F
 	return ret;
 }
 
-int sort_checksum_file(const char* in, const char* out){
+int sort_checksum_file(const char* in_out){
 	struct TMPFILE** tmp_files = NULL;
+	struct TMPFILE* tmp_in = NULL;
 	size_t n_files = 0;
-	FILE* fp_in = NULL;
 	FILE* fp_out = NULL;
 	size_t i;
 	int ret = 0;
 
-	return_ifnull(in, -1);
-	return_ifnull(out, -1);
+	return_ifnull(in_out, -1);
 
-	fp_in = fopen(in, "rb");
-	if (!fp_in){
-		log_efopen(in);
+	tmp_in = temp_fopen();
+	if (rename_file(in_out, tmp_in->name) != 0){
+		log_error("Failed to move checksum file to temp location");
 		ret = -1;
 		goto cleanup;
 	}
-	fp_out = fopen(out, "wb");
+	temp_fflush(tmp_in);
+
+	fp_out = fopen(in_out, "wb");
 	if (!fp_out){
-		log_efopen(in);
+		log_efopen(in_out);
 		ret = -1;
 		goto cleanup;
 	}
 
-	if (create_initial_runs(fp_in, &tmp_files, &n_files) != 0){
+	if (create_initial_runs(tmp_in->fp, &tmp_files, &n_files) != 0){
 		log_debug("Error creating initial runs");
 		ret = -1;
 		goto cleanup;
@@ -312,11 +313,14 @@ int sort_checksum_file(const char* in, const char* out){
 	}
 
 cleanup:
+	if (ret != 0 && tmp_in){
+		rename_file(tmp_in->name, in_out);
+	}
+	tmp_in ? temp_fclose(tmp_in) : (void)0;
 	for (i = 0; i < n_files; ++i){
 		temp_fclose(tmp_files[i]);
 	}
 	free(tmp_files);
-	fp_in ? fclose(fp_in) : 0;
 	fp_out ? fclose(fp_out) : 0;
 	return ret;
 }

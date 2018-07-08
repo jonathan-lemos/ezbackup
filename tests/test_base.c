@@ -85,15 +85,20 @@ static void vfprintf_color(enum PRINT_COLOR pc, FILE* stream, const char* format
 	fflush(stream);
 }
 
-static void internal_error_if_false(int condition, const char* file, int line, const char* msg){
+static void internal_error_if_false(int condition, const char* file, int line, const char* str_condition, const char* msg){
 	if (condition){
 		return;
 	}
 
-	log_red("INTERNAL ERROR (%s:%d): %s\n", file, line, msg);
+	log_red("INTERNAL ERROR (%s:%d): %s", file, line, str_condition);
+	if (msg){
+		log_red(" (%s)", msg);
+	}
+	log_red("\n");
 	abort();
 }
-#define INTERNAL_ERROR_IF_FALSE(condition) internal_error_if_false((intptr_t)(condition), __FILE__, __LINE__, #condition)
+#define INTERNAL_ERROR_IF_FALSE(condition) internal_error_if_false((intptr_t)(condition), __FILE__, __LINE__, #condition, NULL)
+#define INTERNAL_ERROR_IF_FALSE_MSG(condition, msg) internal_error_if_false((intptr_t)(condition), __FILE__, __LINE__, #condition, msg)
 
 /* this is our true signal handler
  *
@@ -136,6 +141,7 @@ static void handle_signal(void){
 		break;
 	default:
 		log_blue("Caught signal %d\n", s_last_signal);
+		exit(0);
 		break;
 	}
 	s_last_signal = 0;
@@ -239,7 +245,7 @@ void create_file(const char* name, const void* data, int len){
 	FILE* fp;
 
 	fp = fopen(name, "wb");
-	INTERNAL_ERROR_IF_FALSE(fp);
+	INTERNAL_ERROR_IF_FALSE_MSG(fp, strerror(errno));
 
 	fwrite(data, 1, len, fp);
 	INTERNAL_ERROR_IF_FALSE(ferror(fp) == 0);
@@ -284,9 +290,9 @@ int memcmp_file_file(const char* file1, const char* file2){
 	int c1, c2;
 
 	fp1 = fopen(file1, "rb");
-	INTERNAL_ERROR_IF_FALSE(fp1);
+	INTERNAL_ERROR_IF_FALSE_MSG(fp1, strerror(errno));
 	fp2 = fopen(file2, "rb");
-	INTERNAL_ERROR_IF_FALSE(fp2);
+	INTERNAL_ERROR_IF_FALSE_MSG(fp2, strerror(errno));
 
 	do{
 		c1 = fgetc(fp1);
@@ -363,8 +369,9 @@ void setup_test_environment_basic(const char* path, char*** out, size_t* out_len
 
 	srand(0);
 
-	mkdir(path, 0755);
-	INTERNAL_ERROR_IF_FALSE(does_file_exist(path));
+	cleanup_test_environment(path, NULL);
+
+	INTERNAL_ERROR_IF_FALSE_MSG(mkdir(path, 0755), strerror(errno));
 
 	for (i = 0; i < ARRAY_LEN(files); ++i){
 		unsigned char* data;
@@ -439,11 +446,13 @@ void setup_test_environment_full(const char* path, char*** out, size_t* out_len)
 
 	srand(0);
 
-	INTERNAL_ERROR_IF_FALSE(mkdir(path, 0755) == 0);
+	cleanup_test_environment(path, NULL);
+
+	INTERNAL_ERROR_IF_FALSE_MSG(mkdir(path, 0755) == 0, strerror(errno));
 
 	/* make dir1 */
 	tmp = make_path(2, path, "dir1");
-	INTERNAL_ERROR_IF_FALSE(mkdir(tmp, 0755) == 0);
+	INTERNAL_ERROR_IF_FALSE_MSG(mkdir(tmp, 0755) == 0, strerror(errno));
 	free(tmp);
 
 	/* make dir1's files */
@@ -458,7 +467,7 @@ void setup_test_environment_full(const char* path, char*** out, size_t* out_len)
 		INTERNAL_ERROR_IF_FALSE(data);
 
 		for (j = 0; j < len; ++j){
-			data[i] = rand() % ('Z' - 'A') + 'A';
+			data[j] = rand() % ('Z' - 'A') + 'A';
 		}
 
 		/* create d1_file_01.txt */
@@ -471,7 +480,7 @@ void setup_test_environment_full(const char* path, char*** out, size_t* out_len)
 
 	/* make dir2 */
 	tmp = make_path(2, path, "dir2");
-	INTERNAL_ERROR_IF_FALSE(mkdir(tmp, 0755) == 0);
+	INTERNAL_ERROR_IF_FALSE_MSG(mkdir(tmp, 0755) == 0, strerror(errno));
 	free(tmp);
 
 	for (i = 0; i < ARRAY_LEN(dir2_files); ++i){
@@ -484,7 +493,7 @@ void setup_test_environment_full(const char* path, char*** out, size_t* out_len)
 		INTERNAL_ERROR_IF_FALSE(data);
 
 		for (j = 0; j < len; ++j){
-			data[i] = rand() % ('Z' - 'A') + 'A';
+			data[j] = rand() % ('Z' - 'A') + 'A';
 		}
 
 		sprintf(filename, "d2file_%02lu.txt", i);
@@ -496,7 +505,7 @@ void setup_test_environment_full(const char* path, char*** out, size_t* out_len)
 
 	/* make excl */
 	tmp = make_path(2, path, "excl");
-	INTERNAL_ERROR_IF_FALSE(mkdir(path, 0755) == 0);
+	INTERNAL_ERROR_IF_FALSE_MSG(mkdir(tmp, 0755) == 0, strerror(errno));
 	free(tmp);
 
 	for (i = 0; i < sizeof(excl_files) / sizeof(excl_files[0]); ++i){
@@ -509,7 +518,7 @@ void setup_test_environment_full(const char* path, char*** out, size_t* out_len)
 		INTERNAL_ERROR_IF_FALSE(data);
 
 		for (j = 0; j < len; ++j){
-			data[i] = rand() % ('Z' - 'A') + 'A';
+			data[j] = rand() % ('Z' - 'A') + 'A';
 		}
 
 		sprintf(filename, "exfile_%02lu.txt", i);
@@ -520,9 +529,11 @@ void setup_test_environment_full(const char* path, char*** out, size_t* out_len)
 	}
 	excl_noacc = make_path(3, path, "excl", "exfile_noacc.txt");
 	create_file(excl_noacc, (const unsigned char*)"noacc", strlen("noacc"));
-	INTERNAL_ERROR_IF_FALSE(chmod(excl_noacc, 0000) == 0);
+	INTERNAL_ERROR_IF_FALSE_MSG(chmod(excl_noacc, 0000) == 0, strerror(errno));
 
-	INTERNAL_ERROR_IF_FALSE(mkdir("noaccess", 0000) == 0);
+	tmp = make_path(2, path, "noaccess");
+	INTERNAL_ERROR_IF_FALSE_MSG(mkdir(tmp, 0000) == 0, strerror(errno));
+	free(tmp);
 
 	if (!out){
 		for (i = 0; i < ARRAY_LEN(dir1_files); ++i){
@@ -562,6 +573,7 @@ void setup_test_environment_full(const char* path, char*** out, size_t* out_len)
 	}
 
 	(*out)[out_ptr] = str_duplicate(excl_noacc);
+	free(excl_noacc);
 
 	if (out_len){
 		*out_len = total_len;

@@ -69,7 +69,7 @@ static int directory_push(const char* dir, struct fi_stack* fis){
 
 	fis->dir_stack[fis->dir_stack_len - 1]->dp = opendir(dir);
 	if (!fis->dir_stack[fis->dir_stack_len - 1]->dp){
-		log_error_ex2("Failed to open %s (%s)", dir, strerror(errno));
+		log_warning_ex2("Failed to open %s (%s)", dir, strerror(errno));
 		if (directory_pop(fis) != 0){
 			log_error("Failed to pop failed directory off stack");
 		}

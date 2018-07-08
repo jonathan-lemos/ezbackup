@@ -6,6 +6,7 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
+#include "crypt_getpassword.h"
 #include "crypt.h"
 #include "../log.h"
 #include <stdio.h>
@@ -210,7 +211,7 @@ int crypt_getpassword(const char* prompt, const char* verify_prompt, char** out)
 
 	/* scrub the old password out of memory, so it can't be
 	 * captured anymore by an attacker */
-	crypt_scrub(*out, strlen(*out));
+	crypt_freepassword(*out);
 	log_info("Password should be out of memory now");
 
 	/* verify the password */

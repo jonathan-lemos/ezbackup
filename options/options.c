@@ -692,7 +692,7 @@ int options_cmp(const struct options* opt1, const struct options* opt2){
 
 int get_last_backup_file(char** out){
 	struct passwd* pw;
-	char* homedir;
+	const char* homedir;
 
 	/* get home directory */
 	if (!(homedir = getenv("HOME"))){

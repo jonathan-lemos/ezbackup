@@ -12,6 +12,7 @@
 #include "../log.h"
 #include "../coredumps.h"
 #include "../filehelper.h"
+#include "../strings/stringhelper.h"
 #include <string.h>
 
 int easy_encrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorithm, int verbose, const char* password){
@@ -19,6 +20,7 @@ int easy_encrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 	char prompt[128];
 	char verify_prompt[128];
 	char* passwd = NULL;
+	char* verbose_msg = NULL;
 	int ret = 0;
 
 	/* disable core dumps if possible */
@@ -66,7 +68,13 @@ int easy_encrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 		goto cleanup;
 	}
 
-	if ((crypt_encrypt_ex(in, fk, out, verbose, "Encrypting file...")) != 0){
+	if (verbose){
+		verbose_msg = sh_concat(sh_concat(sh_dup("Encrypting "), sh_dup(out)), "...");
+		if (!verbose_msg){
+			log_warning("Could not create proper \"Encrypting file...\" message");
+		}
+	}
+	if ((crypt_encrypt_ex(in, fk, out, verbose, verbose_msg ? verbose_msg : "Encrypting file...")) != 0){
 		log_debug("crypt_encrypt() failed");
 		ret = -1;
 		goto cleanup;
@@ -75,7 +83,8 @@ int easy_encrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 cleanup:
 	/* shreds keys as well */
 	fk ? crypt_free(fk) : 0;
-	passwd ? crypt_freepassword(passwd) : 0;
+	passwd ? crypt_freepassword(passwd) : (void)0;
+	free(verbose_msg);
 	if (enable_core_dumps() != 0){
 		log_debug("enable_core_dumps() failed");
 	}
@@ -87,6 +96,7 @@ int easy_decrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 	char prompt[128];
 	char* passwd = NULL;
 	int ret = 0;
+	char* verbose_msg = NULL;
 
 	if (disable_core_dumps() != 0){
 		log_debug("Could not disable core dumps");
@@ -125,7 +135,13 @@ int easy_decrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 		goto cleanup;
 	}
 
-	if ((crypt_decrypt_ex(in, fk, out, verbose, "Decrypting file...")) != 0){
+	if (verbose){
+		verbose_msg = sh_concat(sh_concat(sh_dup("Decrypting "), sh_dup(in)), "...");
+		if (!verbose_msg){
+			log_warning("Could not create proper \"Decrypting file...\" message");
+		}
+	}
+	if ((crypt_decrypt_ex(in, fk, out, verbose, verbose_msg ? verbose_msg : "Decrypting file...")) != 0){
 		log_debug("crypt_decrypt() failed");
 		ret = -1;
 		goto cleanup;
@@ -134,6 +150,7 @@ int easy_decrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 cleanup:
 	fk ? crypt_free(fk) : 0;
 	crypt_freepassword(passwd);
+	free(verbose_msg);
 	if (enable_core_dumps() != 0){
 		log_debug("enable_core_dumps() failed");
 	}
