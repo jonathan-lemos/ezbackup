@@ -764,4 +764,21 @@ enum COMPRESSOR get_compressor_byname(const char* name){
 	return COMPRESSOR_INVALID;
 }
 
+const char* compressor_tostring(enum COMPRESSOR c_type){
+	switch (c_type){
+		case COMPRESSOR_GZIP:
+			return "gzip";
+		case COMPRESSOR_BZIP2:
+			return "bzip2";
+		case COMPRESSOR_XZ:
+			return "xz";
+		case COMPRESSOR_LZ4:
+			return "lz4";
+		case COMPRESSOR_NONE:
+			return "none";
+		default:
+			return "invalid";
+	}
+}
+
 #undef __ZIP_INTERNAL

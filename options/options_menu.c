@@ -12,12 +12,68 @@
 #include "../crypt/crypt_getpassword.h"
 #include "../log.h"
 #include "../strings/stringhelper.h"
-#include <string.h>
 #include "../readline_include.h"
+#include <string.h>
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
-void invalid_option(int chosen, int array_size){
+static char* option_subtitle(const char* option, const char* subtitle){
+	char* ret = NULL;
+
+	if (!subtitle){
+		ret = sh_dup(option);
+		if (!ret){
+			log_error("Failed to create subtitle");
+		}
+		return ret;
+	}
+
+	ret = sh_concat(sh_concat(sh_concat(sh_dup(option), " ("), subtitle), ")");
+	if (!ret){
+		log_error("Failed to create subtitle");
+	}
+	return ret;
+}
+
+static char* option_subtitle_passwd(const char* option, const char* passwd){
+	char* ret = NULL;
+	char* buf = NULL;
+	size_t i;
+
+	if (passwd){
+		buf = malloc(strlen(passwd) + 1);
+		if (!buf){
+			log_error("Failed to allocate memory for asterisk buffer");
+			return NULL;
+		}
+
+		for (i = 0; i < strlen(passwd); ++i){
+			buf[i] = '*';
+		}
+		buf[strlen(passwd)] = '\0';
+		ret = option_subtitle(option, buf);
+	}
+	else{
+		ret = option_subtitle(option, "none");
+	}
+
+	if (!ret){
+		log_error("option_subtitle() failed");
+	}
+
+	free(buf);
+	return ret;
+}
+
+static void free_option_subtitles(char** options, size_t len){
+	size_t i;
+	for (i = 0; i < len; ++i){
+		free(options[i]);
+	}
+}
+#define FREE_OPTION_SUBTITLES(x) free_option_subtitles(x, ARRAY_SIZE(x))
+
+static void invalid_option(int chosen, int array_size){
 	char msg[128];
 	const char* choices[] = {
 		"OK"
@@ -109,7 +165,7 @@ int menu_encryption(struct options* opt){
 		"SEED",
 		"Blowfish",
 		"Triple DES (EDE3)",
-		"none",
+		"None",
 		"Exit"
 	};
 	const char* list_encryption[] = {
@@ -145,16 +201,18 @@ int menu_encryption(struct options* opt){
 
 	res_encryption = display_menu(options_encryption, ARRAY_SIZE(options_encryption), "Select an encryption algorithm");
 	if (res_encryption == 5){
-		opt->enc_algorithm = EVP_enc_null();
+		opt->enc_algorithm = NULL;
 		return 0;
 	}
 	if (res_encryption == 6){
 		return 0;
 	}
+
 	if (res_encryption <= 1){
 		res_keysize = display_menu(options_keysize, ARRAY_SIZE(options_keysize), "Select a key size");
 	}
-	if (res_encryption <= 2){
+
+	if (res_encryption <= 1){
 		res_mode = display_menu(options_mode, ARRAY_SIZE(options_mode), "Select an encryption mode");
 	}
 	else if (res_encryption <= 4){
@@ -162,7 +220,7 @@ int menu_encryption(struct options* opt){
 	}
 
 	if (res_encryption < 0 || res_encryption == 5){
-		opt->enc_algorithm = EVP_enc_null();
+		opt->enc_algorithm = NULL;
 		return 0;
 	}
 	tmp = malloc(sizeof("camellia-256-cbc"));
@@ -294,7 +352,9 @@ int menu_directories(struct options* opt){
 int menu_exclude(struct options* opt){
 	int res;
 	const char** options_initial = NULL;
-	const char* title = "Exclude Paths";
+	const char* options_dialog[] = {
+		"OK"
+	};
 
 	/* TODO: refactor */
 	do{
@@ -311,7 +371,7 @@ int menu_exclude(struct options* opt){
 			options_initial[i] = opt->exclude->strings[i - 2];
 		}
 
-		res = display_menu(options_initial, opt->exclude->len + 2, title);
+		res = display_menu(options_initial, opt->exclude->len + 2, "Exclude paths");
 
 		switch (res){
 			char* str;
@@ -325,14 +385,12 @@ int menu_exclude(struct options* opt){
 			}
 			free(str);
 			if ((res = sa_sanitize_directories(opt->exclude)) > 0){
-				title = "Exclude path specified was invalid";
+				display_dialog(options_dialog, ARRAY_SIZE(options_dialog), "Exclude path specified was invalid");
 			}
 			else if (res < 0){
-				log_warning("Failed to sanitize exclude list");
+				display_dialog(options_dialog, ARRAY_SIZE(options_dialog), "Warning: Failed to sanitize exclude list");
 			}
-			else{
-				title = "Exclude paths";
-			}
+
 			break;
 		case 1:
 			break;
@@ -369,9 +427,6 @@ int menu_exclude(struct options* opt){
 
 int menu_output_directory(struct options* opt){
 	char* tmp = NULL;
-	if (opt->output_directory){
-		printf("Old directory: %s\n", opt->output_directory);
-	}
 	tmp = readline("Enter the output directory:");
 	if (strlen(tmp) == 0){
 		free(tmp);
@@ -414,13 +469,15 @@ int menu_cloud_username(struct options* opt){
 		free(tmp);
 		co_set_username(opt->cloud_options, NULL);
 	}
+	else{
+		co_set_username(opt->cloud_options, tmp);
+	}
 	return 0;
 }
 
 int menu_cloud_password(struct options* opt){
 	int res;
 	char* buf;
-	printf("Enter nothing to clear\n");
 
 	while ((res = crypt_getpassword("Enter password:", "Verify password:", &buf)) > 0){
 		printf("The passwords do not match");
@@ -448,51 +505,35 @@ int menu_cloud_password(struct options* opt){
 
 int menu_cloud_main(struct options* opt){
 	int res;
-	char* tmp = NULL;
-	char* options_cloud_main_menu[] = {
-		"Cloud Provider",
-		NULL,
-		"Password",
-		"Exit"
-	};
+	char* options_cloud_main_menu[4];
 
 	if (!opt->cloud_options && (opt->cloud_options = co_new()) == NULL){
 		log_debug("co_new() failed");
 		return -1;
 	}
 
-	if (opt->cloud_options->username){
-		tmp = malloc(strlen(opt->cloud_options->username) + strlen("Username (") + sizeof(")"));
-		if (!tmp){
-			log_enomem();
-			return -1;
-		}
-		sprintf(tmp, "Username (%s)", opt->cloud_options->username);
-		options_cloud_main_menu[1] = tmp;
-		tmp = NULL;
-	}
-	else{
-		tmp = malloc(sizeof("Username"));
-		if (!tmp){
-			log_enomem();
-			return -1;
-		}
-		strcpy(tmp, "Username");
-		options_cloud_main_menu[1] = tmp;
-		tmp = NULL;
-	}
+	options_cloud_main_menu[0] = option_subtitle(       "Cloud Provider", cloud_provider_to_string(opt->cloud_options->cp));
+	options_cloud_main_menu[1] = option_subtitle(       "Cloud Username", opt->cloud_options->username ? opt->cloud_options->username : "none");
+	options_cloud_main_menu[2] = option_subtitle_passwd("Cloud Password", opt->cloud_options->password);
+	options_cloud_main_menu[3] = option_subtitle("Exit", NULL);
 
 	do{
-		res = display_menu((const char**)options_cloud_main_menu, ARRAY_SIZE(options_cloud_main_menu), "Cloud Main Menu");
+		res = display_menu((const char* const*)options_cloud_main_menu, ARRAY_SIZE(options_cloud_main_menu), "Cloud Main Menu");
 		switch (res){
 		case 0:
 			menu_cloud_provider(opt);
+			free(options_cloud_main_menu[0]);
+			options_cloud_main_menu[0] = option_subtitle("Cloud Provider", cloud_provider_to_string(opt->cloud_options->cp));
 			break;
 		case 1:
 			menu_cloud_username(opt);
+			free(options_cloud_main_menu[1]);
+			options_cloud_main_menu[1] = option_subtitle("Cloud Username", opt->cloud_options->username ? opt->cloud_options->username : "none");
 			break;
 		case 2:
 			menu_cloud_password(opt);
+			free(options_cloud_main_menu[2]);
+			options_cloud_main_menu[2] = option_subtitle_passwd("Cloud Password", opt->cloud_options->password);
 			break;
 		case 3:
 			break;
@@ -502,26 +543,44 @@ int menu_cloud_main(struct options* opt){
 		}
 	}while (res != 3);
 
-	free(options_cloud_main_menu[1]);
+	FREE_OPTION_SUBTITLES(options_cloud_main_menu);
 	return 0;
 }
 
 int menu_compression_main(struct options* opt){
 	int res;
-	const char* options_compression[] = {
-		"Compression Algorithm",
-		"Compression Level",
-		"Exit"
-	};
+	char* options_compression[3];
+	char buf[16];
+
+	if (opt->comp_level == 0){
+		strcpy(buf, "Default");
+	}
+	else{
+		sprintf(buf, "%d", opt->comp_level);
+	}
+
+	options_compression[0] = option_subtitle("Compression Algorithm", compressor_tostring(opt->comp_algorithm));
+	options_compression[1] = option_subtitle("Compression Level    ", buf);
+	options_compression[2] = option_subtitle("Exit", NULL);
 
 	do{
-		res = display_menu(options_compression, ARRAY_SIZE(options_compression), "Compression Options");
+		res = display_menu((const char* const*)options_compression, ARRAY_SIZE(options_compression), "Compression Options");
 		switch (res){
 		case 0:
 			menu_compressor(opt);
+			free(options_compression[0]);
+			options_compression[0] = option_subtitle("Compression Algorithm", compressor_tostring(opt->comp_algorithm));
 			break;
 		case 1:
 			menu_compression_level(opt);
+			free(options_compression[1]);
+			if (opt->comp_level == 0){
+				strcpy(buf, "Default");
+			}
+			else{
+				sprintf(buf, "%d", opt->comp_level);
+			}
+			options_compression[1] = option_subtitle("Compression Level    ", buf);
 			break;
 		case 2:
 			break;
@@ -530,20 +589,20 @@ int menu_compression_main(struct options* opt){
 		}
 	}while (res != 2);
 
+	FREE_OPTION_SUBTITLES(options_compression);
 	return 0;
 }
 
 int menu_directories_main(struct options* opt){
 	int res;
-	const char* options_directories_main[] = {
-		"Backup Directories",
-		"Exclude Directories",
-		"Output Directory",
-		"Exit"
-	};
+	char* options_directories_main[4];
+	options_directories_main[0] = option_subtitle("Backup Directories ", NULL);
+	options_directories_main[1] = option_subtitle("Exclude Directories", NULL);
+	options_directories_main[2] = option_subtitle("Output Directory   ", opt->output_directory);
+	options_directories_main[3] = option_subtitle("Exit", NULL);
 
 	do{
-		res = display_menu(options_directories_main, ARRAY_SIZE(options_directories_main), "Directory Options");
+		res = display_menu((const char* const*)options_directories_main, ARRAY_SIZE(options_directories_main), "Directory Options");
 		switch (res){
 		case 0:
 			menu_directories(opt);
@@ -553,6 +612,8 @@ int menu_directories_main(struct options* opt){
 			break;
 		case 2:
 			menu_output_directory(opt);
+			free(options_directories_main[2]);
+			options_directories_main[2] = option_subtitle("Output Directory   ", opt->output_directory);
 			break;
 		case 3:
 			break;
@@ -561,25 +622,30 @@ int menu_directories_main(struct options* opt){
 			break;
 		}
 	}while (res != 3);
+
+	FREE_OPTION_SUBTITLES(options_directories_main);
 	return 0;
 }
 
 int menu_encryption_main(struct options* opt){
 	int res;
-	const char* options_encryption_main[] = {
-		"Encryption Algorithm",
-		"Encryption Password",
-		"Exit"
-	};
+	char* options_encryption_main[3];
+	options_encryption_main[0] = option_subtitle(       "Encryption Algorithm", EVP_CIPHER_name(opt->enc_algorithm));
+	options_encryption_main[1] = option_subtitle_passwd("Encryption Password ", opt->enc_password);
+	options_encryption_main[2] = option_subtitle(       "Exit", NULL);
 
 	do{
-		res = display_menu(options_encryption_main, ARRAY_SIZE(options_encryption_main), "Encryption Options");
+		res = display_menu((const char* const*)options_encryption_main, ARRAY_SIZE(options_encryption_main), "Encryption Options");
 		switch (res){
 		case 0:
 			menu_encryption(opt);
+			free(options_encryption_main[0]);
+			options_encryption_main[0] = option_subtitle("Encryption Algorithm", EVP_CIPHER_name(opt->enc_algorithm));
 			break;
 		case 1:
 			menu_enc_password(opt);
+			free(options_encryption_main[1]);
+			options_encryption_main[1] = option_subtitle_passwd("Encryption Password ", opt->enc_password);
 			break;
 		case 2:
 			break;
@@ -589,6 +655,7 @@ int menu_encryption_main(struct options* opt){
 		}
 	}while (res != 2);
 
+	FREE_OPTION_SUBTITLES(options_encryption_main);
 	return 0;
 }
 
