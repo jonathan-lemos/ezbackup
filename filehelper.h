@@ -34,5 +34,6 @@ int copy_file(const char* _old, const char* _new);
 int rename_file(const char* _old, const char* _new);
 int directory_exists(const char* path);
 int file_exists(const char* path);
+int mkdir_recursive(const char* dir);
 
 #endif

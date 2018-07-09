@@ -10,6 +10,8 @@
 #include "filehelper.h"
 
 #include "strings/stringhelper.h"
+
+#include "strings/stringarray.h"
 /* error handling */
 #include "log.h"
 #include <errno.h>
@@ -231,4 +233,26 @@ int file_exists(const char* path){
 		return 0;
 	}
 	return S_ISREG(st.st_mode);
+}
+
+int mkdir_recursive(const char* dir){
+	struct string_array* components = NULL;
+	size_t i;
+
+	components = sa_get_parent_dirs(dir);
+	if (!components){
+		log_error("Failed to get parent dirs");
+		return -1;
+	}
+
+	for (i = 0; i < components->len; ++i){
+		if (!directory_exists(components->strings[i]) && mkdir(components->strings[i], 0755) != 0){
+			log_error_ex2("Failed to make directory %s (%s)", components->strings[i], strerror(errno));
+			sa_free(components);
+			return -1;
+		}
+	}
+
+	sa_free(components);
+	return 0;
 }

@@ -74,7 +74,7 @@ void usage(const char* progname){
 	printf("\t-x, --exclude </dir1 /dir2 /...>\n");
 }
 
-static int get_backup_directory(char** out){
+static int get_default_backup_directory(char** out){
 	struct passwd* pw;
 	const char* homedir;
 	struct stat st;
@@ -118,6 +118,10 @@ static int get_backup_directory(char** out){
 int parse_options_cmdline(int argc, char** argv, struct options** output, enum OPERATION* out_op){
 	int i;
 	struct options* out = *output;
+
+	if (out){
+		free(out);
+	}
 
 	if ((out = options_new()) != 0){
 		log_debug("Failed to get default options");
@@ -247,7 +251,7 @@ int parse_options_cmdline(int argc, char** argv, struct options** output, enum O
 	if (out->directories->len == 0){
 		sa_add(out->directories, "/");
 	}
-	if (!out->output_directory && get_backup_directory(&out->output_directory) != 0){
+	if (!out->output_directory && get_default_backup_directory(&out->output_directory) != 0){
 		log_error("Could not determine output directory");
 		return -1;
 	}
@@ -268,7 +272,7 @@ struct options* options_new(void){
 	opt->enc_password = NULL;
 	opt->comp_algorithm = COMPRESSOR_GZIP;
 	opt->comp_level = 0;
-	if (get_backup_directory(&(opt->output_directory)) != 0){
+	if (get_default_backup_directory(&(opt->output_directory)) != 0){
 		log_debug("Failed to make backup directory");
 		return NULL;
 	}
@@ -690,7 +694,7 @@ int options_cmp(const struct options* opt1, const struct options* opt2){
 	return 0;
 }
 
-int get_last_backup_file(char** out){
+int get_config_filename(char** out){
 	struct passwd* pw;
 	const char* homedir;
 
@@ -703,96 +707,68 @@ int get_last_backup_file(char** out){
 		}
 		homedir = pw->pw_dir;
 	}
-	*out = malloc(strlen(homedir) + sizeof("/.ezbackup.conf"));
+	*out = malloc(strlen(homedir) + sizeof("/.ezbackup"));
 	if (!(*out)){
 		log_enomem();
 		return -1;
 	}
 
 	strcpy(*out, homedir);
-	strcat(*out, "/.ezbackup.conf");
+	strcat(*out, "/.ezbackup");
 
 	return 0;
 }
 
-int set_last_backup_dir(const char* dir){
-	char* home_conf = NULL;
-	FILE* fp_conf = NULL;
+int set_prev_options(const struct options* opt){
+	char* config_filename = NULL;
 	int ret = 0;
 
-	if (get_last_backup_file(&home_conf) != 0){
-		log_debug("Failed to determine home directory");
+	if (get_config_filename(&config_filename) != 0){
+		log_error("Failed to get config filename");
 		ret = -1;
 		goto cleanup;
 	}
 
-	fp_conf = fopen(home_conf, "wb");
-	if (!fp_conf){
-		log_efopen(home_conf);
-		ret = -1;
-		goto cleanup;
-	}
-
-	fwrite(dir, 1, strlen(dir), fp_conf);
-	if (ferror(fp_conf) != 0){
-		log_efwrite(home_conf);
+	if (write_options_tofile(config_filename, opt) != 0){
+		log_error("Failed to write options to file");
 		ret = -1;
 		goto cleanup;
 	}
 
 cleanup:
-	if (fp_conf && fclose(fp_conf) != 0){
-		log_efclose(home_conf);
-	}
-	free(home_conf);
+	free(config_filename);
 	return ret;
 }
 
-int get_last_backup_dir(char** out){
-	char buf[BUFFER_LEN];
-	int len;
-	char* home_conf = NULL;
-	FILE* fp_conf = NULL;
+int get_prev_options(struct options** out){
+	char* config_filename = NULL;
 	int ret = 0;
 
-	if (get_last_backup_file(&home_conf) != 0){
-		log_debug("Failed to determine home directory");
+	if (*out){
+		free(*out);
+	}
+
+	if (get_config_filename(&config_filename) != 0){
+		log_error("Failed to get config filename");
 		ret = -1;
 		goto cleanup;
 	}
 
-	fp_conf = fopen(home_conf, "wb");
-	if (!fp_conf){
-		log_efopen(home_conf);
-		ret = -1;
+	if (!file_exists(config_filename)){
+		log_info("Previous config does not exist. Making a new one");
+		*out = options_new();
+		set_prev_options(*out);
+		ret = 1;
 		goto cleanup;
 	}
 
-	*out = sh_new();
-	while ((len = read_file(fp_conf, (unsigned char*)buf, sizeof(buf) - 1)) > 0){
-		buf[len] = '\0';
-		*out = sh_concat(*out, buf);
-	}
-
-	if (!(*out)){
-		log_debug("Failed to write to output string");
+	if (parse_options_fromfile(config_filename, out) != 0){
+		log_error_ex("Failed to parse options from %s", config_filename);
 		ret = -1;
 		goto cleanup;
 	}
 
 cleanup:
-	if (fp_conf && fclose(fp_conf) != 0){
-		log_efclose(home_conf);
-	}
-	free(home_conf);
+	free(config_filename);
 	return ret;
-}
-
-enum OPERATION parse_options_menu(struct options** opt){
-	*opt = options_new();
-	if (!(*opt)){
-		log_error("Failed to create new options structure");
-		return OP_INVALID;
-	}
-	return menu_main(*opt);
 }

@@ -60,28 +60,6 @@ cleanup_freeout:
 	return ret;
 }
 
-static int mkdir_recursive(const char* dir){
-	struct string_array* components = NULL;
-	size_t i;
-
-	components = sa_get_parent_dirs(dir);
-	if (!components){
-		log_error("Failed to get parent dirs");
-		return -1;
-	}
-
-	for (i = 0; i < components->len; ++i){
-		if (!directory_exists(components->strings[i]) && mkdir(components->strings[i], 0755) != 0){
-			log_error_ex2("Failed to make directory %s (%s)", components->strings[i], strerror(errno));
-			sa_free(components);
-			return -1;
-		}
-	}
-
-	sa_free(components);
-	return 0;
-}
-
 static int make_internal_subdirectories(const char* file_dir, const char* delta_dir, const struct string_array* directories, const struct string_array* exclude){
 	size_t i;
 	for (i = 0; i < directories->len; ++i){

@@ -90,7 +90,8 @@ void test_sort_checksum_file(enum TEST_STATUS* status){
 	}
 	TEST_ASSERT_FREE(fp1, fclose);
 
-	TEST_ASSERT(sort_checksum_file(fp1str, fp2str) == 0);
+	TEST_ASSERT(sort_checksum_file(fp1str) == 0);
+	rename(fp1str, fp2str);
 
 	/* checking that the file is properly sorted */
 	fp2 = fopen(fp2str, "rb");
@@ -198,7 +199,8 @@ void test_search_for_checksum(enum TEST_STATUS* status){
 
 	TEST_ASSERT_FREE(fp1, fclose);
 
-	TEST_ASSERT(sort_checksum_file(fp1str, fp2str) == 0);
+	TEST_ASSERT(sort_checksum_file(fp1str) == 0);
+	rename(fp1str, fp2str);
 
 	/* checking that the file was properly sorted
 	 * file must be sorted for the binary search to work properly */

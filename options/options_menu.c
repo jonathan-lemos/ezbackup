@@ -592,7 +592,7 @@ int menu_encryption_main(struct options* opt){
 	return 0;
 }
 
-int menu_main_configure(struct options* opt){
+int menu_configure(struct options* opt){
 	int res;
 	const char* options_main_menu[] = {
 		"Cloud",
@@ -627,7 +627,7 @@ int menu_main_configure(struct options* opt){
 	return 0;
 }
 
-enum OPERATION menu_main(struct options* opt){
+enum OPERATION menu_operation(void){
 	int res;
 	const char* options_operation[] = {
 		"Backup",
@@ -636,26 +636,25 @@ enum OPERATION menu_main(struct options* opt){
 		"Exit"
 	};
 
-	do{
-		res = display_menu(options_operation, ARRAY_SIZE(options_operation), "Main Menu");
-		switch (res){
-		case 0:
-			return OP_BACKUP;
-			break;
-		case 1:
-			return OP_RESTORE;
-			break;
-		case 2:
-			menu_main_configure(opt);
-			break;
-		case 3:
-			return OP_EXIT;
-			break;
-		default:
-			invalid_option(res, ARRAY_SIZE(options_operation));
-			return OP_INVALID;
-		}
-	}while (res == 2);
+
+	res = display_menu(options_operation, ARRAY_SIZE(options_operation), "Main Menu");
+	switch (res){
+	case 0:
+		return OP_BACKUP;
+		break;
+	case 1:
+		return OP_RESTORE;
+		break;
+	case 2:
+		return OP_CONFIGURE;
+		break;
+	case 3:
+		return OP_EXIT;
+		break;
+	default:
+		invalid_option(res, ARRAY_SIZE(options_operation));
+		return OP_INVALID;
+	}
 
 	return OP_INVALID;
 }

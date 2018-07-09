@@ -49,13 +49,12 @@ struct options* options_new(void);
 int options_cmp(const struct options* opt1, const struct options* opt2);
 void options_free(struct options* o);
 
-enum OPERATION parse_options_menu(struct options** opt);
 int parse_options_cmdline(int argc, char** argv, struct options** out, enum OPERATION* op_out);
 int parse_options_fromfile(const char* file, struct options** output);
 int write_options_tofile(const char* file, const struct options* opt);
 
-int set_last_backup_dir(const char* dir);
-int get_last_backup_dir(char** out);
+int get_prev_options(struct options** out);
+int set_prev_options(const struct options* opt);
 
 #ifdef __UNIT_TESTING__
 int get_last_backup_file(char** out);

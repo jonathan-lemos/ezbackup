@@ -371,7 +371,7 @@ void setup_test_environment_basic(const char* path, char*** out, size_t* out_len
 
 	cleanup_test_environment(path, NULL);
 
-	INTERNAL_ERROR_IF_FALSE_MSG(mkdir(path, 0755), strerror(errno));
+	INTERNAL_ERROR_IF_FALSE_MSG(mkdir(path, 0755) == 0, strerror(errno));
 
 	for (i = 0; i < ARRAY_LEN(files); ++i){
 		unsigned char* data;

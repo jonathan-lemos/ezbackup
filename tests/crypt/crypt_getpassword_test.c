@@ -22,10 +22,10 @@ void test_crypt_getpassword(enum TEST_STATUS* status){
 	printf("You entered %s\n", pw);
 	TEST_ASSERT(pause_yn("Is this correct (Y/N)?") == 0);
 
-	TEST_ASSERT_FREE(pw, crypt_freepassword);
+	TEST_FREE(pw, crypt_freepassword);
 
 cleanup:
-	pw ? crypt_freepassword(pw) : 0;
+	pw ? crypt_freepassword(pw) : (void)0;
 }
 
 int main(void){
