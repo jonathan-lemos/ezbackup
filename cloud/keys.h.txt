@@ -6,6 +6,6 @@ Replace the below with your own values. Then rename this file to "keys.h".
 const char* const MEGA_API_KEY = "ABCDEFGH";
 
 const char* const MEGA_SAMPLE_USERNAME = "johndoe@example.com";
-const char* const MEGA_SAMPLE_PASSWORD = "letmein";
+const char* const MEGA_SAMPLE_PASSWORD = "hunter2";
 
 #endif

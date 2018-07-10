@@ -1,4 +1,4 @@
-/* mega.cpp -- MEGA integration
+/* mega.cpp
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

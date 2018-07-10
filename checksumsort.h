@@ -1,4 +1,4 @@
-/* checksumsort.h -- external sorting of checksum file
+/* checksumsort.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

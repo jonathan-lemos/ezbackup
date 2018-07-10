@@ -1,4 +1,4 @@
-/* crypt_getpassword.c -- reads password securely from terminal
+/* crypt_getpassword.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

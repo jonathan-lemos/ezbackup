@@ -1,4 +1,4 @@
-/* include.h -- cloud support master module
+/* include.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

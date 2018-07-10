@@ -1,4 +1,4 @@
-/* main.c -- contains main function
+/* main.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

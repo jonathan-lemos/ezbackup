@@ -1,4 +1,4 @@
-/* checksum.c -- checksum calculation and checksum file management
+/* checksum.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -28,13 +28,6 @@
 #include <sys/stat.h>
 /* does_file_exist() */
 #include <errno.h>
-
-/* debugging purposes */
-#include <assert.h>
-
-#if (CHAR_BIT != 8)
-#error "CHAR_BIT must be 8"
-#endif
 
 const EVP_MD* get_evp_md(const char* hash_name){
 	return hash_name ? EVP_get_digestbyname(hash_name) : EVP_md_null();

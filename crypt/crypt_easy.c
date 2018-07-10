@@ -1,4 +1,4 @@
-/* crypt_easy.c - easy encrypt/decrypt file
+/* crypt_easy.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

@@ -1,4 +1,4 @@
-/* stringarray.c -- handles an array of strings
+/* stringarray.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

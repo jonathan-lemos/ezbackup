@@ -1,4 +1,4 @@
-/* coredumps.h - enables/disables core dumps
+/* coredumps.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

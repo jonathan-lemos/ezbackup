@@ -1,4 +1,4 @@
-/* options_menu.c -- menu driver for options.c
+/* options_menu.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

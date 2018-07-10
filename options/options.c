@@ -1,4 +1,4 @@
-/* options.c -- command-line/menu-based options parser
+/* options.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

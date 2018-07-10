@@ -1,4 +1,4 @@
-/* progressbar.c -- command-line progress bar
+/* progressbar.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

@@ -1,4 +1,4 @@
-/* backup.h -- backup backend
+/* backup.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

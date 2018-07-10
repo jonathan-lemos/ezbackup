@@ -1,4 +1,4 @@
-/* restore.h -- restore backend
+/* restore.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

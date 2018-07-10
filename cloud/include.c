@@ -1,4 +1,4 @@
-/* include.c -- cloud support master module
+/* include.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

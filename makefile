@@ -1,4 +1,4 @@
-# makefile -- builds the project
+# makefile
 #
 # Copyright (c) 2018 Jonathan Lemos
 #

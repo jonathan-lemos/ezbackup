@@ -1,4 +1,4 @@
-/* mega.h -- MEGA integration
+/* mega.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

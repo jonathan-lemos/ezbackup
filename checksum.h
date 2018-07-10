@@ -1,4 +1,4 @@
-/* checksum.h -- checksum calculation and checksum file management
+/* checksum.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

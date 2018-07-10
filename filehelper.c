@@ -1,4 +1,4 @@
-/* filehelper.c -- helper functions for files
+/* filehelper.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

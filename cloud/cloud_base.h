@@ -1,4 +1,4 @@
-/* cloud_base.h -- common functions for cloud modules
+/* cloud_base.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

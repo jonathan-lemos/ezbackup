@@ -1,4 +1,4 @@
-/* crypt.h -- file encryption/decryption
+/* crypt.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
