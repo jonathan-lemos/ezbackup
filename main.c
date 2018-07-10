@@ -16,7 +16,7 @@ int main(int argc, char** argv){
 	enum OPERATION op;
 	int ret = 0;
 
-	log_setlevel(LEVEL_INFO);
+	log_setlevel(LEVEL_WARNING);
 
 	if (argc > 1){
 		int res;

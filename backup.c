@@ -1,4 +1,4 @@
-/* backup.c -- backup backend
+/* backup.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -192,11 +192,9 @@ static int copy_files(const struct options* opt, const char* dir_files, const ch
 				log_info_ex("File %s was unchanged", tmp);
 			}
 			else if (res == 0){
+				printf("%s\n", tmp);
 				if (copy_single_file(tmp, dir_files, dir_deltas, opt->comp_algorithm, opt->comp_level, 0, opt->enc_algorithm, password ? password : opt->enc_password, opt->flags.bits.flag_verbose) != 0){
 					log_warning_ex2("Failed to copy %s to %s", tmp, dir_files);
-				}
-				else{
-					printf("%s\n", tmp);
 				}
 			}
 			else{

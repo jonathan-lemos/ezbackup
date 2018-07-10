@@ -441,9 +441,6 @@ int parse_options_fromfile(const char* file, struct options** output){
 	if (res >= 0){
 		free(opt->cloud_options->username);
 		opt->cloud_options->username = sh_dup(entries[res]->value);
-		if (!opt->cloud_options->username){
-			log_warning("Failed to read username from file");
-		}
 	}
 	else{
 		log_warning("Key CO_USERNAME missing from file");

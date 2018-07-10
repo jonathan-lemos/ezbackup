@@ -102,19 +102,6 @@ cleanup:
 	opt ? options_free(opt) : (void)0;
 }
 
-void test_parse_options_menu(enum TEST_STATUS* status){
-	struct options* opt = NULL;
-	enum OPERATION op;
-
-	TEST_ASSERT(parse_options_menu(&opt, &op) == 0);
-
-	TEST_ASSERT(write_options_tofile("/dev/stdout", opt) == 0);
-	TEST_ASSERT(pause_yn("Is the above output correct (Y/N)?") == 0);
-
-cleanup:
-	opt ? options_free(opt) : (void)0;
-}
-
 void test_parse_options_fromfile(enum TEST_STATUS* status){
 	struct options* opt = NULL;
 	struct options* opt_read = NULL;
@@ -136,7 +123,6 @@ cleanup:
 int main(void){
 	struct unit_test tests[] = {
 		MAKE_TEST(test_parse_options_cmdline),
-		MAKE_TEST(test_parse_options_menu),
 		MAKE_TEST(test_parse_options_fromfile),
 	};
 	log_setlevel(LEVEL_INFO);

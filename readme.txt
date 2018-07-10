@@ -2,7 +2,6 @@ Dependencies:
 
 openssl
 ncurses
-ncurses menu
 libedit
 zlib
 bzlib

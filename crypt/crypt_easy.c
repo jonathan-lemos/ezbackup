@@ -69,7 +69,7 @@ int easy_encrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 	}
 
 	if (verbose){
-		verbose_msg = sh_concat(sh_concat(sh_dup("Encrypting "), sh_dup(out)), "...");
+		verbose_msg = sh_concat(sh_concat(sh_dup("Encrypting "), out), "...");
 		if (!verbose_msg){
 			log_warning("Could not create proper \"Encrypting file...\" message");
 		}
@@ -136,7 +136,7 @@ int easy_decrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 	}
 
 	if (verbose){
-		verbose_msg = sh_concat(sh_concat(sh_dup("Decrypting "), sh_dup(in)), "...");
+		verbose_msg = sh_concat(sh_concat(sh_dup("Decrypting "), in), "...");
 		if (!verbose_msg){
 			log_warning("Could not create proper \"Decrypting file...\" message");
 		}
