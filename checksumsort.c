@@ -25,9 +25,10 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
-#define MAX_RUN_SIZE (1 << 24)
-
 void free_element(struct element* e){
+	if (!e){
+		return;
+	}
 	free(e->file);
 	free(e->checksum);
 	free(e);
@@ -167,8 +168,8 @@ static void swap(struct element** e1, struct element** e2){
 	*e2 = buf;
 }
 
-static void swap_mhn(minheapnode* mhn1, minheapnode* mhn2){
-	minheapnode tmp = *mhn1;
+static void swap_mhn(struct minheapnode* mhn1, struct minheapnode* mhn2){
+	struct minheapnode tmp = *mhn1;
 	*mhn1 = *mhn2;
 	*mhn2 = tmp;
 }
@@ -254,7 +255,7 @@ void free_element_array(struct element** elements, size_t size){
 	free(elements);
 }
 
-static void free_minheapnodes(minheapnode* mhn, size_t size){
+static void free_minheapnodes(struct minheapnode* mhn, size_t size){
 	size_t i;
 	for (i = 0; i < size; ++i){
 		if (mhn[i].e){
@@ -268,16 +269,6 @@ void free_strarray(char** elements, size_t size){
 	size_t i;
 	for (i = 0; i < size; ++i){
 		free(elements[i]);
-	}
-	free(elements);
-}
-
-void free_filearray(FILE** elements, size_t size){
-	size_t i;
-	for (i = 0; i < size; ++i){
-		if (fclose(elements[i]) != 0){
-			log_efclose("file");
-		}
 	}
 	free(elements);
 }
@@ -381,7 +372,7 @@ int create_initial_runs(FILE* fp_in, struct TMPFILE*** out, size_t* n_files){
 /* creates a min heap based on the elements */
 /* this is used so we can merge the files in O(nlogn)
  * instead of O(n^2) by making a priority queue*/
-void minheapify(minheapnode* elements, int elements_len, int index){
+void minheapify(struct minheapnode* elements, int elements_len, int index){
 	int smallest = index;
 	int left = 2 * index + 1;
 	int right = 2 * index + 2;
@@ -407,7 +398,7 @@ void minheapify(minheapnode* elements, int elements_len, int index){
 
 /* merges the initial runs into one big file */
 int merge_files(struct TMPFILE** in, size_t n_files, FILE* fp_out){
-	minheapnode* mhn = NULL;
+	struct minheapnode* mhn = NULL;
 	size_t count = 0;
 	size_t i;
 	int j;
