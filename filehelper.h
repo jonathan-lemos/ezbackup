@@ -14,26 +14,154 @@
 #include <stdint.h>
 
 #ifndef BUFFER_LEN
-#define BUFFER_LEN (1 << 16)
+#define BUFFER_LEN (1 << 16) /**< The length of most file I/O buffers used within this program (64KB) */
 #endif
 
+/**
+ * @brief Structure that holds a FILE* and filename of a temporary file.
+ */
 struct TMPFILE{
-	FILE* fp;
-	char* name;
+	FILE* fp;   /**< The temporary file's FILE*. Opened for both reading and writing. */
+	char* name; /**< The temporary file's filename */
 };
 
+/**
+ * @brief Reads bytes from a file.
+ *
+ * Nearly identical to fread(dest, 1, length, fp), but this function contains some extra error checking.
+ *
+ * @param fp File to read from.
+ * This file must be opened in reading mode.
+ *
+ * @param dest The destination buffer.
+ *
+ * @param length The length of the destination buffer in bytes.
+ *
+ * @return Number of bytes successfully read.
+ */
 int read_file(FILE* fp, unsigned char* dest, size_t length);
+
+/**
+ * @brief Opens a temporary file.
+ * @see struct TMPFILE
+ *
+ * @return A temporary file structure, or NULL on error.
+ * The filename will have the following format:
+ * /var/tmp/tmp_XXXXXX
+ *
+ * The temporary file is not placed directly in /tmp, since many unix systems mount tmp to RAM, preventing excessively large temporary files from being created.
+ *
+ * This structure must be temp_fclose()'d when no longer in use.
+ * @see temp_fclose()
+ */
 struct TMPFILE* temp_fopen(void);
+
+/**
+ * @brief Synchronizes the FILE* and filename.
+ *
+ * This function is necessary when you need to flush the internal FILE*'s buffers before using the filename, or when the filename is directly used and you need to update the FILE* to reflect those changes.
+ *
+ * @param tfp The temporary file to update.
+ *
+ * @return 0 on success, or negative on failure
+ */
 int temp_fflush(struct TMPFILE* tfp);
+
+/**
+ * @brief Deletes a temporary file and frees all memory associated with it.
+ *
+ * @param tfp The temporary file to close.
+ *
+ * @return void
+ */
 void temp_fclose(struct TMPFILE* tfp);
+
+/**
+ * @brief Checks if a FILE* is opened for reading.
+ *
+ * @param fp The FILE* to check.
+ *
+ * @return 1 if the FILE* is opened for reading. 0 if not or if there was an error.
+ */
 int file_opened_for_reading(FILE* fp);
+
+/**
+ * @brief Checks if a FILE* is opened for writing.
+ *
+ * @param fp The FILE* to check.
+ *
+ * @return 1 if the FILE* is opened for writing. 0 if not or if there was an error.
+ */
 int file_opened_for_writing(FILE* fp);
+
+/**
+ * @brief Gets the size in bytes of the file pointed to by a file pointer.
+ *
+ * @param fp The FILE* to determine the size of.
+ *
+ * @return The size in bytes of the underlying file, or (uint64_t)-1 on error.
+ */
 uint64_t get_file_size_fp(FILE* fp);
+
+/**
+ * @brief Gets the size in bytes of a file
+ *
+ * @param fp The filename of the file to determine the size of.
+ *
+ * @return The size in bytes of the file, of (uint64_t)-1 on error.
+ */
 uint64_t get_file_size(const char* file);
+
+/**
+ * @brief Copies a file to its destination
+ *
+ * @param _old The source file.
+ *
+ * @param _new The destination.
+ *
+ * @return 0 on success, or negative on failure.
+ */
 int copy_file(const char* _old, const char* _new);
+
+/**
+ * @brief Moves a file.
+ *
+ * This function works instantly if the source and destination are on the same disk.
+ * Otherwise, it has to copy the file and then remove the old one.
+ *
+ * @param _old The file to rename.
+ * @param _new The file's new path.
+ *
+ * @return 0 on success, or negative on failure.
+ * On failure, the old file is unmoved.
+ */
 int rename_file(const char* _old, const char* _new);
+
+/**
+ * @brief Checks if a directory exists.
+ *
+ * @param The path of the directory to verify the existence of.
+ *
+ * @return 1 if it exists, or 0 if not or if there was a failure.
+ */
 int directory_exists(const char* path);
+
+/**
+ * @brief Checks if a file exists.
+ *
+ * @param The path of the file to verify the existence of.
+ *
+ * @return 1 if it exists, or 0 if not or if there was a failure.
+ */
 int file_exists(const char* path);
+
+/**
+ * @brief Creates a directory and its parent directories.
+ *
+ * @param The directory to create.
+ *
+ * @return 0 on success or if the directory already exists, or negative on failure.
+ */
 int mkdir_recursive(const char* dir);
 
 #endif

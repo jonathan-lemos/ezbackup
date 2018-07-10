@@ -1,4 +1,4 @@
-/* cli.c -- cli dialog/menu
+/* cli.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

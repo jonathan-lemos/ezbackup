@@ -14,11 +14,19 @@
 
 #define MAX_RUN_LEN (1 << 24) /**< The maximum length of a checksum run (16MB). */
 
+/**
+ * @brief Holds the data needed for a checksum entry.
+ */
 struct element{
 	char* file;     /**< The filename. */
 	char* checksum; /**< The null-ternimated hexadecimal checksum string corresponding to the file's contents. */
 };
 
+/**
+ * @brief Acts as a node in the merging heap.
+ * The index of the file is necessary for merge_files() to draw the next element from the correct file.
+ * @see merge_files()
+ */
 struct minheapnode{
 	struct element* e; /**< The element. @see struct element */
 	int i;             /**< The index of the file it came from */
