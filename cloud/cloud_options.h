@@ -1,4 +1,4 @@
-/* include.h
+/* cloud_options.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -6,14 +6,8 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#ifndef __CLOUD_INCLUDE_H
-#define __CLOUD_INCLUDE_H
-
-#ifdef __cplusplus
-#include <cstddef>
-#else
-#include <stddef.h>
-#endif
+#ifndef __CLOUD_OPTIONS_H
+#define __CLOUD_OPTIONS_H
 
 enum CLOUD_PROVIDER{
 	CLOUD_NONE = 0,
@@ -38,17 +32,5 @@ enum CLOUD_PROVIDER cloud_provider_from_string(const char* str);
 const char* cloud_provider_to_string(enum CLOUD_PROVIDER cp);
 void co_free(struct cloud_options* co);
 int co_cmp(const struct cloud_options* co1, const struct cloud_options* co2);
-
-int cloud_upload(const char* in_file, struct cloud_options* co);
-int cloud_download(const char* out_dir, struct cloud_options* co, char** out_file);
-int cloud_rm(const char* path, struct cloud_options* co);
-
-#ifdef __UNIT_TESTING__
-int cmp(const void* tm1, const void* tm2);
-int get_parent_dirs(const char* in, char*** out, size_t* out_len);
-int mega_upload(const char* file, const char* upload_dir, const char* username, const char* password);
-int mega_download(const char* download_dir, const char* out_file, const char* username, const char* password);
-int mega_rm(const char* path, const char* username, const char* password);
-#endif
 
 #endif

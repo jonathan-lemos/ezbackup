@@ -78,15 +78,16 @@ const char* sh_file_ext(const char* in){
 }
 
 const char* sh_filename(const char* in){
-	size_t ptr = 0;
+	const char* ptr = in;
+	const char* ptr2 = in;
 
 	return_ifnull(in, NULL);
 
-	while ((ptr = strcspn(in, "/")) != strlen(in)){
-		in += ptr + 1;
-		ptr = 0;
+	while ((ptr2 = strchr(ptr, '/')) && strlen(ptr2) > 1){
+		ptr = ptr2;
 	}
-	return in;
+
+	return ptr;
 }
 
 int sh_starts_with(const char* haystack, const char* needle){

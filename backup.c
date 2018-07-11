@@ -111,7 +111,7 @@ static int make_internal_subdirectories(const char* file_dir, const char* delta_
 	return 0;
 }
 
-static int copy_single_file(const char* file, const char* file_dir, const char* delta_dir, enum COMPRESSOR c_type, int compression_level, unsigned c_flags, const EVP_CIPHER* enc_algorithm, const char* enc_password, int verbose){
+static int copy_single_file(const char* file, const char* file_dir, const char* delta_dir, const struct options* opt, unsigned c_flags, unsigned long backup_time){
 	char* path_files = NULL;
 	char* path_delta = NULL;
 	char buf[64];
@@ -119,7 +119,7 @@ static int copy_single_file(const char* file, const char* file_dir, const char* 
 
 	path_files = sh_concat_path(sh_dup(file_dir), file);
 
-	sprintf(buf, ".%ld", (long)time(0));
+	sprintf(buf, ".%lu", backup_time);
 	path_delta = sh_concat(sh_concat_path(sh_dup(delta_dir), file), buf);
 
 	if (!path_files || !path_delta){
@@ -132,13 +132,13 @@ static int copy_single_file(const char* file, const char* file_dir, const char* 
 		log_warning_ex("Failed to create delta for %s", path_files);
 	}
 
-	if (zip_compress(file, path_files, c_type, compression_level, c_flags) != 0){
+	if (zip_compress(file, path_files, opt->comp_algorithm, opt->comp_level, c_flags) != 0){
 		log_error("Failed to compress output file");
 		ret = -1;
 		goto cleanup;
 	}
 
-	if (enc_algorithm && easy_encrypt_inplace(path_files, enc_algorithm, verbose, enc_password) != 0){
+	if (opt->enc_algorithm && easy_encrypt_inplace(path_files, opt->enc_algorithm, opt->flags.bits.flag_verbose, opt->enc_password) != 0){
 		log_error("Failed to encrypt file");
 		ret = -1;
 		goto cleanup;
@@ -150,7 +150,7 @@ cleanup:
 	return ret;
 }
 
-static int copy_files(const struct options* opt, const char* dir_files, const char* dir_deltas, FILE* fp_checksum, FILE* fp_checksum_prev){
+static int copy_files(const struct options* opt, const char* dir_files, const char* dir_deltas, FILE* fp_checksum, FILE* fp_checksum_prev, unsigned long backup_time){
 	char* password = NULL;
 	size_t i;
 
@@ -193,7 +193,7 @@ static int copy_files(const struct options* opt, const char* dir_files, const ch
 			}
 			else if (res == 0){
 				printf("%s\n", tmp);
-				if (copy_single_file(tmp, dir_files, dir_deltas, opt->comp_algorithm, opt->comp_level, 0, opt->enc_algorithm, password ? password : opt->enc_password, opt->flags.bits.flag_verbose) != 0){
+				if (copy_single_file(tmp, dir_files, dir_deltas, opt, 0, backup_time) != 0){
 					log_warning_ex2("Failed to copy %s to %s", tmp, dir_files);
 				}
 			}
@@ -218,6 +218,7 @@ int backup(const struct options* opt){
 	FILE* fp_checksum = NULL;
 	FILE* fp_checksum_prev = NULL;
 	char buf[64];
+	unsigned long backup_time = time(NULL);
 	int ret = 0;
 
 	if (mkdir_recursive(opt->output_directory) != 0){
@@ -233,7 +234,7 @@ int backup(const struct options* opt){
 	}
 
 	checksum_path = sh_concat_path(sh_dup(opt->output_directory), "checksums.txt");
-	sprintf(buf, ".%ld", (long)time(0));
+	sprintf(buf, ".%lu", backup_time);
 	checksum_prev_path = sh_concat(sh_dup(checksum_path), buf);
 
 	if (!checksum_path || !checksum_prev_path){
@@ -271,7 +272,7 @@ int backup(const struct options* opt){
 		goto cleanup;
 	}
 
-	if (copy_files(opt, dir_files, dir_deltas, fp_checksum, fp_checksum_prev) != 0){
+	if (copy_files(opt, dir_files, dir_deltas, fp_checksum, fp_checksum_prev, backup_time) != 0){
 		log_error("Error copying files to their destinations");
 		ret = -1;
 		goto cleanup;

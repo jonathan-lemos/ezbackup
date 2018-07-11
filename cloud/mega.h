@@ -14,6 +14,7 @@
 #else
 #include <stddef.h>
 #endif
+#include <sys/stat.h>
 
 #ifndef MEGA_WAIT_MS
 #define MEGA_WAIT_MS (10000)
