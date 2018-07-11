@@ -171,48 +171,6 @@ int co_cmp(const struct cloud_options* co1, const struct cloud_options* co2){
 	return 0;
 }
 
-static int cmp(const void* tm1, const void* tm2){
-	return (*((struct file_node**)tm2))->time - (*((struct file_node**)tm1))->time;
-}
-
-int time_menu(struct file_node** arr, size_t len){
-	char** options;
-	int res;
-	size_t i;
-
-	qsort(arr, len, sizeof(*arr), cmp);
-
-	options = malloc(len * sizeof(*options));
-	if (!options){
-		log_enomem();
-		return -1;
-	}
-
-	for (i = 0; i < len; ++i){
-		char buf[256];
-		struct tm t;
-		memcpy(&t, localtime(&(arr[i]->time)), sizeof(struct tm));
-		/* January 1 1970 12:00 AM GMT */
-		strftime(buf, sizeof(buf), "%B %d %Y %H:%M %p %Z", &t);
-
-		options[i] = malloc(strlen(buf) + 1);
-		if (!options[i]){
-			log_enomem();
-			free(options);
-			return -1;
-		}
-		strcpy(options[i], buf);
-	}
-
-	res = display_menu((const char**)options, len, "Select a time to restore from");
-
-	for (i = 0; i < len; ++i){
-		free(options[i]);
-	}
-	free(options);
-	return res;
-}
-
 char* get_default_out_file(const char* full_path){
 	int cwd_len = 256;
 	char* cwd;
@@ -243,31 +201,6 @@ char* get_default_out_file(const char* full_path){
 	}
 	strcat(cwd, filename);
 	return cwd;
-}
-
-int remove_file_node(struct file_node*** nodes, size_t* len, size_t index){
-	size_t i;
-	free((*nodes)[index]->name);
-	free((*nodes)[index]);
-	for (i = index; i < *len - 1; ++i){
-		(*nodes)[i] = (*nodes)[i + 1];
-	}
-	(*len)--;
-	*nodes = realloc(*nodes, *len * sizeof(**nodes));
-	if (!(*nodes)){
-		log_enomem();
-		return -1;
-	}
-	return 0;
-}
-
-void free_file_nodes(struct file_node** nodes, size_t len){
-	size_t i;
-	for (i = 0; i < len; ++i){
-		free(nodes[i]->name);
-		free(nodes[i]);
-	}
-	free(nodes);
 }
 
 int mega_upload(const char* file, const char* upload_dir, const char* username, const char* password){
@@ -325,7 +258,7 @@ cleanup:
 
 int mega_download(const char* download_dir, const char* out_dir, const char* username, const char* password, char** out_file){
 	char* msg = NULL;
-	struct file_node** files = NULL;
+	char** files = NULL;
 	size_t len = 0;
 	MEGAhandle* mh = NULL;
 	int res;

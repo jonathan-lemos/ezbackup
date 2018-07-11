@@ -144,6 +144,23 @@ cleanup:
 	;
 }
 
+void test_sh_sprintf(enum TEST_STATUS* status){
+	char* buf = NULL;
+
+	buf = sh_sprintf("Hello world");
+	TEST_ASSERT(buf);
+	TEST_ASSERT(strcmp(buf, "Hello world") == 0);
+	TEST_FREE(buf, free);
+
+	buf = sh_sprintf("Hello %s %d", "world", 15);
+	TEST_ASSERT(buf);
+	TEST_ASSERT(strcmp(buf, "Hello world 15") == 0);
+	TEST_FREE(buf, free);
+
+cleanup:
+	free(buf);
+}
+
 int main(void){
 	struct unit_test tests[] = {
 		MAKE_TEST(test_sh_dup),
@@ -153,7 +170,8 @@ int main(void){
 		MAKE_TEST(test_sh_file_ext),
 		MAKE_TEST(test_sh_starts_with),
 		MAKE_TEST(test_sh_getcwd),
-		MAKE_TEST(test_sh_cmp_nullsafe)
+		MAKE_TEST(test_sh_cmp_nullsafe),
+		MAKE_TEST(test_sh_sprintf)
 	};
 
 	log_setlevel(LEVEL_INFO);

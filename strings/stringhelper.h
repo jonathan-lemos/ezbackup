@@ -9,6 +9,8 @@
 #ifndef __STRINGHELPER_H
 #define __STRINGHELPER_H
 
+#include <stdarg.h>
+
 char* sh_new(void);
 char* sh_dup(const char* in);
 char* sh_concat(char* in, const char* extension);
@@ -19,5 +21,6 @@ int sh_starts_with(const char* haystack, const char* needle);
 char* sh_getcwd(void);
 int sh_cmp_nullsafe(const char* str1, const char* str2);
 int sh_ncasecmp(const char* str1, const char* str2);
+char* sh_sprintf(const char* format, ...);
 
 #endif

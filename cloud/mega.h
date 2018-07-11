@@ -15,8 +15,6 @@
 #include <stddef.h>
 #endif
 
-#include "cloud_base.h"
-
 #ifndef MEGA_WAIT_MS
 #define MEGA_WAIT_MS (10000)
 #endif
@@ -29,7 +27,9 @@ extern "C"{
 
 int MEGAlogin(const char* username, const char* password, MEGAhandle** out);
 int MEGAmkdir(const char* dir, MEGAhandle* mh);
-int MEGAreaddir(const char* dir, struct file_node*** out, size_t* out_len, MEGAhandle* mh);
+int MEGAreaddir(const char* dir, char*** out, size_t* out_len, MEGAhandle* mh);
+int MEGAstat(const char* file_path, struct stat* out, MEGAhandle* mh);
+int MEGArename(const char* _old, const char* _new, MEGAhandle* mh);
 int MEGAdownload(const char* download_path, const char* out_file, const char* msg, MEGAhandle* mh);
 int MEGAupload(const char* in_file, const char* upload_path, const char* msg, MEGAhandle* mh);
 int MEGArm(const char* file, MEGAhandle* mh);

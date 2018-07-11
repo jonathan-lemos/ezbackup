@@ -214,15 +214,19 @@ int MEGAmkdir(const char* dir, MEGAhandle* mh){
 	return 0;
 }
 
-int MEGAreaddir(const char* dir, struct file_node*** out, size_t* out_len, MEGAhandle* mh){
+int MEGAreaddir(const char* dir, char*** out, size_t* out_len, MEGAhandle* mh){
 	std::string path;
 	mega::MegaNode* node;
 	mega::MegaNodeList* children;
 	mega::MegaApi* mega_api;
+	char** arr = *out;
+	size_t arr_len = *out_len;
 	int ret = 0;
 
 	mega_api = static_cast<mega::MegaApi*>(mh);
-	(*out) = NULL;
+
+	arr = NULL;
+	arr_len = 0;
 
 	path = dir;
 	node = mega_api->getNodeByPath(path.c_str());
@@ -232,40 +236,31 @@ int MEGAreaddir(const char* dir, struct file_node*** out, size_t* out_len, MEGAh
 	}
 
 	children = mega_api->getChildren(node);
-	*out = NULL;
-	*out_len = 0;
 	for (int i = 0; i < children->size(); ++i){
 		mega::MegaNode* n;
 
-		(*out_len)++;
-		*out = (struct file_node**)realloc(*out, sizeof(**out) * *out_len);
-		if (!(*out)){
-			log_enomem();
-			ret = -1;
-			goto cleanup_freeout;
-		}
-
-		(*out)[*out_len - 1] = (struct file_node*)malloc(sizeof(struct file_node));
-		if (!((*out)[*out_len - 1])){
+		arr_len++;
+		arr = (char**)realloc(arr, sizeof(*arr) * arr_len);
+		if (!arr){
 			log_enomem();
 			ret = -1;
 			goto cleanup_freeout;
 		}
 
 		n = children->get(i);
-		log_debug_ex("Reading child %s", n->getName());
-		(*out)[*out_len - 1]->name = (char*)malloc(strlen(dir) + strlen(n->getName()) + 2);
-		if (!(*out)[*out_len - 1]->name){
+		log_info_ex("Reading child %s", n->getName());
+
+		arr[arr_len - 1] = (char*)malloc(strlen(dir) + strlen(n->getName()) + 2);
+		if (!arr[arr_len - 1]){
 			log_enomem();
 			ret = -1;
 			goto cleanup_freeout;
 		}
-		strcpy((*out)[*out_len - 1]->name, dir);
-		if ((*out)[*out_len - 1]->name[strlen((*out)[*out_len - 1]->name) - 1] != '/'){
-			strcat((*out)[*out_len - 1]->name, "/");
+		strcpy(arr[arr_len - 1], dir);
+		if (arr[arr_len - 1][strlen(arr[arr_len - 1]) - 1] != '/'){
+			strcat(arr[arr_len - 1], "/");
 		}
-		strcat((*out)[*out_len - 1]->name, n->getName());
-		(*out)[*out_len - 1]->time = n->getCreationTime();
+		strcat(arr[arr_len - 1], n->getName());
 	}
 
 	delete children;
@@ -273,14 +268,153 @@ int MEGAreaddir(const char* dir, struct file_node*** out, size_t* out_len, MEGAh
 	return ret;
 
 cleanup_freeout:
-	if (*out){
-		for (size_t i = 0; i < *out_len; ++i){
-			free((*out)[i]);
+	if (arr){
+		for (size_t i = 0; i < arr_len; ++i){
+			free(arr[i]);
 		}
 	}
 	delete children;
 	delete node;
 	return ret;
+}
+
+int MEGAstat(const char* file_path, struct stat* out, MEGAhandle* mh){
+	mega::MegaNode* node;
+	mega::MegaApi* mega_api;
+
+	mega_api = static_cast<mega::MegaApi*>(mh);
+	node = mega_api->getNodeByPath(file_path);
+
+	if (!node){
+		log_error_ex("MEGA: File %s not found", file_path);
+		return -1;
+	}
+
+	out->st_uid = getuid();
+	out->st_gid = getgid();
+	/* TODO: find out what the following line is supposed to mean */
+	out->st_mode = node->isFile() ? S_IFREG | 0444 : S_IFDIR | 0755;
+	out->st_nlink = 1;
+	out->st_size = node->isFile() ? node->getSize() : 4096;
+	out->st_mtime = node->isFile() ? node->getModificationTime() : node->getCreationTime();
+	out->st_ctime = node->getCreationTime();
+
+	delete node;
+	return 0;
+}
+
+int MEGArename(const char* _old, const char* _new, MEGAhandle* mh){
+	mega::MegaNode* n_src;
+	mega::MegaNode* n_dst;
+	mega::MegaNode* n_tmp;
+	mega::MegaApi* mega_api;
+	std::string dst_path;
+	std::string filename_tmp;
+	size_t index;
+
+	mega_api = static_cast<mega::MegaApi*>(mh);
+
+	n_src = mega_api->getNodeByPath(_old);
+	if (!n_src){
+		log_warning_ex("MEGA: File %s not found", _old);
+		return -1;
+	}
+
+	n_dst = mega_api->getNodyByPath(_new);
+	if (n_dst){
+		if (n_dst->isFile()){
+			log_warning_ex("MEGA: Destination %s already exists", _new);
+			delete n_src;
+			delete n_dst;
+			return -1;
+		}
+		else{
+			ProgressBarTransferListener listener;
+			mega_api->moveNode(n_src, n_dst, &listener);
+			if (listener.trywait(MEGA_WAIT_MS) != 0){
+				log_error("MEGA: Connection timed out");
+				delete n_src;
+				delete n_dst;
+				return -1;
+			}
+
+			delete n_src;
+			delete n_dst;
+
+			if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
+				log_error_ex2("MEGA: Error moving %s (%s)", _old, listener.getError()->toString());
+				return -1;
+			}
+
+			return 0;
+		}
+	}
+
+	dst_path = _new;
+	index = dst_path.find_last_of('/');
+	if (index == std::string::npos){
+		log_warning_ex("MEGA: Invalid destination path (%s)", _new);
+		delete n_src;
+		return -1;
+	}
+
+	filename_tmp = dst_path.c_str() + index + 1;
+
+	dst_path.resize(index + 1);
+	n_dst = mega_api->getNodeByPath(dst_path.c_str());
+	if (!n_dst){
+		log_warning("MEGA: Destination folder does not exist");
+		delete n_src;
+		return -1;
+	}
+	if (n_dst->isFile()){
+		log_warning("MEGA: The destination folder is a file");
+		delete n_src;
+		delete n_dst;
+		return -1;
+	}
+
+	n_tmp = mega_api->getChildNode(n_dst, filename_tmp);
+	if (n_tmp){
+		log_warning("MEGA: The destination path already exists");
+		delete n_tmp;
+		delete n_src;
+		delete n_dst;
+		return -1;
+	}
+
+	{
+		ProgressBarTransferListener listener;
+		mega_api->moveNode(n_src, n_dst, &listener);
+		if (listener.trywait(MEGA_WAIT_MS) != 0){
+			log_error("MEGA: Connection timed out");
+			delete n_src;
+			delete n_dst;
+			return -1;
+		}
+		delete n_dst;
+
+		if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
+			log_error_ex("MEGA: Error moving file/folder (%s)", listener.getError()->toString());
+			delete n_src;
+			return -1;
+		}
+
+		if (strcmp(n_src->getName(), filename_tmp.c_str()) != 0){
+			listener.reset();
+			mega_api->renameNode(n_src, filename_tmp.c_str(), &listener);
+			if (listener.trywait(MEGA_WAIT_MS) != 0){
+				log_error("MEGA: Connection timed out");
+				delete n_src;
+				return -1;
+			}
+			if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
+				log_error_ex("MEGA: Error renaming node (%s)", listener.getError()->toString());
+			}
+		}
+		delete n_src;
+	}
+	return 0;
 }
 
 int MEGAdownload(const char* download_path, const char* out_file, const char* msg, MEGAhandle* mh){
@@ -295,7 +429,7 @@ int MEGAdownload(const char* download_path, const char* out_file, const char* ms
 
 	node = mega_api->getNodeByPath(path.c_str());
 	if (!node){
-		log_error("MEGA: File not found");
+		log_error("MEGA: File %s not found", download_path);
 		return -1;
 	}
 

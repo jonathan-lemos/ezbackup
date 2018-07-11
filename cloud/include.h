@@ -9,7 +9,6 @@
 #ifndef __CLOUD_INCLUDE_H
 #define __CLOUD_INCLUDE_H
 
-#include "cloud_base.h"
 #ifdef __cplusplus
 #include <cstddef>
 #else
@@ -40,11 +39,9 @@ const char* cloud_provider_to_string(enum CLOUD_PROVIDER cp);
 void co_free(struct cloud_options* co);
 int co_cmp(const struct cloud_options* co1, const struct cloud_options* co2);
 
-int time_menu(struct file_node** arr, size_t len);
 int cloud_upload(const char* in_file, struct cloud_options* co);
 int cloud_download(const char* out_dir, struct cloud_options* co, char** out_file);
 int cloud_rm(const char* path, struct cloud_options* co);
-void free_file_nodes(struct file_node** nodes, size_t len);
 
 #ifdef __UNIT_TESTING__
 int cmp(const void* tm1, const void* tm2);

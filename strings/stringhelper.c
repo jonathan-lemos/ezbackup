@@ -7,6 +7,7 @@
  */
 
 #include "../log.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -180,4 +181,35 @@ int sh_ncasecmp(const char* str1, const char* str2){
 	free(s1);
 	free(s2);
 	return res;
+}
+
+char* sh_sprintf(const char* format, ...){
+	char* ret = NULL;
+	int ret_len;
+	va_list ap;
+	va_start(ap, format);
+
+	ret_len = vsnprintf(ret, 0, format, ap);
+	if (ret_len < 0){
+		log_error("vsnprintf() encoding error");
+		va_end(ap);
+		return NULL;
+	}
+
+	ret = malloc(ret_len + 1);
+	if (!ret){
+		log_enomem();
+		va_end(ap);
+		return NULL;
+	}
+
+	if (vsnprintf(ret, ret_len + 1, format, ap) != ret_len){
+		log_error("vsnprintf() write error");
+		free(ret);
+		va_end(ap);
+		return NULL;
+	}
+
+	va_end(ap);
+	return ret;
 }
