@@ -10,9 +10,20 @@
 #define __CLOUD_BASE_H
 
 #include "cloud_options.h"
+#include <sys/stat.h>
 
-int cloud_upload(const char* in_file, struct cloud_options* co);
-int cloud_download(const char* out_dir, struct cloud_options* co, char** out_file);
-int cloud_rm(const char* path, struct cloud_options* co);
+struct cloud_data;
+
+int cloud_login(struct cloud_options* co, struct cloud_data** out_cd);
+int cloud_mkdir(const char* dir, struct cloud_data* cd);
+int cloud_mkdir_ui(const char* base_dir, char** chosen_file, struct cloud_data* cd);
+int cloud_stat(const char* dir_or_file, struct stat* out, struct cloud_data* cd);
+int cloud_upload(const char* in_file, const char* upload_dir, struct cloud_data* cd);
+int cloud_upload_ui(const char* in_file, const char* base_dir, char** chosen_path, struct cloud_data* cd);
+int cloud_download(const char* download_path, char** out_file, struct cloud_data* cd);
+int cloud_download_ui(const char* base_dir, char** out_file, struct cloud_data* cd);
+int cloud_remove(const char* dir_or_file, struct cloud_data* cd);
+int cloud_remove_ui(const char* base_dir, char** chosen_file, struct cloud_data* cd);
+int cloud_logout(struct cloud_data* cd);
 
 #endif

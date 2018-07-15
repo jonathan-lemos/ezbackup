@@ -12,7 +12,9 @@
 #include <stdio.h>
 #include "filehelper.h"
 
-#define MAX_RUN_LEN (1 << 24) /**< The maximum length of a checksum run (16MB). */
+#ifndef MAX_RUN_SIZE
+#define MAX_RUN_SIZE (1 << 24) /**< The maximum length of a checksum run (16MB). */
+#endif
 
 /**
  * @brief Holds the data needed for a checksum entry.

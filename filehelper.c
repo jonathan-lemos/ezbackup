@@ -216,6 +216,7 @@ int rename_file(const char* _old, const char* _new){
 int directory_exists(const char* path){
 	struct stat st;
 	if (lstat(path, &st) != 0){
+		/* if the file exists and its parent directories exist */
 		if (errno != ENOENT && errno != ENOTDIR){
 			log_estat(path);
 		}
@@ -227,6 +228,7 @@ int directory_exists(const char* path){
 int file_exists(const char* path){
 	struct stat st;
 	if (lstat(path, &st) != 0){
+		/* if the file exists and its parent directories exist */
 		if (errno != ENOENT && errno != ENOTDIR){
 			log_estat(path);
 		}

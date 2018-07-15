@@ -134,11 +134,11 @@ enum CLOUD_PROVIDER cloud_provider_from_string(const char* str){
 const char* cloud_provider_to_string(enum CLOUD_PROVIDER cp){
 	switch (cp){
 	case CLOUD_NONE:
-		return "none";
+		return "None";
 	case CLOUD_MEGA:
 		return "mega.nz";
 	default:
-		return "invalid";
+		return "Invalid";
 	}
 }
 

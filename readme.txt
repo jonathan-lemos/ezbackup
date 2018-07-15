@@ -33,7 +33,6 @@ Insert the following 2 lines in [sdk_directory]/src/posix/net.cpp:
     158	}
 
 TODO:
-make display_dialog() work within display_menu() like it should
 compression flags
 license bs
 remove redundant directories/excludes
@@ -41,3 +40,4 @@ restore functionality
 public/private key functionality
 encrypt checksum file/make sure same password is used between backups
 compression progress bars
+free functions safe w/ null

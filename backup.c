@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
+#include <sys/stat.h>
 
 #define UNUSED(x) ((void)x)
 

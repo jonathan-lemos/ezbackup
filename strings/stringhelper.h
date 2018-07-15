@@ -10,6 +10,7 @@
 #define __STRINGHELPER_H
 
 #include <stdarg.h>
+#include <stddef.h>
 
 char* sh_new(void);
 char* sh_dup(const char* in);
@@ -17,6 +18,7 @@ char* sh_concat(char* in, const char* extension);
 char* sh_concat_path(char* in, const char* extension);
 const char* sh_filename(const char* in);
 const char* sh_file_ext(const char* in);
+char* sh_parent_dir(const char* in);
 int sh_starts_with(const char* haystack, const char* needle);
 char* sh_getcwd(void);
 int sh_cmp_nullsafe(const char* str1, const char* str2);

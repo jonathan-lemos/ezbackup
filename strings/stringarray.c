@@ -9,6 +9,7 @@
 #include "stringarray.h"
 #include "stringhelper.h"
 #include "../log.h"
+#include "../filehelper.h"
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -16,19 +17,48 @@
 
 int sa_add(struct string_array* array, const char* str){
 	return_ifnull(array, -1);
-	return_ifnull(str, -1);
 
 	array->len++;
-
 	array->strings = realloc(array->strings, array->len * sizeof(*array->strings));
 	if (!array->strings){
 		log_enomem();
-		(array->len)--;
+		array->len = 0;
 		return -1;
 	}
 
-	array->strings[array->len - 1] = sh_dup(str);
+	array->strings[array->len - 1] = str ? sh_dup(str) : NULL;
 
+	return 0;
+}
+
+int sa_insert(struct string_array* array, const char* str, size_t index){
+	size_t i;
+	char* tmp_old;
+	char* tmp_cur;
+
+	return_ifnull(array, -1);
+
+	if (index > array->len){
+		log_einval_u(index);
+		return -1;
+	}
+
+	array->len++;
+	array->strings = realloc(array->strings, array->len * sizeof(*array->strings));
+	if (!array->strings){
+		log_enomem();
+		array->len = 0;
+		return -1;
+	}
+
+	tmp_old = array->strings[index];
+	for (i = index + 1; i < array->len; ++i){
+		tmp_cur = array->strings[i];
+		array->strings[i] = tmp_old;
+		tmp_old = tmp_cur;
+	}
+
+	array->strings[index] = str ? sh_dup(str) : NULL;
 	return 0;
 }
 
@@ -57,33 +87,6 @@ int sa_remove(struct string_array* array, size_t index){
 	return 0;
 }
 
-static int is_directory(const char* path){
-	struct stat st;
-
-	if (stat(path, &st) != 0){
-		log_estat(path);
-		return 0;
-	}
-
-	return S_ISDIR(st.st_mode);
-}
-
-size_t sa_sanitize_directories(struct string_array* array){
-	size_t n_removed = 0;
-	size_t i;
-
-	return_ifnull(array, 0);
-
-	for (i = 0; i < array->len; ++i){
-		if (!is_directory(array->strings[i])){
-			sa_remove(array, i);
-			i--;
-			n_removed++;
-		}
-	}
-	return n_removed;
-}
-
 int sa_contains(const struct string_array* array, const char* str){
 	size_t i;
 
@@ -109,7 +112,6 @@ void sa_free(struct string_array* array){
 	size_t i;
 
 	if (!array){
-		log_debug("array was NULL");
 		return;
 	}
 
@@ -185,6 +187,50 @@ cleanup:
 	return ret;
 }
 
+void sa_to_raw_array(struct string_array* arr, char*** out, size_t* out_len){
+	*out = arr->strings;
+	*out_len = arr->len;
+	free(arr);
+}
+
+int sa_merge(struct string_array* dst, struct string_array* src){
+	size_t dst_len_old;
+
+	return_ifnull(dst, -1);
+	if (!src){
+		return 0;
+	}
+
+	dst_len_old = dst->len;
+	dst->len += src->len;
+	dst->strings = realloc(dst->strings, dst->len * sizeof(*dst->strings));
+	if (!dst->strings){
+		log_enomem();
+		dst->len = 0;
+		return -1;
+	}
+
+	memcpy(dst->strings + dst_len_old, src->strings, src->len * sizeof(*src->strings));
+	free(src);
+	return 0;
+}
+
+size_t sa_sanitize_directories(struct string_array* array){
+	size_t n_removed = 0;
+	size_t i;
+
+	return_ifnull(array, 0);
+
+	for (i = 0; i < array->len; ++i){
+		if (!directory_exists(array->strings[i])){
+			sa_remove(array, i);
+			i--;
+			n_removed++;
+		}
+	}
+	return n_removed;
+}
+
 struct string_array* sa_get_parent_dirs(const char* directory){
 	char* dir = NULL;
 	char* dir_tok = NULL;
@@ -203,7 +249,7 @@ struct string_array* sa_get_parent_dirs(const char* directory){
 	}
 
 	dir_tok = strtok(dir, "/");
-	while (dir_tok != NULL){
+	while (dir_tok != NULL && strlen(dir_tok) > 0){
 		char* tmp;
 		if (arr->len == 0){
 			if (directory[0] == '/'){

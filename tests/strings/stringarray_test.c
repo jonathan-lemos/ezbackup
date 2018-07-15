@@ -34,6 +34,23 @@ cleanup:
 	sa ? sa_free(sa) : (void)0;
 }
 
+void test_sa_insert(enum TEST_STATUS* status){
+	struct string_array* sa = NULL;
+
+	sa = sa_new();
+	TEST_ASSERT(sa);
+	TEST_ASSERT(sa_add(sa, "hunter2") == 0);
+	TEST_ASSERT(sa_add(sa, "hunter4") == 0);
+	TEST_ASSERT(sa_insert(sa, "hunter3", 1) == 0);
+	TEST_ASSERT(sa->len == 3);
+	TEST_ASSERT(strcmp(sa->strings[0], "hunter2") == 0);
+	TEST_ASSERT(strcmp(sa->strings[1], "hunter3") == 0);
+	TEST_ASSERT(strcmp(sa->strings[2], "hunter4") == 0);
+
+cleanup:
+	sa ? sa_free(sa) : (void)0;
+}
+
 void test_sa_contains(enum TEST_STATUS* status){
 	struct string_array* sa = NULL;
 
@@ -152,14 +169,71 @@ cleanup:
 	sa_free(sa);
 }
 
+void test_sa_to_raw_array(enum TEST_STATUS* status){
+	struct string_array* sa = NULL;
+	char** raw = NULL;
+	size_t raw_len = 0;
+	size_t i;
+
+	sa = sa_new();
+	TEST_ASSERT(sa);
+
+	sa_add(sa, "hello");
+	sa_add(sa, "world");
+
+	TEST_ASSERT(sa->len == 2);
+
+	sa_to_raw_array(sa, &raw, &raw_len);
+	sa = NULL;
+
+	TEST_ASSERT(raw_len == 2);
+	TEST_ASSERT(strcmp(raw[0], "hello") == 0);
+	TEST_ASSERT(strcmp(raw[1], "world") == 0);
+
+cleanup:
+	for (i = 0; i < raw_len; ++i){
+		free(raw[i]);
+	}
+	free(raw);
+	sa_free(sa);
+}
+
+void test_sa_merge(enum TEST_STATUS* status){
+	struct string_array* sa1 = sa_new();
+	struct string_array* sa2 = sa_new();
+
+	TEST_ASSERT(sa1 && sa2);
+	TEST_ASSERT(sa_add(sa1, "hunter1") == 0);
+	TEST_ASSERT(sa_add(sa1, "hunter2") == 0);
+	TEST_ASSERT(sa_add(sa2, "hunter3") == 0);
+	TEST_ASSERT(sa_add(sa2, "hunter4") == 0);
+	TEST_ASSERT(sa1->len == 2);
+	TEST_ASSERT(sa2->len == 2);
+
+	TEST_ASSERT(sa_merge(sa1, sa2) == 0);
+	sa2 = NULL;
+	TEST_ASSERT(sa1->len == 4);
+	TEST_ASSERT(strcmp(sa1->strings[0], "hunter1") == 0);
+	TEST_ASSERT(strcmp(sa1->strings[1], "hunter2") == 0);
+	TEST_ASSERT(strcmp(sa1->strings[2], "hunter3") == 0);
+	TEST_ASSERT(strcmp(sa1->strings[3], "hunter4") == 0);
+
+cleanup:
+	sa1 ? sa_free(sa1) : (void)0;
+	sa2 ? sa_free(sa2) : (void)0;
+}
+
 int main(void){
 	struct unit_test tests[] = {
 		MAKE_TEST(test_sa_add),
+		MAKE_TEST(test_sa_insert),
 		MAKE_TEST(test_sa_contains),
 		MAKE_TEST(test_sa_sanitize_directories),
 		MAKE_TEST(test_sa_sort),
 		MAKE_TEST(test_sa_cmp),
-		MAKE_TEST(test_sa_get_parent_dirs)
+		MAKE_TEST(test_sa_get_parent_dirs),
+		MAKE_TEST(test_sa_to_raw_array),
+		MAKE_TEST(test_sa_merge)
 	};
 
 	log_setlevel(LEVEL_INFO);

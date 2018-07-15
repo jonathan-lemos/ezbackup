@@ -18,12 +18,16 @@ struct string_array{
 
 struct string_array* sa_new(void);
 int sa_add(struct string_array* array, const char* str);
+int sa_insert(struct string_array* array, const char* str, size_t index);
 int sa_remove(struct string_array* array, size_t index);
 int sa_contains(const struct string_array* array, const char* str);
-size_t sa_sanitize_directories(struct string_array* array);
 void sa_sort(struct string_array* array);
 void sa_free(struct string_array* array);
 int sa_cmp(const struct string_array* sa1, const struct string_array* sa2);
+void sa_to_raw_array(struct string_array* arr, char*** out, size_t* out_len);
+int sa_merge(struct string_array* dst, struct string_array* src);
+
+size_t sa_sanitize_directories(struct string_array* array);
 struct string_array* sa_get_parent_dirs(const char* directory);
 
 #endif

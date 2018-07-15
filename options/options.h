@@ -11,7 +11,7 @@
 
 /* compressor */
 #include "../compression/zip.h"
-#include "../cloud/include.h"
+#include "../cloud/cloud_options.h"
 #include "../strings/stringarray.h"
 #include <openssl/evp.h>
 

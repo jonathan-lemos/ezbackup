@@ -6,6 +6,7 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
+#include "stringhelper.h"
 #include "../log.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,7 +21,9 @@ char* sh_new(void){
 char* sh_dup(const char* in){
 	char* ret;
 
-	return_ifnull(in, NULL);
+	if (!in){
+		return NULL;
+	}
 
 	ret = malloc(strlen(in) + 1);
 	if (!ret){
@@ -83,11 +86,38 @@ const char* sh_filename(const char* in){
 
 	return_ifnull(in, NULL);
 
+	/* strlen -> do not run if string = "/"
+	 * this makes it work on strings ending with '/'*/
 	while ((ptr2 = strchr(ptr, '/')) && strlen(ptr2) > 1){
-		ptr = ptr2;
+		ptr = ptr2 + 1;
 	}
 
 	return ptr;
+}
+
+char* sh_parent_dir(const char* in){
+	char* ret = NULL;
+
+	return_ifnull(in, NULL);
+
+	if (strlen(in) <= 1){
+		return NULL;
+	}
+
+	ret = sh_dup(in);
+	if (!ret){
+		log_error("Failed to duplicate input string");
+		return NULL;
+	}
+
+	((char*)sh_filename(ret))[-1] = '\0';
+	ret = realloc(ret, strlen(ret) + 1);
+	if (!ret){
+		log_error("Failed to trim string");
+		return NULL;
+	}
+
+	return ret;
 }
 
 int sh_starts_with(const char* haystack, const char* needle){
@@ -191,11 +221,14 @@ char* sh_sprintf(const char* format, ...){
 	va_start(ap, format);
 
 	ret_len = vsnprintf(ret, 0, format, ap);
+	va_end(ap);
 	if (ret_len < 0){
 		log_error("vsnprintf() encoding error");
-		va_end(ap);
 		return NULL;
 	}
+
+	/* need to restart ap to make the second call to vsnprintf work properly */
+	va_start(ap, format);
 
 	ret = malloc(ret_len + 1);
 	if (!ret){

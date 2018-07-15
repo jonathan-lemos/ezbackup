@@ -70,13 +70,25 @@ cleanup:
 }
 
 void test_sh_filename(enum TEST_STATUS* status){
-	const char* test_path = "/home/equifax/passwords.txt";
-	const char* target_filename = "passwords.txt";
+	const char* test_path1 = "/home/equifax/passwords.txt";
+	const char* test_path2 = "/home/a";
+	const char* test_path3 = "/home/hunter2/";
+	const char* target1 = "passwords.txt";
+	const char* target2 = "a";
+	const char* target3 = "hunter2/";
 	const char* test = NULL;
 
-	test = sh_filename(test_path);
+	test = sh_filename(test_path1);
 	TEST_ASSERT(test);
-	TEST_ASSERT(strcmp(target_filename, test) == 0);
+	TEST_ASSERT(strcmp(target1, test) == 0);
+
+	test = sh_filename(test_path2);
+	TEST_ASSERT(test);
+	TEST_ASSERT(strcmp(target2, test) == 0);
+
+	test = sh_filename(test_path3);
+	TEST_ASSERT(test);
+	TEST_ASSERT(strcmp(target3, test) == 0);
 cleanup:
 	;
 }

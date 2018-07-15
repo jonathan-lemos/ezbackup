@@ -20,6 +20,8 @@ extern "C"{
 #include <condition_variable>
 #include <mutex>
 #include <sys/stat.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 class ProgressBarTransferListener : public mega::MegaTransferListener{
 public:
@@ -320,7 +322,7 @@ int MEGArename(const char* _old, const char* _new, MEGAhandle* mh){
 		return -1;
 	}
 
-	n_dst = mega_api->getNodyByPath(_new);
+	n_dst = mega_api->getNodeByPath(_new);
 	if (n_dst){
 		if (n_dst->isFile()){
 			log_warning_ex("MEGA: Destination %s already exists", _new);
@@ -329,7 +331,7 @@ int MEGArename(const char* _old, const char* _new, MEGAhandle* mh){
 			return -1;
 		}
 		else{
-			ProgressBarTransferListener listener;
+			mega::SynchronousRequestListener listener;
 			mega_api->moveNode(n_src, n_dst, &listener);
 			if (listener.trywait(MEGA_WAIT_MS) != 0){
 				log_error("MEGA: Connection timed out");
@@ -374,7 +376,7 @@ int MEGArename(const char* _old, const char* _new, MEGAhandle* mh){
 		return -1;
 	}
 
-	n_tmp = mega_api->getChildNode(n_dst, filename_tmp);
+	n_tmp = mega_api->getChildNode(n_dst, filename_tmp.c_str());
 	if (n_tmp){
 		log_warning("MEGA: The destination path already exists");
 		delete n_tmp;
@@ -384,7 +386,7 @@ int MEGArename(const char* _old, const char* _new, MEGAhandle* mh){
 	}
 
 	{
-		ProgressBarTransferListener listener;
+		mega::SynchronousRequestListener listener;
 		mega_api->moveNode(n_src, n_dst, &listener);
 		if (listener.trywait(MEGA_WAIT_MS) != 0){
 			log_error("MEGA: Connection timed out");
@@ -401,15 +403,15 @@ int MEGArename(const char* _old, const char* _new, MEGAhandle* mh){
 		}
 
 		if (strcmp(n_src->getName(), filename_tmp.c_str()) != 0){
-			listener.reset();
-			mega_api->renameNode(n_src, filename_tmp.c_str(), &listener);
-			if (listener.trywait(MEGA_WAIT_MS) != 0){
+			mega::SynchronousRequestListener listener2;
+			mega_api->renameNode(n_src, filename_tmp.c_str(), &listener2);
+			if (listener2.trywait(MEGA_WAIT_MS) != 0){
 				log_error("MEGA: Connection timed out");
 				delete n_src;
 				return -1;
 			}
-			if (listener.getError()->getErrorCode() != mega::MegaError::API_OK){
-				log_error_ex("MEGA: Error renaming node (%s)", listener.getError()->toString());
+			if (listener2.getError()->getErrorCode() != mega::MegaError::API_OK){
+				log_error_ex("MEGA: Error renaming node (%s)", listener2.getError()->toString());
 			}
 		}
 		delete n_src;
@@ -429,7 +431,7 @@ int MEGAdownload(const char* download_path, const char* out_file, const char* ms
 
 	node = mega_api->getNodeByPath(path.c_str());
 	if (!node){
-		log_error("MEGA: File %s not found", download_path);
+		log_error_ex("MEGA: File %s not found", download_path);
 		return -1;
 	}
 

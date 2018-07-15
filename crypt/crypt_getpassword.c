@@ -195,8 +195,7 @@ int crypt_getpassword(const char* prompt, const char* verify_prompt, char** out)
 		goto cleanup;
 	}
 
-	if (!verify_prompt){
-		log_info("verify_prompt is NULL so returning now");
+	if (!verify_prompt || strlen(*out) == 0){
 		ret = 0;
 		goto cleanup;
 	}
