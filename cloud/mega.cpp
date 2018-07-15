@@ -180,6 +180,7 @@ int MEGAmkdir(const char* dir, MEGAhandle* mh){
 	node = mega_api->getNodeByPath(path.c_str());
 	if (node){
 		log_debug("MEGA: Path already exists");
+		delete node;
 		return 1;
 	}
 
@@ -188,6 +189,7 @@ int MEGAmkdir(const char* dir, MEGAhandle* mh){
 	/* if we didn't find any matches */
 	if (index == std::string::npos){
 		log_error("MEGA: Invalid path");
+		delete node;
 		return -1;
 	}
 	spath.resize(index + 1);
@@ -196,13 +198,13 @@ int MEGAmkdir(const char* dir, MEGAhandle* mh){
 	if (!node || node->isFile()){
 		log_error("MEGA: Parent folder not found");
 		delete node;
-
 		return -1;
 	}
 
 	mega_api->createFolder(path.c_str() + index + 1, node, &listener);
 	if (listener.trywait(MEGA_WAIT_MS) != 0){
 		std::cerr << "Connection timed out" << std::endl;
+		delete node;
 		return 1;
 	}
 	delete node;
@@ -221,8 +223,8 @@ int MEGAreaddir(const char* dir, char*** out, size_t* out_len, MEGAhandle* mh){
 	mega::MegaNode* node;
 	mega::MegaNodeList* children;
 	mega::MegaApi* mega_api;
-	char** arr = *out;
-	size_t arr_len = *out_len;
+	char** arr = NULL;
+	size_t arr_len = 0;
 	int ret = 0;
 
 	mega_api = static_cast<mega::MegaApi*>(mh);
@@ -265,6 +267,8 @@ int MEGAreaddir(const char* dir, char*** out, size_t* out_len, MEGAhandle* mh){
 		strcat(arr[arr_len - 1], n->getName());
 	}
 
+	*out = arr;
+	*out_len = arr_len;
 	delete children;
 	delete node;
 	return ret;

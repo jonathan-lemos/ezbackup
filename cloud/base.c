@@ -221,38 +221,62 @@ static int confirm_dialog(char* file, int directory, uint64_t size, void* handle
 	return res == 0;
 }
 
+/* if (directories_only){
+ *     [Select current directory]
+ *     [Parent directory]
+ *     [Exit]
+ *     ./dir1
+ *     ./dir2
+ * }
+ * else{
+ *     [Parent directory]
+ *     [Exit]
+ *     ./dir1
+ *     ./dir2
+ *     file1.txt
+ *     file2.txt
+ * }
+ */
 static struct string_array* create_menu_entries(const char* base_dir, char*** entries, size_t* entries_len, void* handle, const struct cloud_functions* cf, int directories_only){
+	/* final menu entries output */
 	struct string_array* sa_final = sa_new();
+	/* final actual directory entries output */
+	struct string_array* sa_final_entries = sa_new();
+	/* directories only. needs to be sorted independently of rest */
 	struct string_array* sa_dir = sa_new();
+	/* files only. needs to be sorted independently of rest */
 	struct string_array* sa_file = sa_new();
-	struct string_array* sa_entries = sa_new();
 	size_t aux_len = 0;
 	char* tmp = NULL;
 	size_t i;
 
-	if (!sa_dir || !sa_file || !sa_final || !sa_entries){
+	if (!sa_final || !sa_final_entries || !sa_dir || !sa_file){
 		log_error("Failed to create new string_array");
 		sa_free(sa_dir);
 		sa_free(sa_file);
-		sa_free(sa_entries);
 		sa_free(sa_final);
+		sa_free(sa_final_entries);
 		return NULL;
 	}
 
+	/* adding beginning special entries - THESE CANNOT BE SORTED */
+
 	if (directories_only){
-		sa_add(sa_dir, "[Select current directory]");
-		sa_add(sa_entries, base_dir);
+		sa_add(sa_final, "[Select current directory]");
+		sa_add(sa_final_entries, base_dir);
 	}
 	tmp = sh_parent_dir(base_dir);
+	/* if parent directory exists */
 	if (tmp){
-		sa_add(sa_dir, "[Parent directory]");
-		sa_add(sa_entries, tmp);
-		free(tmp);
+		sa_add(sa_final, "[Parent directory]");
+		sa_add(sa_final_entries, tmp);
 	}
-	sa_add(sa_dir, "[Exit]");
-	sa_add(sa_entries, NULL);
-	aux_len = sa_dir->len;
+	free(tmp);
+	sa_add(sa_final, "[Exit]");
+	sa_add(sa_final_entries, NULL);
+	aux_len = sa_final->len;
 
+	/* add directories to sa_dir and if (!directories_only){files to sa_file} */
 	for (i = 0; i < *entries_len; ++i){
 		struct stat st;
 		if (cf->stat((*entries)[i], &st, handle) != 0){
@@ -270,25 +294,31 @@ static struct string_array* create_menu_entries(const char* base_dir, char*** en
 	sa_sort(sa_dir);
 	sa_sort(sa_file);
 
+	for (i = 0; i < sa_dir->len; ++i){
+		/* "/dir1/dir2/dir3" -> "./dir3" */
+		char* tmp = sh_concat(sh_dup("./"), sh_filename(sa_dir->strings[i]));
+		sa_add(sa_final, tmp);
+		free(tmp);
+	}
 	for (i = 0; i < sa_file->len; ++i){
-		sa_add(sa_dir, sa_file->strings[i]);
+		/* "/dir1/dir2/file.txt" -> "file.txt" */
+		sa_add(sa_final, sh_filename(sa_file->strings[i]));
 	}
-	sa_free(sa_file);
-	sa_file = NULL;
 
-	for (i = aux_len; i < sa_dir->len; ++i){
-		sa_add(sa_entries, sa_dir->strings[i]);
-	}
-	if (sa_entries->len != *entries_len + aux_len){
-		log_error("Failed to add one or more directories to array");
-		sa_free(sa_dir);
-		sa_free(sa_entries);
+	/* add full paths to sa_final_entries */
+	sa_merge(sa_dir, sa_file);
+	sa_merge(sa_final_entries, sa_dir);
+
+	if (sa_final->len != sa_final_entries->len || sa_final->len != *entries_len + aux_len){
+		log_error("Failed to merge arrays");
+		sa_free(sa_final);
+		sa_free(sa_final_entries);
 		return NULL;
 	}
 
 	free_entries(*entries, *entries_len);
-	sa_to_raw_array(sa_entries, entries, entries_len);
-	return sa_dir;
+	sa_to_raw_array(sa_final_entries, entries, entries_len);
+	return sa_final;
 }
 
 int cloud_mkdir(const char* dir, struct cloud_data* cd){
@@ -315,7 +345,7 @@ int cloud_mkdir_ui(const char* base_dir, char** chosen_file, struct cloud_data* 
 	char* full_directory = NULL;
 	char* subdirectory = NULL;
 	char* prompt = sh_dup(base_dir);
-	struct string_array* parent_dirs = sa_new();
+	struct string_array* parent_dirs = NULL;
 	size_t i;
 	int ret = 0;
 
@@ -372,25 +402,25 @@ int cloud_stat(const char* dir_or_file, struct stat* out, struct cloud_data* cd)
 }
 
 static int cloud_readdir_choosedir(const char* base_dir, char** output, struct cloud_data* cd){
-	struct string_array* menu_entries = NULL;
 	char** entries = NULL;
 	size_t entries_len = 0;
 	char* current_directory = NULL;
 	int ret = 0;
+	int do_continue = 0;
 
 	current_directory = sh_dup(base_dir);
 	*output = NULL;
 
 	do{
+		struct string_array* menu_entries = NULL;
 		int res;
 
+		do_continue = 0;
 		free(*output);
 		*output = NULL;
 		free_entries(entries, entries_len);
 		entries = NULL;
 		entries_len = 0;
-		sa_free(menu_entries);
-		menu_entries = NULL;
 
 		if (cd->cf->readdir(current_directory, &entries, &entries_len, cd->handle) != 0){
 			log_error("Failed to read directory");
@@ -405,13 +435,14 @@ static int cloud_readdir_choosedir(const char* base_dir, char** output, struct c
 		}
 		sa_add(menu_entries, "[Make directory]");
 
-		res = display_menu((const char* const*)menu_entries->strings, menu_entries->len, base_dir);
+		res = display_menu((const char* const*)menu_entries->strings, menu_entries->len, current_directory);
 		sa_free(menu_entries);
 		/* make directory is the last menu_entry, it is over the end of entries */
 		if ((size_t)res >= entries_len){
 			if (cloud_mkdir_ui(current_directory, NULL, cd) != 0){
 				log_warning("Failed to create directory");
 			}
+			do_continue = 1;
 			continue;
 		}
 
@@ -424,25 +455,24 @@ static int cloud_readdir_choosedir(const char* base_dir, char** output, struct c
 		if (res > 0){
 			free(current_directory);
 			current_directory = sh_dup(entries[res]);
+			do_continue = 1;
 			continue;
 		}
 		else{
 			*output = sh_dup(entries[res]);
 		}
-	}while (!confirm_dialog(*output, 1, 0, cd->handle, cd->cf));
+	}while (do_continue || !confirm_dialog(*output, 1, 0, cd->handle, cd->cf));
 cleanup:
 	if (ret != 0){
 		free(*output);
 		*output = NULL;
 	}
 	free_entries(entries, entries_len);
-	sa_free(menu_entries);
 	free(current_directory);
 	return ret;
 }
 
 static int cloud_readdir_choosefile(const char* base_dir, char** output, void* handle, const struct cloud_functions* cf){
-	struct string_array* menu_entries = NULL;
 	char** entries = NULL;
 	size_t entries_len = 0;
 	uint64_t out_file_size = 0;
@@ -453,6 +483,7 @@ static int cloud_readdir_choosefile(const char* base_dir, char** output, void* h
 	*output = NULL;
 
 	do{
+		struct string_array* menu_entries = NULL;
 		struct stat st;
 		int res;
 
@@ -471,13 +502,14 @@ static int cloud_readdir_choosefile(const char* base_dir, char** output, void* h
 		}
 		out_file_size = st.st_size;
 
-		if ((menu_entries = create_menu_entries(base_dir, &entries, &entries_len, handle, cf, 0)) == NULL){
+		if ((menu_entries = create_menu_entries(current_directory, &entries, &entries_len, handle, cf, 0)) == NULL){
 			log_error("Failed to create menu entries");
 			ret = -1;
 			goto cleanup;
 		}
 
-		res = display_menu((const char* const*)menu_entries->strings, menu_entries->len, base_dir);
+		res = display_menu((const char* const*)menu_entries->strings, menu_entries->len, current_directory);
+		sa_free(menu_entries);
 
 		/* exit chosen or error */
 		if (!entries[res]){
@@ -496,7 +528,6 @@ static int cloud_readdir_choosefile(const char* base_dir, char** output, void* h
 		else{
 			*output = sh_dup(entries[res]);
 		}
-
 	}while (!confirm_dialog(*output, 0, out_file_size, handle, cf));
 cleanup:
 	if (ret != 0){
@@ -504,7 +535,6 @@ cleanup:
 		*output = NULL;
 	}
 	free_entries(entries, entries_len);
-	sa_free(menu_entries);
 	free(current_directory);
 	return ret;
 }
@@ -623,7 +653,7 @@ int cloud_upload_ui(const char* in_file, const char* base_path, char** chosen_pa
 		ret = -1;
 		goto cleanup;
 	}
-	else if (res < 0){
+	else if (res > 0){
 		log_info("Did not choose a file");
 		ret = 1;
 		goto cleanup;

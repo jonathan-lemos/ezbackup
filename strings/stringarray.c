@@ -211,6 +211,7 @@ int sa_merge(struct string_array* dst, struct string_array* src){
 	}
 
 	memcpy(dst->strings + dst_len_old, src->strings, src->len * sizeof(*src->strings));
+	free(src->strings);
 	free(src);
 	return 0;
 }
