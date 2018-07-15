@@ -185,8 +185,8 @@ static char* size_tostring(uint64_t size){
 
 static int confirm_dialog(char* file, int directory, uint64_t size, void* handle, const struct cloud_functions* cf){
 	const char* dialog_buttons[] = {
-		"OK",
-		"Cancel"
+		"Yes",
+		"No"
 	};
 	char* msg = NULL;
 	char time_str[256];
@@ -207,8 +207,8 @@ static int confirm_dialog(char* file, int directory, uint64_t size, void* handle
 		/* 01/01/1970 12:00 PM format*/
 		strftime(time_str, sizeof(time_str), "%m/%d/%Y %I:%M %p", localtime(&tm));
 		msg = directory ?
-			sh_sprintf("File: %s\nFull path: %s\nCreation time: %s\nSize: %lu\nIs this the correct file?", sh_filename(file), file, time_str, size_str ? size_str : "Unknown") :
-			sh_sprintf("Directory: %s\nFull path: %s\nCreation time: %s\nIs this the correct directory?", sh_filename(file), file, time_str);
+			sh_sprintf("Directory: %s\nFull path: %s\nCreation time: %s\nIs this the correct directory?", sh_filename(file), file, time_str) :
+			sh_sprintf("File: %s\nFull path: %s\nCreation time: %s\nSize: %s\nIs this the correct file?", sh_filename(file), file, time_str, size_str ? size_str : "Unknown");
 		if (!msg){
 			log_warning("Failed to create creation time msg");
 		}
@@ -246,7 +246,6 @@ static struct string_array* create_menu_entries(const char* base_dir, char*** en
 	struct string_array* sa_dir = sa_new();
 	/* files only. needs to be sorted independently of rest */
 	struct string_array* sa_file = sa_new();
-	size_t aux_len = 0;
 	char* tmp = NULL;
 	size_t i;
 
@@ -274,7 +273,6 @@ static struct string_array* create_menu_entries(const char* base_dir, char*** en
 	free(tmp);
 	sa_add(sa_final, "[Exit]");
 	sa_add(sa_final_entries, NULL);
-	aux_len = sa_final->len;
 
 	/* add directories to sa_dir and if (!directories_only){files to sa_file} */
 	for (i = 0; i < *entries_len; ++i){
@@ -309,7 +307,7 @@ static struct string_array* create_menu_entries(const char* base_dir, char*** en
 	sa_merge(sa_dir, sa_file);
 	sa_merge(sa_final_entries, sa_dir);
 
-	if (sa_final->len != sa_final_entries->len || sa_final->len != *entries_len + aux_len){
+	if (sa_final->len != sa_final_entries->len){
 		log_error("Failed to merge arrays");
 		sa_free(sa_final);
 		sa_free(sa_final_entries);
@@ -341,7 +339,7 @@ int cloud_mkdir(const char* dir, struct cloud_data* cd){
 	return ret;
 }
 
-int cloud_mkdir_ui(const char* base_dir, char** chosen_file, struct cloud_data* cd){
+int cloud_mkdir_ui(const char* base_dir, char** chosen_dir, struct cloud_data* cd){
 	char* full_directory = NULL;
 	char* subdirectory = NULL;
 	char* prompt = sh_dup(base_dir);
@@ -358,6 +356,11 @@ int cloud_mkdir_ui(const char* base_dir, char** chosen_file, struct cloud_data* 
 
 	printf("Make directory:\n");
 	subdirectory = readline(prompt ? prompt : "./");
+	if (strlen(subdirectory) == 0){
+		log_info("User chose not to create a directory");
+		ret = 1;
+		goto cleanup;
+	}
 	full_directory = sh_concat_path(sh_dup(base_dir), subdirectory);
 
 	parent_dirs = sa_get_parent_dirs(full_directory);
@@ -375,9 +378,9 @@ int cloud_mkdir_ui(const char* base_dir, char** chosen_file, struct cloud_data* 
 	}
 
 cleanup:
-	if (chosen_file){
+	if (chosen_dir){
 		if (ret == 0){
-			*chosen_file = full_directory;
+			*chosen_dir = full_directory;
 		}
 		else{
 			free(full_directory);
@@ -478,6 +481,7 @@ static int cloud_readdir_choosefile(const char* base_dir, char** output, void* h
 	uint64_t out_file_size = 0;
 	char* current_directory = NULL;
 	int ret = 0;
+	int do_continue = 0;
 
 	current_directory = sh_dup(base_dir);
 	*output = NULL;
@@ -487,6 +491,7 @@ static int cloud_readdir_choosefile(const char* base_dir, char** output, void* h
 		struct stat st;
 		int res;
 
+		do_continue = 0;
 		free(*output);
 		*output = NULL;
 		free_entries(entries, entries_len);
@@ -500,7 +505,6 @@ static int cloud_readdir_choosefile(const char* base_dir, char** output, void* h
 			ret = -1;
 			goto cleanup;
 		}
-		out_file_size = st.st_size;
 
 		if ((menu_entries = create_menu_entries(current_directory, &entries, &entries_len, handle, cf, 0)) == NULL){
 			log_error("Failed to create menu entries");
@@ -520,15 +524,18 @@ static int cloud_readdir_choosefile(const char* base_dir, char** output, void* h
 		if (cf->stat(entries[res], &st, handle) != 0){
 			log_warning_ex("Failed to stat %s", entries[res]);
 		}
+		out_file_size = st.st_size;
 
 		if (S_ISDIR(st.st_mode)){
 			free(current_directory);
 			current_directory = sh_dup(entries[res]);
+			do_continue = 1;
+			continue;
 		}
 		else{
 			*output = sh_dup(entries[res]);
 		}
-	}while (!confirm_dialog(*output, 0, out_file_size, handle, cf));
+	}while (do_continue || !confirm_dialog(*output, 0, out_file_size, handle, cf));
 cleanup:
 	if (ret != 0){
 		free(*output);

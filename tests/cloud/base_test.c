@@ -89,6 +89,7 @@ void test_cloud(enum TEST_STATUS* status){
 	TEST_ASSERT_FREE(cd, cloud_logout);
 
 cleanup:
+	remove(file);
 	cd ? cloud_logout(cd) : 0;
 	co_free(co);
 }

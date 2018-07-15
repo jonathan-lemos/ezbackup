@@ -298,11 +298,11 @@ int MEGAstat(const char* file_path, struct stat* out, MEGAhandle* mh){
 
 	out->st_uid = getuid();
 	out->st_gid = getgid();
-	/* TODO: find out what the following line is supposed to mean */
-	out->st_mode = node->isFile() ? S_IFREG | 0444 : S_IFDIR | 0755;
+	/* DO NOT USE node->isFile(). it always returns false for some reason */
+	out->st_mode = node->getType() == 0 ? S_IFREG | 0444 : S_IFDIR | 0755;
 	out->st_nlink = 1;
-	out->st_size = node->isFile() ? node->getSize() : 4096;
-	out->st_mtime = node->isFile() ? node->getModificationTime() : node->getCreationTime();
+	out->st_size = node->getType() == 0 ? node->getSize() : 4096;
+	out->st_mtime = node->getType() == 0 ? node->getModificationTime() : node->getCreationTime();
 	out->st_ctime = node->getCreationTime();
 
 	delete node;
