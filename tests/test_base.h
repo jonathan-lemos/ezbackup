@@ -60,7 +60,7 @@ int run_tests(const struct unit_test* tests, size_t len);
 
 /* prevents double free problems arising from TEST_ASSERT's goto */
 #define TEST_FREE(ptr, free_func) { free_func(ptr); ptr = NULL; }
-#define TEST_ASSERT_FREE(ptr, free_func) if (free_func(ptr) != 0){ ptr = NULL; test_assert(0, __FILE__, __LINE__, #free_func); goto cleanup; } else { ptr = NULL; }
+#define TEST_ASSERT_FREE(ptr, free_func) if (free_func(ptr) != 0){ ptr = NULL; test_assert(0, __FILE__, __LINE__, #free_func);*status = TEST_FAIL;goto cleanup; } else { ptr = NULL; }
 
 #define MAKE_TEST(func) {func, #func}
 #define START_TESTS(tests) set_signal_handler();run_tests(tests, sizeof(tests) / sizeof(tests[0]))

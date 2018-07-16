@@ -815,6 +815,7 @@ int cloud_logout(struct cloud_data* cd){
 	}
 	if (cd->cf->logout(cd->handle) != 0){
 		log_warning_ex("%s: Failed to logout", cd->name);
+		free(cd);
 		return -1;
 	}
 	free(cd);
