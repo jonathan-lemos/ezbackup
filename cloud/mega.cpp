@@ -439,7 +439,7 @@ int MEGAdownload(const char* download_path, const char* out_file, const char* ms
 		return -1;
 	}
 
-	listener.setMsg(msg);
+	listener.setMsg(msg ? msg : "Downloading file...");
 	mega_api->startDownload(node, out_file, &listener);
 	log_info("Downloading file...");
 	listener.wait();
@@ -467,7 +467,7 @@ int MEGAupload(const char* in_file, const char* upload_dir, const char* msg, MEG
 		return -1;
 	}
 
-	listener.setMsg(msg);
+	listener.setMsg(msg ? msg : "Uploading file...");
 	mega_api->startUpload(in_file, node, &listener);
 	log_info("Upload file...");
 	listener.wait();

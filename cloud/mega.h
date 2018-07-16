@@ -20,20 +20,148 @@
 #define MEGA_WAIT_MS (10000)
 #endif
 
+/**< A mega::MegaApi class that's been typecasted to void for compatibillity with C */
 typedef void MEGAhandle;
 
 #ifdef __cplusplus
 extern "C"{
 #endif
 
+/**
+ * @brief Logs into a MEGA account.
+ *
+ * @param username The email to log into.
+ * This cannot be NULL.
+ *
+ * @param password The corresponding account's password.
+ * This cannot be NULL.
+ *
+ * @param out A pointer to a handle that this function will fill.
+ * The handle will be set to NULL if this function fails.
+ * This handle must be freed with MEGAlogout() when no longer in use.
+ *
+ * @return 0 on success, or negative on failure.
+ * @see MEGAlogout()
+ */
 int MEGAlogin(const char* username, const char* password, MEGAhandle** out);
+
+/**
+ * @brief Makes a directory within a MEGA account.
+ *
+ * @param dir The directory to create.
+ *
+ * @param mh A handle returned by MEGAlogin().
+ * @see MEGAlogin().
+ *
+ * @return 0 on success, positive if the directory already exists, negative on failure.
+ */
 int MEGAmkdir(const char* dir, MEGAhandle* mh);
+
+/**
+ * @brief Reads the contents of a directory within a MEGA account.
+ *
+ * @param dir The directory to read.
+ *
+ * @param out A pointer to a string array that will contain the entries in the directory.
+ * This string array will be set to NULL if the function fails.
+ *
+ * @param out_len A pointer to an integer that will contain the length of the output array.
+ * This will be set to 0 if this function fails.
+ *
+ * @param mh A handle returned by MEGAlogin().
+ * @see MEGAlogin()
+ *
+ * @return 0 on success, or negative on failure.
+ */
 int MEGAreaddir(const char* dir, char*** out, size_t* out_len, MEGAhandle* mh);
+
+/**
+ * @brief Stats a file or directory within a MEGA account.
+ *
+ * @param file_path The file or directory to stat.
+ *
+ * @param out A pointer to a stat structure to fill.
+ *
+ * @param mh A handle returned by MEGAlogin()
+ * @see MEGAlogin()
+ *
+ * @return 0 on success, or negative on failure.
+ */
 int MEGAstat(const char* file_path, struct stat* out, MEGAhandle* mh);
+
+/**
+ * @brief Renames a file or directory within a MEGA account.
+ *
+ * @param _old Path to the file or directory to rename.
+ *
+ * @param _new The file or folder's new name.
+ *
+ * @mh A handle returned by MEGAlogin()
+ * @see MEGAlogin()
+ *
+ * @return 0 on success, or negative on failure.
+ */
 int MEGArename(const char* _old, const char* _new, MEGAhandle* mh);
+
+/**
+ * @brief Downloads a file stored within a MEGA account.
+ *
+ * @param download_path The file to download.
+ *
+ * @param out_file The path on disk to download the file to.
+ *
+ * @param msg The progress message to display.
+ * This argument can be NULL, in which case a standard "Downloading file..." message is displayed.
+ *
+ * @param mh A handle returned by MEGAlogin()
+ * @see MEGAlogin()
+ *
+ * @return 0 on success, or negative on failure.
+ */
 int MEGAdownload(const char* download_path, const char* out_file, const char* msg, MEGAhandle* mh);
+
+/**
+ * @brief Uploads a file stored within a MEGA account.
+ *
+ * @param in_file The file on disk to upload.
+ *
+ * @param upload_path The directory to upload the file to.
+ * This can optionally have the filename appended to it.
+ * Example: /upload/dir or /upload/dir/file.txt is fine.
+ *
+ * If the directory does not exist, it will be created.
+ *
+ * @param msg The progress message to display.
+ * This argument can be NULL, in which case a standard "Uploading file..." message is displayed.
+ *
+ * @param mh A handle returned by MEGAlogin()
+ * @see MEGAlogin()
+ *
+ * @return 0 on success, or negative on failure.
+ */
 int MEGAupload(const char* in_file, const char* upload_path, const char* msg, MEGAhandle* mh);
+
+/**
+ * @brief Removes a file or directory stored within a MEGA account.
+ *
+ * @param file The file or directory to remove.
+ * A directory can only be removed if it is empty.
+ *
+ * @param mh A handle returned by MEGAlogin()
+ * @see MEGAlogin()
+ *
+ * @return 0 on success, or negative on failure.
+ */
 int MEGArm(const char* file, MEGAhandle* mh);
+
+/**
+ * @brief Logs out of MEGA and frees all memory associated with its handle.
+ *
+ * @param mh A handle returned by MEGAlogin()
+ * @see MEGAlogin()
+ *
+ * @return 0 on success, or negative on failure.
+ */
 int MEGAlogout(MEGAhandle* mh);
 
 #ifdef __cplusplus

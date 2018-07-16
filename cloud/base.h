@@ -18,6 +18,8 @@ struct cloud_data;
  * @brief Logs in to a cloud account.
  *
  * @param co Cloud options containing a username, password, and cloud provider to log into.
+ * If co->username is NULL, the user will be prompted for a value.
+ * If co->password is NULL, the user will be prompted for a value.
  *
  * @param out_cd A handle containing the cloud account's information.
  * This will be set to NULL if the login fails.

@@ -138,7 +138,7 @@ const char* cloud_provider_to_string(enum CLOUD_PROVIDER cp){
 	case CLOUD_MEGA:
 		return "mega.nz";
 	default:
-		return "Invalid";
+		return NULL;
 	}
 }
 
