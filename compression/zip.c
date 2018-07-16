@@ -10,7 +10,6 @@
 #include "zip.h"
 #include "zip_file.h"
 #include "../log.h"
-#define BUFFER_LEN (32)
 #include "../filehelper.h"
 #include "../strings/stringhelper.h"
 #include <stdio.h>
@@ -86,7 +85,7 @@ static struct ZIP_FILE* gzip_open(const char* file, const char* mode){
 			return NULL;
 		}
 
-		if (deflateInit2(&(ret->strm.zstrm), compression_level, Z_DEFLATED, gz_windowbits, 8, strategy) != 0){
+		if (deflateInit2(&(ret->strm.zstrm), compression_level, Z_DEFLATED, gz_windowbits, strchr(mode, 'l') == NULL ? 9 : 3, strategy) != 0){
 			log_error("Failed to initialize compression operation");
 			free(ret);
 			return NULL;
@@ -236,7 +235,7 @@ static struct ZIP_FILE* xz_open(const char* file, const char* mode){
 #endif
 
 static struct ZIP_FILE* zip_open(const char* file, int write, enum COMPRESSOR c_type, int compression_level, int flags){
-	char truemode[7];
+	char truemode[16];
 	int modeptr = 2;
 
 	if (c_type == COMPRESSOR_NONE){
@@ -263,6 +262,10 @@ static struct ZIP_FILE* zip_open(const char* file, int write, enum COMPRESSOR c_
 			}
 			else if (flags & GZIP_RLE){
 				truemode[modeptr] = 'R';
+				modeptr++;
+			}
+			if (flags & GZIP_LOWMEM){
+				truemode[modeptr] = 'l';
 				modeptr++;
 			}
 			break;
@@ -517,6 +520,9 @@ int zip_compress(const char* infile, const char* outfile, enum COMPRESSOR c_type
 	}
 
 cleanup:
+	if (ret != 0){
+		remove(outfile);
+	}
 	zfp ? zip_close(zfp) : 0;
 	fp_in ? fclose(fp_in) : 0;
 	return ret;
@@ -706,6 +712,9 @@ int zip_decompress(const char* infile, const char* outfile, enum COMPRESSOR c_ty
 	}
 
 cleanup:
+	if (ret != 0){
+		remove(outfile);
+	}
 	zfp ? zip_close(zfp) : 0;
 	fp_out ? fclose(fp_out) : 0;
 	return ret;
@@ -732,7 +741,7 @@ const char* get_compression_extension(enum COMPRESSOR comp){
 	case COMPRESSOR_NONE:
 		return "";
 	default:
-		log_einval(comp);
+		log_einval_u(comp);
 		return NULL;
 	}
 }
@@ -777,7 +786,8 @@ const char* compressor_tostring(enum COMPRESSOR c_type){
 		case COMPRESSOR_NONE:
 			return "none";
 		default:
-			return "invalid";
+			log_einval_u(c_type);
+			return NULL;
 	}
 }
 

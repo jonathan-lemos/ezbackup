@@ -22,21 +22,21 @@ enum CLOUD_PROVIDER{
  * @brief Contains information for logging into a cloud account.
  */
 struct cloud_options{
-	/* @brief The cloud service to use */
+	/** @brief The cloud service to use */
 	enum CLOUD_PROVIDER cp;
-	/* @brief The account's username/email (optional).
+	/** @brief The account's username/email (optional).
 	 * If this string is NULL, it will be asked for upon login.
 	 * This string must be dynamically allocated or set through co_set_username().
 	 * @see co_set_username()
 	 */
 	char* username;
-	/* @brief The account's password (optional).
+	/** @brief The account's password (optional).
 	 * If this string is NULL, it will be asked for upon login.
 	 * This string must be dynamically allocated or set through co_set_password().
 	 * @see co_set_password()
 	 */
 	char* password;
-	/* @brief The base directory of the backups.
+	/** @brief The base directory of the backups.
 	 * If this string is NULL, it will be asked for upon login.
 	 * This string must be dynamically allocated or set through co_set_password().
 	 * @see co_set_password()

@@ -63,6 +63,9 @@ int from_base16(const char* hex, void** out, unsigned* len_out){
 	*ucout = malloc(len / 2);
 	if (!(*ucout)){
 		log_enomem();
+		if (len_out){
+			*len_out = 0;
+		}
 		return -1;
 	}
 

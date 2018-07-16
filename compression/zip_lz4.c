@@ -11,7 +11,6 @@
 #include "zip_lz4.h"
 #include "zip.h"
 #include "../log.h"
-/* #define BUFFER_LEN (64) */
 #include "../filehelper.h"
 #include <lz4.h>
 #include <lz4hc.h>

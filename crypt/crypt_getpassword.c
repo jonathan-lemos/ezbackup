@@ -187,6 +187,10 @@ int crypt_getpassword(const char* prompt, const char* verify_prompt, char** out)
 		log_warning("Terminal echo could not be disabled");
 	}
 
+	if (!prompt){
+		prompt = "Enter password:";
+	}
+
 	/* get password */
 	*out = get_stdin_secure(prompt);
 	if (!(*out)){

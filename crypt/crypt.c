@@ -6,39 +6,38 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-/* prototypes */
 #include "crypt.h"
-/* read_file() */
 #include "../filehelper.h"
-/* handling errors */
 #include "../log.h"
 #include <errno.h>
 #include <openssl/err.h>
-/* progress bar */
 #include "../progressbar.h"
-
 #include "../strings/stringhelper.h"
-/* swiggity swass get pass */
 #include <termios.h>
-/* file size */
 #include <sys/stat.h>
-/* the special sauce */
 #include <openssl/evp.h>
-/* random numbers to generate salt and gen_csrand memory */
 #include <openssl/rand.h>
-/* malloc() */
 #include <stdlib.h>
-/* read from /dev/urandom if not enough entropy */
 #include <stdio.h>
 #include <unistd.h>
-/* memcmp */
 #include <string.h>
-
 #include <stdint.h>
 
 #if (CHAR_BIT != 8)
 #error "CHAR_BIT must be 8"
 #endif
+
+struct crypt_keys{
+	unsigned char* key;              /**< Holds the encryption key. This is not the password, but a value derived from the password. The password cannot be derived from the key. */
+	int key_length;                  /**< The length of the key in bytes. */
+	unsigned char* iv;               /**< Holds the initialization vector if applicable. */
+	int iv_length;                   /**< The length of the initialization vector in bytes. */
+	unsigned char salt[8];           /**< Holds a 64-bit salt to make sure the same data does not encrypt to the same value. The salt must be 64-bit to preserve compatibillity with the openssl command line utility. */
+	const EVP_CIPHER* encryption;    /**< The encryption algorithm to use. */
+	unsigned flag_encryption_set: 1; /**< 0 if the encryption algorithm was not set, 1 if it was. DO NOT EDIT MANUALLY. */
+	unsigned flag_keys_set: 1;       /**< 0 if the keys were not generated, 1 if they were. DO NOT EDIT MANUALLY. */
+	unsigned flag_salt_extracted: 1; /**< 0 if the salt was not extracted from the file. 1 if it was. DO NOT EDIT MANUALLY. */
+};
 
 struct crypt_keys* crypt_new(void){
 	struct crypt_keys* ret;
@@ -52,14 +51,9 @@ struct crypt_keys* crypt_new(void){
 	return ret;
 }
 
-/* generates cryptographically-secure random data and
- * writes it to data, or writes low-grade random data on error
- *
- * returns 0 on success, err on error. */
 int crypt_scrub(void* data, int len){
 	int res;
 
-	/* checking if data is not NULL */
 	return_ifnull(data, -1);
 
 	res = RAND_bytes(data, len);
@@ -85,6 +79,7 @@ int crypt_scrub(void* data, int len){
 			data_vol[i] = fgetc(fp);
 		}
 		fclose(fp);
+		log_warning("Somewhat low-grade random data was generated.");
 		return 1;
 	}
 	return 0;
@@ -98,24 +93,22 @@ unsigned char crypt_randc(void){
 	if (res != 1){
 		FILE* fp = fopen("/dev/urandom", "rb");
 		if (!fp){
+			log_warning("Extremely low-grade random data used in crypt_randc()");
 			return random() % 256;
 		}
 		ret = fgetc(fp);
 		fclose(fp);
+		log_warning("Somewhat low-grade random data used in crypt_randc()");
 		return ret;
 	}
 	return ret;
 }
 
-/* generates a random salt
- * returns 0 if salt is csrand, err if not */
 int crypt_gen_salt(struct crypt_keys* fk){
 	return_ifnull(fk, -1);
 	return gen_csrand(fk->salt, sizeof(fk->salt));
 }
 
-/* sets a user-defined salt
- * always returns 0 */
 int crypt_set_salt(const unsigned char salt[8], struct crypt_keys* fk){
 	unsigned i;
 
@@ -138,7 +131,20 @@ int crypt_set_salt(const unsigned char salt[8], struct crypt_keys* fk){
 }
 
 const EVP_CIPHER* crypt_get_cipher(const char* encryption_name){
-	return encryption_name ? EVP_get_cipherbyname(encryption_name) : EVP_enc_null();
+	const EVP_CIPHER* ret = NULL;
+	const EVP_CIPHER* enc_null = EVP_enc_null();
+
+	if (!encryption_name){
+		return NULL;
+	}
+	if (sh_ncasecmp(encryption_name, "none") == 0 || sh_ncasecmp(encryption_name, "null") == 0){
+		return EVP_enc_null();
+	}
+	ret = EVP_get_cipherbyname(encryption_name);
+	if (sh_ncasecmp(EVP_CIPHER_name(enc_null), EVP_CIPHER_name(ret)) == 0){
+		return NULL;
+	}
+	return ret;
 }
 
 /* sets encryption type, this must be the first function called
@@ -164,7 +170,7 @@ int crypt_set_encryption(const EVP_CIPHER* encryption, struct crypt_keys* fk){
 
 /* generates a key and iv based on data
  * returns 0 on success or err on error */
-int crypt_gen_keys(const unsigned char* data, int data_len, const EVP_MD* md, int iterations, struct crypt_keys* fk){
+int crypt_gen_keys(const void* data, int data_len, const EVP_MD* md, int iterations, struct crypt_keys* fk){
 	return_ifnull(data, -1);
 	return_ifnull(fk, -1);
 
@@ -202,11 +208,10 @@ int crypt_gen_keys(const unsigned char* data, int data_len, const EVP_MD* md, in
 	return 0;
 }
 
-/* frees memory malloc'd by crypt_gen_keys()
- * returns 0 if fk is not NULL */
-int crypt_free(struct crypt_keys* fk){
-	return_ifnull(fk, -1);
-
+void crypt_free(struct crypt_keys* fk){
+	if (!fk){
+		return;
+	}
 	/* scrub keys so they can't be retrieved from memory */
 	if (fk->flag_keys_set){
 		crypt_scrub(fk->key, fk->key_length);
@@ -214,10 +219,21 @@ int crypt_free(struct crypt_keys* fk){
 		free(fk->key);
 		free(fk->iv);
 	}
-
 	free(fk);
+}
 
-	return 0;
+void crypt_reset(struct crypt_keys* fk){
+	if (!fk){
+		return;
+	}
+	/* scrub keys so they can't be retrieved from memory */
+	if (fk->flag_keys_set){
+		crypt_scrub(fk->key, fk->key_length);
+		crypt_scrub(fk->iv, fk->iv_length);
+		free(fk->key);
+		free(fk->iv);
+	}
+	memset(fk, 0, sizeof(*fk));
 }
 
 /* encrypts the file
@@ -274,6 +290,10 @@ int crypt_encrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int
 	if (verbose){
 		struct stat st;
 		int fd;
+
+		if (!progress_msg){
+			progress_msg = "Encrypting file...";
+		}
 
 		fd = fileno(fp_in);
 		fstat(fd, &st);
@@ -345,6 +365,9 @@ cleanup:
 	if (fp_out && fclose(fp_out) != 0){
 		log_efclose(out);
 	}
+	if (ret != 0){
+		remove(out);
+	}
 	if (ctx){
 		EVP_CIPHER_CTX_free(ctx);
 	}
@@ -379,6 +402,13 @@ int crypt_extract_salt(const char* in, struct crypt_keys* fk){
 	 * pointer to the beginning of the salt */
 	if (fread(salt_buffer, 1, sizeof(salt_prefix), fp_in) != sizeof(salt_prefix)){
 		log_error("Failed to read salt prefix from file");
+		fclose(fp_in);
+		return -1;
+	}
+
+	/* check that the prefix we read matches the salt prefix */
+	if (memcmp(salt_buffer, salt_prefix, sizeof(salt_prefix)) != 0){
+		log_error("File is not of the correct format");
 		fclose(fp_in);
 		return -1;
 	}
@@ -466,6 +496,10 @@ int crypt_decrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int
 		struct stat st;
 		int fd;
 
+		if (!progress_msg){
+			progress_msg = "Decrypting file...";
+		}
+
 		fd = fileno(fp_in);
 		fstat(fd, &st);
 
@@ -524,6 +558,9 @@ cleanup:
 	}
 	if (fp_out && fclose(fp_out) != 0){
 		log_efclose(out);
+	}
+	if (ret != 0){
+		remove(out);
 	}
 	free(outbuffer);
 	if (ctx){

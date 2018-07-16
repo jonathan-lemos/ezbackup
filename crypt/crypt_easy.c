@@ -15,13 +15,20 @@
 #include "../strings/stringhelper.h"
 #include <string.h>
 
-int easy_encrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorithm, int verbose, const char* password){
+int easy_encrypt(const char* in, const char* out, const char* enc_algorithm, int verbose, const char* password){
+	const EVP_CIPHER* cipher = crypt_get_cipher(enc_algorithm);
 	struct crypt_keys* fk = NULL;
 	char prompt[128];
 	char verify_prompt[128];
 	char* passwd = NULL;
 	char* verbose_msg = NULL;
 	int ret = 0;
+
+	if (!cipher){
+		log_error("Could not load proper encryption algorithm.");
+		ret = -1;
+		goto cleanup;
+	}
 
 	/* disable core dumps if possible */
 	if (disable_core_dumps() != 0){
@@ -34,7 +41,7 @@ int easy_encrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 		goto cleanup;
 	}
 
-	if (crypt_set_encryption(enc_algorithm, fk) != 0){
+	if (crypt_set_encryption(cipher, fk) != 0){
 		log_debug("Could not set encryption type");
 		ret = -1;
 		goto cleanup;
@@ -47,8 +54,8 @@ int easy_encrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 	}
 
 	if (!password){
-		sprintf(prompt, "Enter  %s encryption password:", EVP_CIPHER_name(enc_algorithm));
-		sprintf(verify_prompt, "Verify %s encryption password:", EVP_CIPHER_name(enc_algorithm));
+		sprintf(prompt, "Enter  %s encryption password:", enc_algorithm);
+		sprintf(verify_prompt, "Verify %s encryption password:", enc_algorithm);
 
 		while ((ret = crypt_getpassword(prompt, verify_prompt, &passwd)) > 0){
 			printf("\nPasswords do not match\n");
@@ -82,7 +89,7 @@ int easy_encrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 
 cleanup:
 	/* shreds keys as well */
-	fk ? crypt_free(fk) : 0;
+	fk ? crypt_free(fk) : (void)0;
 	passwd ? crypt_freepassword(passwd) : (void)0;
 	free(verbose_msg);
 	if (enable_core_dumps() != 0){
@@ -91,12 +98,19 @@ cleanup:
 	return 0;
 }
 
-int easy_decrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorithm, int verbose, const char* password){
+int easy_decrypt(const char* in, const char* out, const char* enc_algorithm, int verbose, const char* password){
+	const EVP_CIPHER* cipher = crypt_get_cipher(enc_algorithm);
 	struct crypt_keys* fk = NULL;
 	char prompt[128];
 	char* passwd = NULL;
 	int ret = 0;
 	char* verbose_msg = NULL;
+
+	if (!cipher){
+		log_error("Failed to load proper encryption algorithm");
+		ret = -1;
+		goto cleanup;
+	}
 
 	if (disable_core_dumps() != 0){
 		log_debug("Could not disable core dumps");
@@ -107,7 +121,7 @@ int easy_decrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 		return -1;
 	}
 
-	if (crypt_set_encryption(enc_algorithm, fk) != 0){
+	if (crypt_set_encryption(cipher, fk) != 0){
 		log_debug("crypt_set_encryption() failed");
 		ret = -1;
 		goto cleanup;
@@ -120,7 +134,7 @@ int easy_decrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 	}
 
 	if (!password){
-		sprintf(prompt, "Enter %s decryption password:", EVP_CIPHER_name(enc_algorithm));
+		sprintf(prompt, "Enter %s decryption password:", enc_algorithm);
 		if ((crypt_getpassword(prompt, NULL, &passwd)) != 0){
 			log_debug("crypt_getpassword() failed");
 			ret = -1;
@@ -148,7 +162,7 @@ int easy_decrypt(const char* in, const char* out, const EVP_CIPHER* enc_algorith
 	}
 
 cleanup:
-	fk ? crypt_free(fk) : 0;
+	fk ? crypt_free(fk) : (void)0;
 	crypt_freepassword(passwd);
 	free(verbose_msg);
 	if (enable_core_dumps() != 0){
@@ -157,7 +171,7 @@ cleanup:
 	return ret;
 }
 
-int easy_encrypt_inplace(const char* in_out, const EVP_CIPHER* enc_algorithm, int verbose, const char* password){
+int easy_encrypt_inplace(const char* in_out, const char* enc_algorithm, int verbose, const char* password){
 	struct TMPFILE* tfp_tmp = NULL;
 	int ret = 0;
 
@@ -191,7 +205,7 @@ cleanup:
 	return 0;
 }
 
-int easy_decrypt_inplace(const char* in_out, const EVP_CIPHER* enc_algorithm, int verbose, const char* password){
+int easy_decrypt_inplace(const char* in_out, const char* enc_algorithm, int verbose, const char* password){
 	struct TMPFILE* tfp_tmp = NULL;
 	int ret = 0;
 
