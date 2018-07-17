@@ -35,14 +35,18 @@ char* sh_dup(const char* in){
 }
 
 char* sh_concat(char* in, const char* extension){
+	void* tmp;
 	return_ifnull(in, NULL);
 	return_ifnull(extension, NULL);
 
-	in = realloc(in, strlen(in) + strlen(extension) + 1);
-	if (!in){
+	tmp = realloc(in, strlen(in) + strlen(extension) + 1);
+	if (!tmp){
 		log_enomem();
+		free(in);
 		return NULL;
 	}
+	in = tmp;
+
 	strcat(in, extension);
 	return in;
 }
@@ -73,6 +77,8 @@ const char* sh_file_ext(const char* in){
 
 	return_ifnull(in, NULL);
 
+	in = sh_filename(in);
+
 	while ((ptr = strcspn(in, ".")) != strlen(in)){
 		in += ptr + 1;
 		ptr = 0;
@@ -97,6 +103,7 @@ const char* sh_filename(const char* in){
 
 char* sh_parent_dir(const char* in){
 	char* ret = NULL;
+	void* tmp;
 
 	return_ifnull(in, NULL);
 
@@ -111,11 +118,12 @@ char* sh_parent_dir(const char* in){
 	}
 
 	((char*)sh_filename(ret))[-1] = '\0';
-	ret = realloc(ret, strlen(ret) + 1);
-	if (!ret){
+	tmp = realloc(ret, strlen(ret) + 1);
+	if (!tmp){
 		log_error("Failed to trim string");
 		return NULL;
 	}
+	ret = tmp;
 
 	return ret;
 }
@@ -138,6 +146,7 @@ int sh_starts_with(const char* haystack, const char* needle){
 char* sh_getcwd(void){
 	char* cwd = NULL;
 	int cwd_len = 256;
+	void* tmp;
 
 	cwd = malloc(cwd_len);
 	if (!cwd){
@@ -151,17 +160,21 @@ char* sh_getcwd(void){
 			return NULL;
 		}
 		cwd_len *= 2;
-		cwd = realloc(cwd, cwd_len);
-		if (!cwd){
+		tmp = realloc(cwd, cwd_len);
+		if (!tmp){
 			log_enomem();
+			free(cwd);
 			return NULL;
 		}
+		cwd = tmp;
 	}
-	cwd = realloc(cwd, strlen(cwd) + 1);
-	if (!cwd){
+	tmp = realloc(cwd, strlen(cwd) + 1);
+	if (!tmp){
 		log_enomem();
+		free(cwd);
 		return NULL;
 	}
+	cwd = tmp;
 
 	return cwd;
 }

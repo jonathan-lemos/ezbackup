@@ -16,15 +16,16 @@
 #include <errno.h>
 
 int sa_add(struct string_array* array, const char* str){
+	void* tmp;
 	return_ifnull(array, -1);
 
 	array->len++;
-	array->strings = realloc(array->strings, array->len * sizeof(*array->strings));
-	if (!array->strings){
+	tmp = realloc(array->strings, array->len * sizeof(*array->strings));
+	if (!tmp){
 		log_enomem();
-		array->len = 0;
 		return -1;
 	}
+	array->strings = tmp;
 
 	array->strings[array->len - 1] = str ? sh_dup(str) : NULL;
 
@@ -35,6 +36,7 @@ int sa_insert(struct string_array* array, const char* str, size_t index){
 	size_t i;
 	char* tmp_old;
 	char* tmp_cur;
+	void* tmp;
 
 	return_ifnull(array, -1);
 
@@ -44,12 +46,12 @@ int sa_insert(struct string_array* array, const char* str, size_t index){
 	}
 
 	array->len++;
-	array->strings = realloc(array->strings, array->len * sizeof(*array->strings));
-	if (!array->strings){
+	tmp = realloc(array->strings, array->len * sizeof(*array->strings));
+	if (!tmp){
 		log_enomem();
-		array->len = 0;
 		return -1;
 	}
+	array->strings = tmp;
 
 	tmp_old = array->strings[index];
 	for (i = index + 1; i < array->len; ++i){
@@ -64,6 +66,7 @@ int sa_insert(struct string_array* array, const char* str, size_t index){
 
 int sa_remove(struct string_array* array, size_t index){
 	size_t i;
+	void* tmp;
 
 	return_ifnull(array, -1);
 
@@ -79,11 +82,12 @@ int sa_remove(struct string_array* array, size_t index){
 	}
 	array->len--;
 
-	array->strings = realloc(array->strings, array->len * sizeof(*array->strings));
-	if (!array->strings && array->len != 0){
+	tmp = realloc(array->strings, array->len * sizeof(*array->strings));
+	if (!tmp && array->len != 0){
 		log_enomem();
 		return -1;
 	}
+	array->strings = tmp;
 	return 0;
 }
 
@@ -195,6 +199,7 @@ void sa_to_raw_array(struct string_array* arr, char*** out, size_t* out_len){
 
 int sa_merge(struct string_array* dst, struct string_array* src){
 	size_t dst_len_old;
+	void* tmp;
 
 	return_ifnull(dst, -1);
 	if (!src){
@@ -203,12 +208,13 @@ int sa_merge(struct string_array* dst, struct string_array* src){
 
 	dst_len_old = dst->len;
 	dst->len += src->len;
-	dst->strings = realloc(dst->strings, dst->len * sizeof(*dst->strings));
-	if (!dst->strings){
+
+	tmp = realloc(dst->strings, dst->len * sizeof(*dst->strings));
+	if (!tmp){
 		log_enomem();
-		dst->len = 0;
 		return -1;
 	}
+	dst->strings = tmp;
 
 	memcpy(dst->strings + dst_len_old, src->strings, src->len * sizeof(*src->strings));
 	free(src->strings);

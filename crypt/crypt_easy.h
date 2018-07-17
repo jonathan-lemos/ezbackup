@@ -9,8 +9,6 @@
 #ifndef __CRYPT_CRYPT_EASY_H
 #define __CRYPT_CRYPT_EASY_H
 
-#include <openssl/evp.h>
-
 /**
  * @brief Encrypts a file.
  *

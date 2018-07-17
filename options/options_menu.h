@@ -11,25 +11,20 @@
 
 #include "options.h"
 
+/**
+ * @brief Creates a menu allowing the user to choose an operation.
+ *
+ * @return The user's selected operation, or OP_INVALID if there was an error.
+ */
 enum OPERATION menu_operation(void);
+
+/**
+ * @brief Creates a menu allowing the user to edit the options in an options structure.
+ *
+ * @param opt The options structure to edit.
+ *
+ * @return 0 on success, or negative on failure.
+ */
 int menu_configure(struct options* opt);
-
-#ifdef __UNIT_TESTING__
-int menu_compression_level(struct options* opt);
-int menu_compressor(struct options* opt);
-int menu_checksum(struct options* opt);
-int menu_encryption(struct options* opt);
-int menu_enc_password(struct options* opt);
-int menu_directories(struct options* opt);
-int menu_exclude(struct options* opt);
-int menu_output_directory(struct options* opt);
-int menu_cloud_provider(struct options* opt);
-int menu_cloud_username(struct options* opt);
-int menu_cloud_password(struct options* opt);
-
-int menu_cloud_main(struct options* opt);
-int menu_compression_main(struct options* opt);
-int menu_directories_main(struct options* opt);
-#endif
 
 #endif

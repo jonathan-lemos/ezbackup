@@ -634,6 +634,9 @@ cleanup:
 }
 
 void options_free(struct options* opt){
+	if (!opt){
+		return;
+	}
 	free(opt->prev_backup);
 	sa_free(opt->directories);
 	sa_free(opt->exclude);
@@ -717,8 +720,18 @@ int get_config_filename(char** out){
 }
 
 int set_prev_options(const struct options* opt){
+	struct options* opt_default = NULL;
 	char* config_filename = NULL;
 	int ret = 0;
+
+	if (!opt){
+		opt_default = options_new();
+		if (!opt_default){
+			log_error("Failed to create new options structure");
+			ret = -1;
+			goto cleanup;
+		}
+	}
 
 	if (get_config_filename(&config_filename) != 0){
 		log_error("Failed to get config filename");
@@ -726,13 +739,14 @@ int set_prev_options(const struct options* opt){
 		goto cleanup;
 	}
 
-	if (write_options_tofile(config_filename, opt) != 0){
+	if (write_options_tofile(config_filename, opt ? opt : opt_default) != 0){
 		log_error("Failed to write options to file");
 		ret = -1;
 		goto cleanup;
 	}
 
 cleanup:
+	options_free(opt_default);
 	free(config_filename);
 	return ret;
 }
