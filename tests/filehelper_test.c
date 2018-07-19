@@ -1,10 +1,29 @@
-#include "test_base.h"
+/* filehelper_test.c
+ *
+ * Copyright (c) 2018 Jonathan Lemos
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file for details.
+ */
+
+#include "filehelper_test.h"
 #include "../filehelper.h"
 #include "../log.h"
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+
+const struct unit_test filehelper_tests[] = {
+	MAKE_TEST(test_read_file),
+	MAKE_TEST(test_temp_fopen),
+	MAKE_TEST(test_file_opened_for_reading),
+	MAKE_TEST(test_file_opened_for_writing),
+	MAKE_TEST(test_copy_file),
+	MAKE_TEST(test_rename_file),
+	MAKE_TEST(test_exists)
+};
+MAKE_PKG(filehelper_tests, filehelper_pkg);
 
 void test_read_file(enum TEST_STATUS* status){
 	const char* sample_file = "file1.txt";
@@ -238,20 +257,4 @@ void test_exists(enum TEST_STATUS* status){
 cleanup:
 	rmdir(dir);
 	remove(file);
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_read_file),
-		MAKE_TEST(test_temp_fopen),
-		MAKE_TEST(test_file_opened_for_reading),
-		MAKE_TEST(test_file_opened_for_writing),
-		MAKE_TEST(test_copy_file),
-		MAKE_TEST(test_rename_file),
-		MAKE_TEST(test_exists)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

@@ -6,7 +6,7 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "../test_base.h"
+#include "options_file_test.h"
 #include "../../log.h"
 #include "../../options/options_file.h"
 #include <string.h>
@@ -39,6 +39,12 @@ const char* const sample_data_4le =
 "[Options]\n"
 "KEY1=\x06\0\0\0hello\0\n"
 "KEY2=\x06\0\0\0world\0\n";
+
+const struct unit_test options_file_tests[] = {
+	MAKE_TEST(test_add_option_tofile),
+	MAKE_TEST(test_read_option_file)
+};
+MAKE_PKG(options_file_tests, options_file_pkg);
 
 static int is_little_endian(void){
 	uint32_t test = 0x01020304;
@@ -112,15 +118,4 @@ void test_read_option_file(enum TEST_STATUS* status){
 cleanup:
 	free_opt_entry_array(entries, entries_len);
 	remove(path);
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_add_option_tofile),
-		MAKE_TEST(test_read_option_file)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

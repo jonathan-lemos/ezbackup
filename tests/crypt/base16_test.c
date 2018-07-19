@@ -6,7 +6,7 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "../test_base.h"
+#include "base16_test.h"
 #include "../../crypt/base16.h"
 #include "../../log.h"
 #include <stdlib.h>
@@ -14,6 +14,12 @@
 
 const char* const b16_str = "123456789ABCDEFF";
 const unsigned char b16_bytes[] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFF};
+
+const struct unit_test crypt_base16_tests[] = {
+	MAKE_TEST(test_to_base16),
+	MAKE_TEST(test_from_base16)
+};
+MAKE_PKG(crypt_base16_tests, crypt_base16_pkg);
 
 void test_to_base16(enum TEST_STATUS* status){
 	char* str = NULL;
@@ -35,15 +41,4 @@ void test_from_base16(enum TEST_STATUS* status){
 
 cleanup:
 	free(bytes);
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_to_base16),
-		MAKE_TEST(test_from_base16)
-	};
-	log_setlevel(LEVEL_INFO);
-
-	START_TESTS(tests);
-	return 0;
 }

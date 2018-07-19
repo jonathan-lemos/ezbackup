@@ -299,7 +299,6 @@ int create_initial_runs(FILE* fp_in, struct TMPFILE*** out, size_t* n_files){
 	*n_files = 0;
 
 	while (!end_of_file){
-		void* tmp;
 		struct TMPFILE* tfp;
 		int i;
 

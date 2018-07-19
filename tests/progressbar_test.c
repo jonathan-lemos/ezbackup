@@ -1,4 +1,4 @@
-/* test_progressbar.c -- tests progressbar.c
+/* progressbar_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -6,11 +6,16 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "test_base.h"
+#include "progressbar_test.h"
 #include "../progressbar.h"
 #include "../log.h"
 #include <unistd.h>
 #include <stdlib.h>
+
+const struct unit_test progressbar_tests[] = {
+	MAKE_TEST_RU(test_progress)
+};
+MAKE_PKG(progressbar_tests, progressbar_pkg);
 
 void test_progress(enum TEST_STATUS* status){
 	struct progress* p = NULL;
@@ -25,14 +30,4 @@ void test_progress(enum TEST_STATUS* status){
 	}
 cleanup:
 	p ? finish_progress(p) : (void)0;
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_progress)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

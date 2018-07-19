@@ -6,7 +6,7 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "../test_base.h"
+#include "crypt_test.h"
 #include "../../crypt/crypt.h"
 #include "../../log.h"
 #include <stdlib.h>
@@ -19,6 +19,12 @@ static const char* const sample_file_decrypt = "decrypt.txt";
 static const char* const sample_file_decrypt2 = "decrypt2.txt";
 static const char* const password = "password";
 static const unsigned char salt[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+const struct unit_test crypt_tests[] = {
+	MAKE_TEST(test_crypt_encrypt),
+	MAKE_TEST(test_crypt_decrypt)
+};
+MAKE_PKG(crypt_tests, crypt_pkg);
 
 void test_crypt_encrypt(enum TEST_STATUS* status){
 	struct crypt_keys* fk = NULL;
@@ -41,7 +47,7 @@ void test_crypt_encrypt(enum TEST_STATUS* status){
 	TEST_ASSERT(memcmp_file_file(sample_file_crypt, sample_file_crypt2) == 0);
 
 cleanup:
-	fk ? crypt_free(fk) : 0;
+	fk ? crypt_free(fk) : (void)0;
 	remove(sample_file);
 	remove(sample_file_crypt);
 	remove(sample_file_crypt2);
@@ -74,20 +80,9 @@ void test_crypt_decrypt(enum TEST_STATUS* status){
 	TEST_ASSERT(memcmp_file_file(sample_file_decrypt, sample_file_decrypt2) == 0);
 
 cleanup:
-	fk ? crypt_free(fk) : 0;
+	fk ? crypt_free(fk) : (void)0;
 	remove(sample_file);
 	remove(sample_file_crypt);
 	remove(sample_file_decrypt);
 	remove(sample_file_decrypt2);
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_crypt_encrypt),
-		MAKE_TEST(test_crypt_decrypt)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

@@ -6,12 +6,25 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "../test_base.h"
+#include "stringhelper_test.h"
 #include "../../strings/stringhelper.h"
 #include "../../log.h"
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+const struct unit_test stringhelper_tests[] = {
+	MAKE_TEST(test_sh_dup),
+	MAKE_TEST(test_sh_concat),
+	MAKE_TEST(test_sh_concat_path),
+	MAKE_TEST(test_sh_filename),
+	MAKE_TEST(test_sh_file_ext),
+	MAKE_TEST(test_sh_starts_with),
+	MAKE_TEST(test_sh_getcwd),
+	MAKE_TEST(test_sh_cmp_nullsafe),
+	MAKE_TEST(test_sh_sprintf)
+};
+MAKE_PKG(stringhelper_tests, stringhelper_pkg);
 
 void test_sh_dup(enum TEST_STATUS* status){
 	const char* test_str = "hunter2";
@@ -171,22 +184,4 @@ void test_sh_sprintf(enum TEST_STATUS* status){
 
 cleanup:
 	free(buf);
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_sh_dup),
-		MAKE_TEST(test_sh_concat),
-		MAKE_TEST(test_sh_concat_path),
-		MAKE_TEST(test_sh_filename),
-		MAKE_TEST(test_sh_file_ext),
-		MAKE_TEST(test_sh_starts_with),
-		MAKE_TEST(test_sh_getcwd),
-		MAKE_TEST(test_sh_cmp_nullsafe),
-		MAKE_TEST(test_sh_sprintf)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

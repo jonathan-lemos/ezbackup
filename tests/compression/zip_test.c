@@ -7,11 +7,22 @@
  */
 
 /* low buffer length to make sure the file can't be read in one shot */
-#define BUFFER_LEN (32)
-#include "../test_base.h"
+#include "zip_test.h"
 #include "../../log.h"
 #include "../../compression/zip.h"
 #include <stdlib.h>
+
+const struct unit_test compression_zip_tests[] = {
+	MAKE_TEST(test_compress_gzip),
+	MAKE_TEST(test_compress_bzip2),
+	MAKE_TEST(test_compress_xz),
+	MAKE_TEST(test_compress_lz4),
+	MAKE_TEST(test_decompress_gzip),
+	MAKE_TEST(test_decompress_bzip2),
+	MAKE_TEST(test_decompress_xz),
+	MAKE_TEST(test_decompress_lz4)
+};
+MAKE_PKG(compression_zip_tests, compression_zip_pkg);
 
 void test_compress_gzip(enum TEST_STATUS* status){
 	const char* file = "file.txt";
@@ -171,21 +182,4 @@ void test_decompress_lz4(enum TEST_STATUS* status){
 cleanup:
 	remove(file);
 	remove(arch);
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_compress_gzip),
-		MAKE_TEST(test_compress_bzip2),
-		MAKE_TEST(test_compress_xz),
-		MAKE_TEST(test_compress_lz4),
-		MAKE_TEST(test_decompress_gzip),
-		MAKE_TEST(test_decompress_bzip2),
-		MAKE_TEST(test_decompress_xz),
-		MAKE_TEST(test_decompress_lz4)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

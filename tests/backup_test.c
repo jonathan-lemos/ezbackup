@@ -1,10 +1,23 @@
-#include "test_base.h"
+/* backup_test.c
+ *
+ * Copyright (c) 2018 Jonathan Lemos
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file for details.
+ */
+
+#include "backup_test.h"
 #include "../backup.h"
 #include "../options/options.h"
 #include "../strings/stringarray.h"
 #include "../strings/stringhelper.h"
 #include "../log.h"
 #include "../cloud/keys.h"
+
+const struct unit_test backup_tests[] = {
+	MAKE_TEST_RU(test_backup)
+};
+MAKE_PKG(backup_tests, backup_pkg);
 
 void test_backup(enum TEST_STATUS* status){
 	char* path = sh_concat_path(sh_getcwd(), "TEST_DIR");
@@ -45,14 +58,4 @@ cleanup:
 	opt ? options_free(opt) : (void)0;
 	free(path);
 	free(path_exclude);
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_backup)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

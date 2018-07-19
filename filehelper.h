@@ -14,7 +14,13 @@
 #include <stdint.h>
 
 #ifndef BUFFER_LEN
+
+#ifndef __UNIT_TESTING__
 #define BUFFER_LEN (1 << 16) /**< The length of most file I/O buffers used within this program (64KB) */
+#else
+#define BUFFER_LEN (1 << 5)
+#endif
+
 #endif
 
 /**

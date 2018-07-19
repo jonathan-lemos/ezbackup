@@ -175,4 +175,13 @@ int get_prev_options(struct options** out);
  */
 int set_prev_options(const struct options* opt);
 
+/**
+ * @brief Converts an enum OPERATION to its string equivalent.
+ *
+ * @param op The enum OPERATION.
+ *
+ * @return The enum OPERATION's string equivalent, or NULL if the operation was invalid.
+ */
+const char* operation_tostring(enum OPERATION op);
+
 #endif

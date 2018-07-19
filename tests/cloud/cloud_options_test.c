@@ -1,7 +1,20 @@
-#include "../test_base.h"
+/* cloud_options_test.c
+ *
+ * Copyright (c) 2018 Jonathan Lemos
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file for details.
+ */
+
+#include "cloud_options_test.h"
 #include "../../cloud/cloud_options.h"
 #include "../../log.h"
 #include <string.h>
+
+const struct unit_test cloud_options_tests[] = {
+	MAKE_TEST(test_co)
+};
+MAKE_PKG(cloud_options_tests, cloud_options_pkg);
 
 void test_co(enum TEST_STATUS* status){
 	struct cloud_options* co;
@@ -33,14 +46,4 @@ void test_co(enum TEST_STATUS* status){
 
 cleanup:
 	co ? co_free(co) : (void)0;
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_co)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

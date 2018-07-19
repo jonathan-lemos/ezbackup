@@ -1,9 +1,23 @@
-#include "../test_base.h"
+/* base_test.c
+ *
+ * Copyright (c) 2018 Jonathan Lemos
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file for details.
+ */
+
+#include "base_test.h"
 #include "../../cloud/base.h"
 #include "../../cloud/keys.h"
 #include "../../log.h"
 #include <stdlib.h>
 #include <string.h>
+
+const struct unit_test cloud_base_tests[] = {
+	MAKE_TEST_RU(test_cloud_ui),
+	MAKE_TEST(test_cloud)
+};
+MAKE_PKG(cloud_base_tests, cloud_base_pkg);
 
 const char* CLOUD_BASE_DIR = "/test";
 
@@ -92,15 +106,4 @@ cleanup:
 	remove(file);
 	cd ? cloud_logout(cd) : 0;
 	co_free(co);
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_cloud_ui),
-		MAKE_TEST(test_cloud)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

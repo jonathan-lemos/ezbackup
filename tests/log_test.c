@@ -1,4 +1,4 @@
-/* test_error.c -- tests error.c
+/* log_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -6,8 +6,14 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "test_base.h"
+#include "log_test.h"
 #include "../log.h"
+
+const struct unit_test log_tests[] = {
+	MAKE_TEST(test_return_ifnull),
+	MAKE_TEST_RU(test_log)
+};
+MAKE_PKG(log_tests, log_pkg);
 
 static int func_return_ifnull(const void* arg){
 	return_ifnull(arg, 1);
@@ -31,7 +37,7 @@ void test_log(enum TEST_STATUS* status){
 	log_debug("Debug");
 	log_info("Info");
 
-	log_default("\n");
+	eprintf_default("\n");
 
 	log_setlevel(LEVEL_FATAL);
 	log_fatal("Fatal");
@@ -44,14 +50,4 @@ void test_log(enum TEST_STATUS* status){
 
 cleanup:
 	;
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_return_ifnull),
-		MAKE_TEST(test_log)
-	};
-
-	START_TESTS(tests);
-	return 0;
 }

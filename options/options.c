@@ -783,3 +783,19 @@ cleanup:
 	free(config_filename);
 	return ret;
 }
+
+const char* operation_tostring(enum OPERATION op){
+	switch (op){
+	case OP_BACKUP:
+		return "Backup";
+	case OP_RESTORE:
+		return "Restore";
+	case OP_CONFIGURE:
+		return "Configure";
+	case OP_EXIT:
+		return "Exit";
+	default:
+		log_einval_u(op);
+		return NULL;
+	}
+}

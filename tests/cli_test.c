@@ -6,12 +6,18 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "test_base.h"
+#include "cli_test.h"
 #include "../log.h"
 #include "../cli.h"
 #include <stdlib.h>
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
+
+const struct unit_test cli_tests[] = {
+	MAKE_TEST_RU(test_display_dialog),
+	MAKE_TEST_RU(test_display_menu)
+};
+MAKE_PKG(cli_tests, cli_pkg);
 
 void test_display_dialog(enum TEST_STATUS* status){
 	const char* choices[] = {
@@ -62,15 +68,4 @@ cleanup:
 		free(choices[i]);
 	}
 	free(choices);
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_display_dialog),
-		MAKE_TEST(test_display_menu)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

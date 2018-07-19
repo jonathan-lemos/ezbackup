@@ -1,7 +1,20 @@
-#include "test_base.h"
+/* coredumps_test.c
+ *
+ * Copyright (c) 2018 Jonathan Lemos
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file for details.
+ */
+
+#include "coredumps_test.h"
 #include "../coredumps.h"
 #include "../log.h"
 #include <sys/resource.h>
+
+const struct unit_test coredumps_tests[] = {
+	MAKE_TEST(test_coredumps)
+};
+MAKE_PKG(coredumps_tests, coredumps_pkg);
 
 void test_coredumps(enum TEST_STATUS* status){
 	struct rlimit rl;
@@ -16,14 +29,4 @@ void test_coredumps(enum TEST_STATUS* status){
 
 cleanup:
 	;
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_coredumps)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

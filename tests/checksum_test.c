@@ -1,4 +1,4 @@
-/* test_checksum.c -- tests checksum.c
+/* checksum_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -6,10 +6,10 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
+#include "checksum_test.h"
 #include "../checksum.h"
 #include "../checksumsort.h"
 #include "../log.h"
-#include "test_base.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -17,6 +17,15 @@ static const char* const sample_file = "test.txt";
 static const unsigned char sample_data[] = {'t', 'e', 's', 't'};
 static const unsigned char sample_sha1[] = { 0xA9, 0x4A, 0x8F, 0xE5, 0xCC, 0xB1, 0x9B, 0xA6, 0x1C, 0x4C, 0x08, 0x73, 0xD3, 0x91, 0xE9, 0x87, 0x98, 0x2F, 0xBB, 0xD3 };
 static const char sample_sha1_str[] = "A94A8FE5CCB19BA61C4C0873D391E987982FBBD3";
+
+const struct unit_test checksum_tests[] = {
+	MAKE_TEST(test_bytes_to_hex),
+	MAKE_TEST(test_checksum),
+	MAKE_TEST(test_sort_checksum_file),
+	MAKE_TEST(test_search_for_checksum),
+	MAKE_TEST(test_create_removed_list)
+};
+MAKE_PKG(checksum_tests, checksum_pkg);
 
 /* bytes_to_hex() */
 void test_bytes_to_hex(enum TEST_STATUS* status){
@@ -301,18 +310,4 @@ cleanup:
 	cleanup_test_environment(path, files);
 	remove(fp1str);
 	remove(fp2str);
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_bytes_to_hex),
-		MAKE_TEST(test_checksum),
-		MAKE_TEST(test_sort_checksum_file),
-		MAKE_TEST(test_search_for_checksum),
-		MAKE_TEST(test_create_removed_list)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

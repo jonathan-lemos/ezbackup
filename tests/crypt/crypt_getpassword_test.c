@@ -1,4 +1,4 @@
-/* crypt_test.c
+/* crypt_getpassword_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -6,9 +6,14 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "../test_base.h"
+#include "crypt_getpassword_test.h"
 #include "../../crypt/crypt_getpassword.h"
 #include "../../log.h"
+
+const struct unit_test crypt_getpassword_tests[] = {
+	MAKE_TEST_RU(test_crypt_getpassword)
+};
+MAKE_PKG(crypt_getpassword_tests, crypt_getpassword_pkg);
 
 void test_crypt_getpassword(enum TEST_STATUS* status){
 	char* pw = NULL;
@@ -26,14 +31,4 @@ void test_crypt_getpassword(enum TEST_STATUS* status){
 
 cleanup:
 	pw ? crypt_freepassword(pw) : (void)0;
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_crypt_getpassword)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

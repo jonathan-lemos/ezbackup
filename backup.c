@@ -139,7 +139,7 @@ static int copy_single_file(const char* file, const char* file_dir, const char* 
 		goto cleanup;
 	}
 
-	if (opt->enc_algorithm && easy_encrypt_inplace(path_files, opt->enc_algorithm, opt->flags.bits.flag_verbose, opt->enc_password) != 0){
+	if (opt->enc_algorithm && easy_encrypt_inplace(path_files, EVP_CIPHER_name(opt->enc_algorithm), opt->flags.bits.flag_verbose, opt->enc_password) != 0){
 		log_error("Failed to encrypt file");
 		ret = -1;
 		goto cleanup;

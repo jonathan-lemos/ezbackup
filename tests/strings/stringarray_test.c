@@ -6,7 +6,7 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "../test_base.h"
+#include "stringarray_test.h"
 #include "../../strings/stringarray.h"
 #include "../../strings/stringhelper.h"
 #include "../../log.h"
@@ -15,6 +15,19 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <errno.h>
+
+const struct unit_test stringarray_tests[] = {
+	MAKE_TEST(test_sa_add),
+	MAKE_TEST(test_sa_insert),
+	MAKE_TEST(test_sa_contains),
+	MAKE_TEST(test_sa_sanitize_directories),
+	MAKE_TEST(test_sa_sort),
+	MAKE_TEST(test_sa_cmp),
+	MAKE_TEST(test_sa_get_parent_dirs),
+	MAKE_TEST(test_sa_to_raw_array),
+	MAKE_TEST(test_sa_merge)
+};
+MAKE_PKG(stringarray_tests, stringarray_pkg);
 
 void test_sa_add(enum TEST_STATUS* status){
 	struct string_array* sa = NULL;
@@ -221,22 +234,4 @@ void test_sa_merge(enum TEST_STATUS* status){
 cleanup:
 	sa1 ? sa_free(sa1) : (void)0;
 	sa2 ? sa_free(sa2) : (void)0;
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_sa_add),
-		MAKE_TEST(test_sa_insert),
-		MAKE_TEST(test_sa_contains),
-		MAKE_TEST(test_sa_sanitize_directories),
-		MAKE_TEST(test_sa_sort),
-		MAKE_TEST(test_sa_cmp),
-		MAKE_TEST(test_sa_get_parent_dirs),
-		MAKE_TEST(test_sa_to_raw_array),
-		MAKE_TEST(test_sa_merge)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

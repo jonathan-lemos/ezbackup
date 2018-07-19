@@ -8,6 +8,7 @@
 
 #ifndef NO_LZ4_SUPPORT
 
+#define __ZIP_INTERNAL
 #include "zip_lz4.h"
 #include "zip.h"
 #include "../log.h"

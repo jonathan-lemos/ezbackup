@@ -1,4 +1,4 @@
-/* test_options.c -- tests options.c
+/* options_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -6,19 +6,25 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "../test_base.h"
+#include "options_test.h"
 #include "../../log.h"
 #include "../../options/options.h"
 #include "../../strings/stringhelper.h"
 #include <stdlib.h>
 #include <string.h>
 
+const struct unit_test options_tests[] = {
+	MAKE_TEST(test_parse_options_cmdline),
+	MAKE_TEST(test_parse_options_fromfile),
+};
+MAKE_PKG(options_tests, options_pkg);
+
 static struct options* sample_options(void){
 	struct options* opt;
 
 	opt = options_new();
 	if (!opt){
-		log_red("Failed to make new options object");
+		eprintf_red("Failed to make new options object");
 		return NULL;
 	}
 
@@ -118,15 +124,4 @@ cleanup:
 	opt ? options_free(opt) : (void)0;
 	opt_read ? options_free(opt_read) : (void)0;
 	remove(file);
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_parse_options_cmdline),
-		MAKE_TEST(test_parse_options_fromfile),
-	};
-	log_setlevel(LEVEL_INFO);
-
-	START_TESTS(tests);
-	return 0;
 }

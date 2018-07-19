@@ -6,11 +6,18 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "test_base.h"
+#include "fileiterator_test.h"
 #include "../fileiterator.h"
 #include "../log.h"
 #include <stdlib.h>
 #include <string.h>
+
+const struct unit_test fileiterator_tests[] = {
+	MAKE_TEST_RU(test_fi_normal),
+	MAKE_TEST_RU(test_fi_skip_dir),
+	MAKE_TEST_RU(test_fi_fail)
+};
+MAKE_PKG(fileiterator_tests, fileiterator_pkg);
 
 void test_fi_normal(enum TEST_STATUS* status){
 	struct fi_stack* fis = NULL;
@@ -89,17 +96,4 @@ void test_fi_fail(enum TEST_STATUS* status){
 
 cleanup:
 	;
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_fi_normal),
-		MAKE_TEST(test_fi_skip_dir),
-		MAKE_TEST(test_fi_fail)
-	};
-
-	log_setlevel(LEVEL_DEBUG);
-
-	START_TESTS(tests);
-	return 0;
 }

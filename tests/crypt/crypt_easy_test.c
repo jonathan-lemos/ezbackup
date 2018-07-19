@@ -6,11 +6,17 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "../test_base.h"
+#include "crypt_easy_test.h"
 #include "../../crypt/crypt_easy.h"
 #include "../../log.h"
 #include <stdlib.h>
 #include <string.h>
+
+const struct unit_test crypt_easy_tests[] = {
+	MAKE_TEST(test_easy_encrypt),
+	MAKE_TEST(test_easy_encrypt_inplace),
+};
+MAKE_PKG(crypt_easy_tests, crypt_easy_pkg);
 
 void test_easy_encrypt(enum TEST_STATUS* status){
 	const char* file = "file.txt";
@@ -21,8 +27,8 @@ void test_easy_encrypt(enum TEST_STATUS* status){
 	fill_sample_data(data, sizeof(data));
 	create_file(file, data, sizeof(data));
 
-	TEST_ASSERT(easy_encrypt(file, file_crypt, EVP_aes_256_cbc(), 1, "hunter2") == 0);
-	TEST_ASSERT(easy_decrypt(file_crypt, file_decrypt, EVP_aes_256_cbc(), 1, "hunter2") == 0);
+	TEST_ASSERT(easy_encrypt(file, file_crypt, "AES_256_CBC", 1, "hunter2") == 0);
+	TEST_ASSERT(easy_decrypt(file_crypt, file_decrypt, "AES_256_CBC", 1, "hunter2") == 0);
 	TEST_ASSERT(memcmp_file_file(file, file_decrypt) == 0);
 
 cleanup:
@@ -38,20 +44,9 @@ void test_easy_encrypt_inplace(enum TEST_STATUS* status){
 	fill_sample_data(data, sizeof(data));
 	create_file(file, data, sizeof(data));
 
-	TEST_ASSERT(easy_encrypt_inplace(file, EVP_aes_256_cbc(), 1, "hunter2") == 0);
-	TEST_ASSERT(easy_decrypt_inplace(file, EVP_aes_256_cbc(), 1, "hunter2") == 0);
+	TEST_ASSERT(easy_encrypt_inplace(file, "AES-256-CBC", 1, "hunter2") == 0);
+	TEST_ASSERT(easy_decrypt_inplace(file, "AES-256-CBC", 1, "hunter2") == 0);
 
 cleanup:
 	remove(file);
-}
-
-int main(void){
-	struct unit_test tests[] = {
-		MAKE_TEST(test_easy_encrypt),
-		MAKE_TEST(test_easy_encrypt_inplace)
-	};
-
-	log_setlevel(LEVEL_INFO);
-	START_TESTS(tests);
-	return 0;
 }

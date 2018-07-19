@@ -1,4 +1,4 @@
-/* test_base.c -- helper functions for tests
+/* test_framework.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -6,7 +6,7 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-#include "test_base.h"
+#include "test_framework.h"
 #include "../log.h"
 #include <string.h>
 #include <errno.h>
@@ -23,6 +23,7 @@
 #define YELLOW_STR "\033[93m"
 #define GREEN_STR "\033[92m"
 #define BLUE_STR "\033[94m"
+#define NORMAL_STR "\033[m"
 
 #elif defined (DISABLE_COLORS)
 
@@ -30,6 +31,7 @@
 #define YELLOW_STR ""
 #define GREEN_STR ""
 #define BLUE_STR ""
+#define NORMAL_STR "\033[m"
 
 #else
 
@@ -37,10 +39,9 @@
 #define YELLOW_STR "\033[33m"
 #define GREEN_STR "\033[32m"
 #define BLUE_STR "\033[36m"
+#define NORMAL_STR "\033[m"
 
 #endif
-
-#define NORMAL_STR "\033[m"
 
 #define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
 
@@ -90,11 +91,11 @@ static void internal_error_if_false(int condition, const char* file, int line, c
 		return;
 	}
 
-	log_red("INTERNAL ERROR (%s:%d): %s", file, line, str_condition);
+	eprintf_red("INTERNAL ERROR (%s:%d): %s", file, line, str_condition);
 	if (msg){
-		log_red(" (%s)", msg);
+		eprintf_red(" (%s)", msg);
 	}
-	log_red("\n");
+	eprintf_red("\n");
 	abort();
 }
 #define INTERNAL_ERROR_IF_FALSE(condition) internal_error_if_false((intptr_t)(condition), __FILE__, __LINE__, #condition, NULL)
@@ -114,33 +115,33 @@ static void sig_longjmp(int signo){
 
 static void handle_signal(void){
 	switch (s_last_signal){
-	/* SIGABRT == serious error
-	 * no use trying to recover here
-	 *
-	 * furthermore, not exiting after SIGABRT causes assert() to not exit the program */
+		/* SIGABRT == serious error
+		 * no use trying to recover here
+		 *
+		 * furthermore, not exiting after SIGABRT causes assert() to not exit the program */
 	case SIGABRT:
-		log_red("SIGABRT sent to program. Exiting\n");
+		eprintf_red("SIGABRT sent to program. Exiting\n");
 		exit(1);
 		break;
-	/* catches segfaults
-	 *
-	 * hopefully the heap is still in good condition when we do this
-	 * otherwise the program will crash very soon after we handle this signal */
+		/* catches segfaults
+		 *
+		 * hopefully the heap is still in good condition when we do this
+		 * otherwise the program will crash very soon after we handle this signal */
 	case SIGSEGV:
-		log_red("Caught signal SIGSEGV\n");
+		eprintf_red("Caught signal SIGSEGV\n");
 		break;
-	/* catches ctrl+c
-	 *
-	 * ctrl+c means the user wants to exit, so we let them */
+		/* catches ctrl+c
+		 *
+		 * ctrl+c means the user wants to exit, so we let them */
 	case SIGINT:
-		log_yellow("SIGINT sent to program. Exiting\n");
+		eprintf_yellow("SIGINT sent to program. Exiting\n");
 		exit(0);
 		break;
-	/* no signal */
+		/* no signal */
 	case 0:
 		break;
 	default:
-		log_blue("Caught signal %d\n", s_last_signal);
+		eprintf_blue("Caught signal %d\n", s_last_signal);
 		exit(0);
 		break;
 	}
@@ -174,49 +175,49 @@ static void handle_signal(void){
  * 	vfprintf_color(pc, stream, format, ap);
  * 	va_end(ap);
  * }
-*/
+ */
 
-void log_red(const char* format, ...){
+void eprintf_red(const char* format, ...){
 	va_list ap;
 	va_start(ap, format);
 	vfprintf_color(COLOR_RED, stderr, format, ap);
 	va_end(ap);
 }
 
-void log_yellow(const char* format, ...){
+void eprintf_yellow(const char* format, ...){
 	va_list ap;
 	va_start(ap, format);
 	vfprintf_color(COLOR_YELLOW, stderr, format, ap);
 	va_end(ap);
 }
 
-void log_green(const char* format, ...){
+void eprintf_green(const char* format, ...){
 	va_list ap;
 	va_start(ap, format);
 	vfprintf_color(COLOR_GREEN, stderr, format, ap);
 	va_end(ap);
 }
 
-void log_blue(const char* format, ...){
+void eprintf_blue(const char* format, ...){
 	va_list ap;
 	va_start(ap, format);
 	vfprintf_color(COLOR_BLUE, stderr, format, ap);
 	va_end(ap);
 }
 
-void log_default(const char* format, ...){
+void eprintf_default(const char* format, ...){
 	va_list ap;
 	va_start(ap, format);
 	vfprintf_color(COLOR_NONE, stderr, format, ap);
 	va_end(ap);
 }
 
-int test_assert(int condition, const char* file, int line, const char* msg){
+int test_assert(intptr_t condition, const char* file, int line, const char* msg){
 	if (condition){
 		return 0;
 	}
 
-	log_red("Assertion Failed (%s:%d): %s\n", file, line, msg);
+	eprintf_red("Assertion Failed (%s:%d): %s\n", file, line, msg);
 	return 1;
 }
 
@@ -236,7 +237,7 @@ void set_signal_handler(void){
 	/* need a default landing point for signal handler's longjmp */
 	if (setjmp(s_jumpbuffer)){
 		handle_signal();
-		log_yellow("A setjmp() location was not specified, so the program cannot continue");
+		eprintf_yellow("A setjmp() location was not specified, so the program cannot continue\n");
 		exit(1);
 	}
 }
@@ -297,7 +298,7 @@ int memcmp_file_file(const char* file1, const char* file2){
 	do{
 		c1 = fgetc(fp1);
 		c2 = fgetc(fp2);
-	/* don't need to check c2 != EOF since c1 == c2 will catch it */
+		/* don't need to check c2 != EOF since c1 == c2 will catch it */
 	}while (c1 == c2 && c1 != EOF);
 
 	fclose(fp1);
@@ -644,43 +645,64 @@ void fill_sample_data(unsigned char* data, size_t len){
 	}
 }
 
-int run_tests(const struct unit_test* tests, size_t len){
+int run_pkgs(const struct test_pkg** pkgs, size_t pkgs_len, unsigned flags){
+	size_t n_succeeded = 0;
+	size_t n_failed = 0;
+	size_t n_total = 0;
 	size_t i;
-	int n_succeeded = 0;
-	int n_failed = 0;
-	for (i = 0; i < len; ++i){
-		enum TEST_STATUS status = TEST_SUCCESS;
-		/* if a test sends a signal, execution will jump here */
-		if (setjmp(s_jumpbuffer)){
-			/* take appropriate action based on the signal */
-			handle_signal();
-			log_red("Test %lu of %lu (%s) crashed\n", i + 1, len, tests[i].func_name);
-			n_failed++;
+
+	set_signal_handler();
+
+	for (i = 0; i < pkgs_len; ++i){
+		size_t j;
+		eprintf_yellow("Opening package %lu of %lu (%s)\n", (unsigned long)(i + 1), (unsigned long)pkgs_len, pkgs[i]->name);
+
+		for (j = 0; j < pkgs[i]->tests_len; ++j){
+			enum TEST_STATUS status = TEST_SUCCESS;
+			if (flags & RT_NO_RU_TESTS && pkgs[i]->tests[j].requires_user){
+				continue;
+			}
+			if (flags & RT_NO_NONRU_TESTS && !pkgs[i]->tests[j].requires_user){
+				continue;
+			}
+			n_total++;
+			/* if a test sends a signal, execution will jump here */
+			if (setjmp(s_jumpbuffer)){
+				/* take appropriate action based on the signal */
+				handle_signal();
+				eprintf_red("Test %lu of %lu (%s) crashed\n", (unsigned long)(j + 1), (unsigned long)(pkgs[i]->tests_len), pkgs[i]->tests[j].func_name);
+				n_failed++;
+				printf("\n");
+				continue;
+			}
+			/* execute the test and see if it returns TEST_SUCCESS or not */
+			eprintf_blue("Starting test %lu of %lu (%s)\n", (unsigned long)(j + 1), (unsigned long)(pkgs[i]->tests_len), pkgs[i]->tests[j].func_name);
+			pkgs[i]->tests[j].func(&status);
+			if (status == TEST_SUCCESS){
+				eprintf_green("Test %lu of %lu (%s) succeeded\n", (unsigned long)(j + 1), (unsigned long)(pkgs[i]->tests_len), pkgs[i]->tests[j].func_name);
+				n_succeeded++;
+			}
+			else{
+				eprintf_red("Test %lu of %lu (%s) failed\n", (unsigned long)(j + 1), (unsigned long)(pkgs[i]->tests_len), pkgs[i]->tests[j].func_name);
+				n_failed++;
+			}
+
 			printf("\n");
-			continue;
-		}
-		/* execute the test and see if it returns TEST_SUCCESS or not */
-		log_blue("Starting test %lu of %lu (%s)\n", i + 1, len, tests[i].func_name);
-		tests[i].func(&status);
-		if (status == TEST_SUCCESS){
-			log_green("Test %lu of %lu (%s) succeeded\n", i + 1, len, tests[i].func_name);
-			n_succeeded++;
-		}
-		else{
-			log_red("Test %lu of %lu (%s) failed\n", i + 1, len, tests[i].func_name);
-			n_failed++;
 		}
 
-		printf("\n");
+		eprintf_yellow("Finished package %lu of %lu (%s)\n\n", (unsigned long)(i + 1), (unsigned long)pkgs_len, pkgs[i]->name);
 	}
 	printf("Results: \n");
-	log_green("%d of %lu succeeded.\n", n_succeeded, len);
-	n_failed == 0 ? log_blue("%d of %lu failed.\n", n_failed, len) : log_red("%d of %lu failed.\n", n_failed, len);
+	eprintf_green("%lu of %lu succeeded.\n", (unsigned long)n_succeeded, (unsigned long)n_total);
+	n_failed == 0 ? eprintf_blue("%lu of %lu failed.\n", (unsigned long)n_failed, (unsigned long)n_total) : eprintf_red("%d of %lu failed.\n", (unsigned long)n_failed, (unsigned long)n_total);
 	/* returns 0 if no failures */
 	return n_failed;
 }
 
-/* asks for yes/no. returns 0 if yes and 1 if no */
+int run_single_pkg(const struct test_pkg* pkg, unsigned flags){
+	return run_pkgs(&pkg, 1, flags);
+}
+
 int pause_yn(const char* prompt){
 	char c;
 	int ret = 1;
@@ -689,7 +711,7 @@ int pause_yn(const char* prompt){
 		prompt = "Yes or no (Y/N)?";
 	}
 
-	log_default("%s", prompt);
+	eprintf_default("%s", prompt);
 	c = getchar();
 
 	switch (c){
@@ -698,7 +720,7 @@ int pause_yn(const char* prompt){
 		ret = 0;
 		break;
 	default:
-		ret = 1;
+		ret = -1;
 	}
 
 	/* clear stdin of any trailing characters */
