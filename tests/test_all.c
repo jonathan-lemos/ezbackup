@@ -28,6 +28,7 @@
 #include "strings/stringhelper_test.h"
 #include <stdlib.h>
 #include <string.h>
+#include "../cli.h"
 
 void register_package(const struct test_pkg* pkg_toreg, const struct test_pkg*** pkg_arr, size_t* pkgs_len){
 	void* tmp;
@@ -35,7 +36,7 @@ void register_package(const struct test_pkg* pkg_toreg, const struct test_pkg***
 	(*pkgs_len)++;
 	tmp = realloc((*pkg_arr), (*pkgs_len) * sizeof(*(*pkg_arr)));
 	if (!tmp){
-		eprintf_red("Fatal error: Failed to allocate memory to register package.\n");
+		eprintf_red("Internal Error: Failed to allocate memory to register package.\n");
 		exit(1);
 	}
 	(*pkg_arr) = tmp;
@@ -64,55 +65,73 @@ void register_all_packages(const struct test_pkg*** pkg_arr, size_t* pkgs_len){
 	register_package(&stringhelper_pkg, pkg_arr, pkgs_len);
 }
 
-void unregister_packages(const struct test_pkg** pkg_arr){
-	free(pkg_arr);
+void add_string_toarr(const char* str, const char*** str_arr, size_t* arr_len){
+	void* tmp;
+
+	(*arr_len)++;
+	tmp = realloc((*str_arr), (*arr_len) * sizeof(**str_arr));
+	if (!tmp){
+		eprintf_red("Internal Error: Failed to allocate requested memory for string array.");
+		exit(1);
+	}
+	*str_arr = tmp;
+	(*str_arr)[(*arr_len) - 1] = str;
 }
 
-int main(int argc, char** argv){
+void display_mm(const struct test_pkg** pkgs, size_t pkgs_len, const struct test_pkg*** out, size_t* out_len, unsigned* out_flags){
+	const char** str_arr = NULL;
+	size_t arr_len = 0;
+	size_t i;
+	int res;
+
+	add_string_toarr("All Tests", &str_arr, &arr_len);
+	add_string_toarr("All Tests (Including RU)", &str_arr, &arr_len);
+	add_string_toarr("Only RU tests", &str_arr, &arr_len);
+	for (i = 0; i < pkgs_len; ++i){
+		add_string_toarr(pkgs[i]->name, &str_arr, &arr_len);
+	}
+
+	res = display_menu(str_arr, arr_len, "Select a test package");
+	if (res < 0){
+		eprintf_red("Internal Error: Invalid menu entry chosen.");
+		exit(1);
+	}
+	switch (res){
+	case 0:
+		*out = pkgs;
+		*out_len = pkgs_len;
+		*out_flags = RT_NO_RU_TESTS;
+		break;
+	case 1:
+		*out = pkgs;
+		*out_len = pkgs_len;
+		*out_flags = RT_NORMAL;
+		break;
+	case 2:
+		*out = pkgs;
+		*out_len = pkgs_len;
+		*out_flags = RT_NO_NONRU_TESTS;
+		break;
+	default:
+		*out = pkgs + (res - 3);
+		*out_len = 1;
+		*out_flags = RT_NORMAL;
+	}
+	free(str_arr);
+}
+
+int main(void){
 	const struct test_pkg** pkgs = NULL;
 	size_t pkgs_len = 0;
-	size_t i;
-	unsigned flags = RT_NO_RU_TESTS;
-	const char* single = NULL;
+	const struct test_pkg** pkgs_run = NULL;
+	size_t pkgs_run_len = 0;
+	unsigned flags = 0;
 	int ret = 0;
 
-	for (i = 1; i < (size_t)argc; ++i){
-		if (strcmp(argv[i], "-include_ru")){
-			flags &= ~(RT_NO_RU_TESTS);
-		}
-		if (strcmp(argv[i], "-no_nonru")){
-			flags |= RT_NO_NONRU_TESTS;
-		}
-		if (strcmp(argv[i], "-single")){
-			i++;
-			single = argv[i];
-		}
-	}
 	register_all_packages(&pkgs, &pkgs_len);
-	if (single){
-		for (i = 0; i < pkgs_len; ++i){
-			if (strcmp(single, pkgs[i]->name)){
-				break;
-			}
-		}
-		if (i >= pkgs_len){
-			run_single_pkg(pkgs[i], flags);
-			unregister_packages(pkgs);
-			goto cleanup;
-		}
-		else{
-			printf("Package %s not found\n", argv[i]);
-			unregister_packages(pkgs);
-			ret = 1;
-			goto cleanup;
-		}
-	}
-	else{
-		run_pkgs(pkgs, pkgs_len, flags);
-		goto cleanup;
-	}
+	display_mm(pkgs, pkgs_len, &pkgs_run, &pkgs_run_len, &flags);
+	run_pkgs(pkgs_run, pkgs_run_len, flags);
 
-cleanup:
-	unregister_packages(pkgs);
+	free(pkgs);
 	return ret;
 }

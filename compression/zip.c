@@ -364,6 +364,7 @@ static int zip_compress_write(FILE* fp_in, struct ZIP_FILE* zfp){
 	int avail_in = 0;
 	int avail_out = 0;
 	int action;
+	int res = 0;
 
 	switch (zfp->c_type){
 #ifndef NO_GZIP_SUPPORT
@@ -400,7 +401,6 @@ static int zip_compress_write(FILE* fp_in, struct ZIP_FILE* zfp){
 
 	do{
 		size_t write_len;
-		int res = 0;
 
 		avail_in = read_file(fp_in, inbuf, sizeof(inbuf));
 		if (avail_in == 0 || feof(fp_in)){
@@ -412,6 +412,9 @@ static int zip_compress_write(FILE* fp_in, struct ZIP_FILE* zfp){
 #endif
 #ifndef NO_BZIP2_SUPPORT
 			case COMPRESSOR_BZIP2:
+				if (res == BZ_STREAM_END){
+					return 0;
+				}
 				action = BZ_FINISH;
 				break;
 #endif
@@ -775,19 +778,19 @@ enum COMPRESSOR get_compressor_byname(const char* name){
 
 const char* compressor_tostring(enum COMPRESSOR c_type){
 	switch (c_type){
-		case COMPRESSOR_GZIP:
-			return "gzip";
-		case COMPRESSOR_BZIP2:
-			return "bzip2";
-		case COMPRESSOR_XZ:
-			return "xz";
-		case COMPRESSOR_LZ4:
-			return "lz4";
-		case COMPRESSOR_NONE:
-			return "none";
-		default:
-			log_einval_u(c_type);
-			return NULL;
+	case COMPRESSOR_GZIP:
+		return "gzip";
+	case COMPRESSOR_BZIP2:
+		return "bzip2";
+	case COMPRESSOR_XZ:
+		return "xz";
+	case COMPRESSOR_LZ4:
+		return "lz4";
+	case COMPRESSOR_NONE:
+		return "none";
+	default:
+		log_einval_u(c_type);
+		return NULL;
 	}
 }
 

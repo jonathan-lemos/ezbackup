@@ -27,8 +27,8 @@ void test_easy_encrypt(enum TEST_STATUS* status){
 	fill_sample_data(data, sizeof(data));
 	create_file(file, data, sizeof(data));
 
-	TEST_ASSERT(easy_encrypt(file, file_crypt, "AES_256_CBC", 1, "hunter2") == 0);
-	TEST_ASSERT(easy_decrypt(file_crypt, file_decrypt, "AES_256_CBC", 1, "hunter2") == 0);
+	TEST_ASSERT(easy_encrypt(file, file_crypt, "AES-256-CBC", 1, "hunter2") == 0);
+	TEST_ASSERT(easy_decrypt(file_crypt, file_decrypt, "AES-256-CBC", 1, "hunter2") == 0);
 	TEST_ASSERT(memcmp_file_file(file, file_decrypt) == 0);
 
 cleanup:
