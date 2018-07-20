@@ -1,4 +1,4 @@
-/* options_menu.h
+/** @file options/options_menu.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

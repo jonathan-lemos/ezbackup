@@ -1,4 +1,4 @@
-/* coredumps.c
+/** @file coredumps.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

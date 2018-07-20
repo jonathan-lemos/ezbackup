@@ -1,4 +1,4 @@
-/* checksum.c
+/** @file checksum.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

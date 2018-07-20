@@ -1,4 +1,4 @@
-/* base16_test.c
+/** @file tests/crypt/base16_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

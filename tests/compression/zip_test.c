@@ -1,4 +1,4 @@
-/* zip_test.c
+/** @file tests/compression/zip_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

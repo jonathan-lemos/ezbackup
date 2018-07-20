@@ -1,4 +1,4 @@
-/* crypt_easy_test.c
+/** @file tests/crypt/crypt_easy_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

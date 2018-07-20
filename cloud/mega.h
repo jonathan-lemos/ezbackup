@@ -1,4 +1,4 @@
-/* mega.h
+/** @file cloud/mega.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -81,6 +81,7 @@ int MEGAreaddir(const char* dir, char*** out, size_t* out_len, MEGAhandle* mh);
  * @param file_path The file or directory to stat.
  *
  * @param out A pointer to a stat structure to fill.
+ * This can be NULL, in which case this function merely checks if the file exists.
  *
  * @param mh A handle returned by MEGAlogin()
  * @see MEGAlogin()
@@ -111,7 +112,7 @@ int MEGArename(const char* _old, const char* _new, MEGAhandle* mh);
  * @param out_file The path on disk to download the file to.
  *
  * @param msg The progress message to display.
- * This argument can be NULL, in which case a standard "Downloading file..." message is displayed.
+ * This argument can be NULL, in which case no progress bar is displayed.
  *
  * @param mh A handle returned by MEGAlogin()
  * @see MEGAlogin()
@@ -132,7 +133,7 @@ int MEGAdownload(const char* download_path, const char* out_file, const char* ms
  * If the directory does not exist, it will be created.
  *
  * @param msg The progress message to display.
- * This argument can be NULL, in which case a standard "Uploading file..." message is displayed.
+ * This argument can be NULL, in which case no progress bar is displayed.
  *
  * @param mh A handle returned by MEGAlogin()
  * @see MEGAlogin()

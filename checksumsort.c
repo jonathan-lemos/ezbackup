@@ -1,4 +1,4 @@
-/* checksumsort.c
+/** @file checksumsort.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

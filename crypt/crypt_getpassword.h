@@ -1,4 +1,4 @@
-/* crypt_getpassword.h
+/** @file crypt/crypt_getpassword.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

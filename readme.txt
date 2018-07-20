@@ -41,3 +41,4 @@ public/private key functionality
 encrypt checksum file/make sure same password is used between backups
 compression progress bars
 free functions safe w/ null
+pthread

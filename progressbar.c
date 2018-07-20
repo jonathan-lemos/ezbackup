@@ -1,4 +1,4 @@
-/* progressbar.c
+/** @file progressbar.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

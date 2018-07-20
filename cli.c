@@ -1,4 +1,4 @@
-/* cli.c
+/** @file cli.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

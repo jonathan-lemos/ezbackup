@@ -1,4 +1,4 @@
-/* zip_lz4.h
+/** @file compression/zip_lz4.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

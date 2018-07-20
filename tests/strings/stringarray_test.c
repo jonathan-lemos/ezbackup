@@ -1,4 +1,4 @@
-/* stringarray_test.c
+/** @file tests/strings/stringarray_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

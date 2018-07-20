@@ -1,4 +1,4 @@
-/* base.h
+/** @file cloud/base.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -73,6 +73,7 @@ int cloud_mkdir_ui(const char* base_dir, char** chosen_dir, struct cloud_data* c
  * @param dir_or_file The directory or file to stat.
  *
  * @param out A pointer to a stat structure to be filled.
+ * This can be NULL, in which case this function merely checks if the directory or file exists.
  *
  * @param cd A cloud data structure returned by cloud_login().
  * @see cloud_login()
@@ -80,6 +81,22 @@ int cloud_mkdir_ui(const char* base_dir, char** chosen_dir, struct cloud_data* c
  * @return 0 on success, negative on failure.
  */
 int cloud_stat(const char* dir_or_file, struct stat* out, struct cloud_data* cd);
+
+/**
+ * @brief Renames a file in a cloud account.
+ *
+ * @param _old The path to the file to be renamed.
+ * This file must exist.
+ *
+ * @param _new The new path for the file.
+ * This destination must not already exist.
+ *
+ * @param cd A cloud data structure returned by cloud_login().
+ * @see cloud_login()
+ *
+ * @return 0 on success, negative on failure.
+ */
+int cloud_rename(const char* _old, const char* _new, struct cloud_data* cd);
 
 /**
  * @brief Uploads a file to a cloud account.

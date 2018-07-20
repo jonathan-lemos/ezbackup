@@ -1,4 +1,4 @@
-/* test_all.c
+/** @file tests/test_all.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

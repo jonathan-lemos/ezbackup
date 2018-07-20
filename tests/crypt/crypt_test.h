@@ -1,4 +1,4 @@
-/* crypt_test.h
+/** @file tests/crypt/crypt_test.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

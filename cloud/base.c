@@ -1,4 +1,4 @@
-/* base.c
+/** @file cloud/base.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -401,6 +401,24 @@ int cloud_stat(const char* dir_or_file, struct stat* out, struct cloud_data* cd)
 		log_error_ex2("%s: Failed to stat %s", cd->name, dir_or_file);
 		return -1;
 	}
+	return 0;
+}
+
+int cloud_rename(const char* _old, const char* _new, struct cloud_data* cd){
+	if (cd->cf->stat(_old, NULL, cd->handle) != 0){
+		log_debug_ex2("%s: File to be renamed (%s) does not exist.", cd->name, _old);
+		return -1;
+	}
+	if (cd->cf->stat(_new, NULL, cd->handle) == 0){
+		log_debug_ex2("%s: Destination of rename (%s) already exists.", cd->name, _new);
+		return -1;
+	}
+
+	if (cd->cf->rename(_old, _new, cd->handle) != 0){
+		log_warning_ex("%s: Failed to rename file", cd->name);
+		return -1;
+	}
+
 	return 0;
 }
 

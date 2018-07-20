@@ -1,4 +1,4 @@
-/* mega.cpp
+/** @file cloud/mega.cpp
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -58,11 +58,15 @@ public:
 				break;
 			}
 			max = st.st_size;
-			p = start_progress(msg, max);
+			if (msg){
+				p = start_progress(msg, max);
+			}
 			break;
 		case mega::MegaTransfer::TYPE_DOWNLOAD:
 			max = transfer->getTotalBytes();
-			p = start_progress(msg, max);
+			if (msg){
+				p = start_progress(msg, max);
+			}
 			break;
 		default:
 			log_warning("MEGA: Could not start progress due to unknown transfer type.");
@@ -72,7 +76,9 @@ public:
 	void onTransferUpdate(mega::MegaApi* mega_api, mega::MegaTransfer* transfer){
 		(void)mega_api;
 
-		set_progress(p, transfer->getTransferredBytes());
+		if (p){
+			set_progress(p, transfer->getTransferredBytes());
+		}
 	}
 
 	void onTransferTemporaryError(mega::MegaApi* mega_api, mega::MegaTransfer* transfer, mega::MegaError* error){
@@ -87,8 +93,10 @@ public:
 		this->error = error->copy();
 		this->transfer = transfer->copy();
 
-		finish_progress(p);
-		p = NULL;
+		if (p){
+			finish_progress(p);
+			p = NULL;
+		}
 
 		{
 			std::unique_lock<std::mutex> lock(m);
@@ -128,7 +136,7 @@ private:
 	mega::MegaTransfer* transfer;
 	std::condition_variable cv;
 	std::mutex m;
-	progress* p;
+	progress* p = NULL;
 	const char* msg;
 };
 
@@ -292,8 +300,13 @@ int MEGAstat(const char* file_path, struct stat* out, MEGAhandle* mh){
 	node = mega_api->getNodeByPath(file_path);
 
 	if (!node){
-		log_error_ex("MEGA: File %s not found", file_path);
+		log_debug_ex("MEGA: File %s not found", file_path);
 		return -1;
+	}
+
+	if (!out){
+		delete node;
+		return 0;
 	}
 
 	out->st_uid = getuid();

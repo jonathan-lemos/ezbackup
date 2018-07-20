@@ -1,4 +1,4 @@
-/* cloud_options_test.c
+/** @file tests/cloud/cloud_options_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

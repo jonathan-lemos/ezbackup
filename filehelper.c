@@ -1,4 +1,4 @@
-/* filehelper.c
+/** @file filehelper.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -245,6 +245,11 @@ int mkdir_recursive(const char* dir){
 	if (!components){
 		log_error("Failed to get parent dirs");
 		return -1;
+	}
+
+	if (directory_exists(dir)){
+		log_info_ex("Directory %s already exists.", dir);
+		return 1;
 	}
 
 	for (i = 0; i < components->len; ++i){

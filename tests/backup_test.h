@@ -1,4 +1,4 @@
-/* backup_test.h
+/** @file tests/backup_test.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

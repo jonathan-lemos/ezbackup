@@ -1,4 +1,4 @@
-/* stringhelper.h -- helper functions for c-strings
+/** @file strings/stringhelper.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

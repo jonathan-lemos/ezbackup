@@ -1,4 +1,4 @@
-/* cli_test.h
+/** @file tests/cli_test.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

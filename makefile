@@ -43,6 +43,10 @@ debug: main.dbg.o $(DBGOBJECTS) $(CXXDBGOBJECTS)
 test: $(TESTOBJECTS) $(TESTCXXOBJECTS) $(DBGOBJECTS) $(CXXDBGOBJECTS)
 	$(CC) -o tests/test_all $(TESTOBJECTS) $(TESTCXXOBJECTS) $(DBGOBJECTS) $(CXXDBGOBJECTS) $(CFLAGS) $(DBGFLAGS) $(LINKFLAGS)
 
+.PHONY: docs
+docs:
+	doxygen Doxyfile
+
 %.o: %.c
 	$(CC) -c -o $@ $< $(CFLAGS) $(RELEASEFLAGS)
 
@@ -57,7 +61,7 @@ test: $(TESTOBJECTS) $(TESTCXXOBJECTS) $(DBGOBJECTS) $(CXXDBGOBJECTS)
 
 .PHONY: clean
 clean:
-	rm -f *.o $(NAME) $(CLEANOBJECTS) $(CLEANCXXOBJECTS) main.c.* vgcore.* $(TESTOBJECTS) $(TESTCXXOBJECTS) tests/*.o cloud/*.o $(DBGOBJECTS) $(OBJECTS)
+	rm -f *.o $(NAME) $(CLEANOBJECTS) $(CLEANCXXOBJECTS) main.c.* vgcore.* $(TESTOBJECTS) $(TESTCXXOBJECTS) tests/*.o cloud/*.o $(DBGOBJECTS) $(OBJECTS) docs/*
 
 .PHONY: linecount
 linecount:

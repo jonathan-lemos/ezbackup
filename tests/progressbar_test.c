@@ -1,4 +1,4 @@
-/* progressbar_test.c
+/** @file tests/progressbar_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

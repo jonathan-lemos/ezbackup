@@ -1,4 +1,4 @@
-/* stringhelper_test.h
+/** @file tests/strings/stringhelper_test.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

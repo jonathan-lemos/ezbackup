@@ -1,4 +1,4 @@
-/* base16.c
+/** @file crypt/base16.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

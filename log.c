@@ -1,4 +1,4 @@
-/* log.c
+/** @file log.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

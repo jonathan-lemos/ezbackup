@@ -1,4 +1,4 @@
-/* log_test.h
+/** @file tests/log_test.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

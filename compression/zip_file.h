@@ -1,4 +1,4 @@
-/* zip_file.h
+/** @file compression/zip_file.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

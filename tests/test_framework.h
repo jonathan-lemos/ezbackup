@@ -1,4 +1,4 @@
-/* test_framework.h
+/** @file tests/test_framework.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

@@ -1,4 +1,4 @@
-/* test_fileiterator.c -- tests fileiterator.c
+/** @file tests/fileiterator_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

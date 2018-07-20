@@ -1,4 +1,4 @@
-/* options_test.c
+/** @file tests/options/options_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

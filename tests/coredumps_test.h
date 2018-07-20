@@ -1,4 +1,4 @@
-/* coredumps_test.h
+/** @file tests/coredumps_test.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

@@ -1,4 +1,4 @@
-/* filehelper.h
+/** @file filehelper.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -36,7 +36,7 @@ struct TMPFILE{
  *
  * Nearly identical to fread(dest, 1, length, fp), but this function contains some extra error checking.
  *
- * @param fp File to read from.
+ * @param fp File to read from.<br>
  * This file must be opened in reading mode.
  *
  * @param dest The destination buffer.
@@ -51,12 +51,12 @@ int read_file(FILE* fp, unsigned char* dest, size_t length);
  * @brief Opens a temporary file.
  * @see struct TMPFILE
  *
- * @return A temporary file structure, or NULL on error.
- * The filename will have the following format:
- * /var/tmp/tmp_XXXXXX
- *
- * The temporary file is not placed directly in /tmp, since many unix systems mount tmp to RAM, preventing excessively large temporary files from being created.
- *
+ * @return A temporary file structure, or NULL on error.<br>
+ * The filename will have the following format:<br>
+ * /var/tmp/tmp_XXXXXX<br>
+ * <br>
+ * The temporary file is not placed directly in /tmp, since many unix systems mount tmp to RAM, preventing excessively large temporary files from being created.<br>
+ * <br>
  * This structure must be temp_fclose()'d when no longer in use.
  * @see temp_fclose()
  */
@@ -132,13 +132,14 @@ int copy_file(const char* _old, const char* _new);
 /**
  * @brief Moves a file.
  *
- * This function works instantly if the source and destination are on the same disk.
- * Otherwise, it has to copy the file and then remove the old one.
+ * This function works instantly if the source and destination are on the same disk.<br>
+ * Otherwise, it has to copy the file and then remove the old one.<br>
  *
  * @param _old The file to rename.
+ *
  * @param _new The file's new path.
  *
- * @return 0 on success, or negative on failure.
+ * @return 0 on success, or negative on failure.<br>
  * On failure, the old file is unmoved.
  */
 int rename_file(const char* _old, const char* _new);
@@ -166,7 +167,7 @@ int file_exists(const char* path);
  *
  * @param The directory to create.
  *
- * @return 0 on success or if the directory already exists, or negative on failure.
+ * @return 0 on success, positive if the directory already exists, or negative on failure.
  */
 int mkdir_recursive(const char* dir);
 

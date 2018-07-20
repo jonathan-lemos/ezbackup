@@ -1,4 +1,4 @@
-/* log.h
+/** @file log.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -25,10 +25,9 @@ enum LOG_LEVEL{
 
 /**
  * @brief Sets the current logging level.
- * All messages greater than the current level are silenced.
- *
+ * All messages greater than the current level are silenced.<br>
  * This function is not thread-safe.
- * TODO: Make this thread-safe if I ever add multithreading to this program.
+ * @see enum LOG_LEVEL
  *
  * @param level The logging level to set.
  *
@@ -41,8 +40,11 @@ void log_setlevel(enum LOG_LEVEL level);
  * Do not call this function directly. Use one of the macros provided by this library.
  *
  * @param file The file where the error takes place.
+ *
  * @param line The line where the error takes place.
+ *
  * @param level The logging level of the current entry.
+ *
  * @param format A printf format string.
  *
  * @return void
@@ -99,6 +101,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
+ *
  * @param strerr The printf parameter.
  *
  * @return void
@@ -110,6 +113,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
+ *
  * @param strerr The printf parameter.
  *
  * @return void
@@ -121,6 +125,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
+ *
  * @param strerr The printf parameter.
  *
  * @return void
@@ -132,6 +137,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
+ *
  * @param strerr The printf parameter.
  *
  * @return void
@@ -143,6 +149,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
+ *
  * @param strerr The printf parameter.
  *
  * @return void
@@ -154,7 +161,9 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
+ *
  * @param file The first printf parameter.
+ *
  * @param strerr The second printf parameter.
  *
  * @return void
@@ -166,7 +175,9 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
+ *
  * @param file The first printf parameter.
+ *
  * @param strerr The second printf parameter.
  *
  * @return void
@@ -178,7 +189,9 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
+ *
  * @param file The first printf parameter.
+ *
  * @param strerr The second printf parameter.
  *
  * @return void
@@ -190,7 +203,9 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
+ *
  * @param file The first printf parameter.
+ *
  * @param strerr The second printf parameter.
  *
  * @return void
@@ -202,7 +217,9 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
+ *
  * @param file The first printf parameter.
+ *
  * @param strerr The second printf parameter.
  *
  * @return void

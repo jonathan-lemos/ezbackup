@@ -1,4 +1,4 @@
-/* fileiterator.h
+/** @file fileiterator.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -10,12 +10,12 @@
 #define __FILE_ITERATOR_H
 
 /**
- * @brief Starts iterating through files in a directory.
+ * @brief Starts iterating through files in a directory.<br>
  * If there are any subdirectories, their files/directories will also be recursively iterated through.
  *
  * @param The directory to start iterating in.
  *
- * @return A structure needed for the other fileiterator functions.
+ * @return A structure needed for the other fileiterator functions.<br>
  * This structure must be freed with fi_end() when no longer needed.
  * @see fi_next()
  * @see fi_end()

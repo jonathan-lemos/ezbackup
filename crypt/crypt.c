@@ -1,4 +1,4 @@
-/* crypt.c
+/** @file crypt/crypt.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

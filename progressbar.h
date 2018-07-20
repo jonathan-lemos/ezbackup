@@ -1,4 +1,4 @@
-/* progressbar.h
+/** @file progressbar.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -12,22 +12,26 @@
 #include <stdint.h>
 #include <time.h>
 
+/**
+ * @brief A progress bar structure.
+ */
 struct progress{
-	const char* text;
-	uint64_t    count;
-	uint64_t    max;
-	time_t      time_prev;
+	const char* text;      /**< The message to display above the progress bar. */
+	uint64_t    count;     /**< The current progress level. */
+	uint64_t    max;       /**< The maximum progress level. */
+	time_t      time_prev; /**< The current time. This is used to make sure the progressbar only updates once per second. */
 };
 
 /**
  * @brief Starts a progress bar on stdout.
  *
- * This progress bar is not thread-safe if those other threads write to stdout.
+ * This progress bar is not thread-safe if other threads write to stdout.
  *
  * @param text The message of the progress bar.
+ *
  * @param max The maximum value of the progress bar.
  *
- * @return A progress bar structure.
+ * @return A progress bar structure.<br>
  * This progress bar must be freed with finish_progress() or finish_progress_fail() when it is no longer needed.
  * @see finish_progress()
  * @see finish_progress_fail()
@@ -38,6 +42,7 @@ struct progress* start_progress(const char* text, uint64_t max);
  * @brief Increments the progress in a progress bar.
  *
  * @param p A progress bar structure.
+ *
  * @param count The amount to increment the progress by.
  *
  * @return void
@@ -48,6 +53,7 @@ void inc_progress(struct progress* p, uint64_t count);
  * @brief Sets the progress in a progress bar to a specified value.
  *
  * @param p A progress bar structure.
+ *
  * @param count The value to set the progress bar to.
  *
  * @return void

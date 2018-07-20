@@ -1,4 +1,4 @@
-/* options_menu.c
+/** @file options/options_menu.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

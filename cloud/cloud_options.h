@@ -1,4 +1,4 @@
-/* cloud_options.h
+/** @file cloud/cloud_options.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

@@ -1,4 +1,4 @@
-/* filehelper_test.c
+/** @file tests/filehelper_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

@@ -1,4 +1,4 @@
-/* stringarray.h
+/** @file strings/stringarray.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

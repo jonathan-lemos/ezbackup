@@ -1,4 +1,4 @@
-/* base_test.c
+/** @file tests/cloud/base_test.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

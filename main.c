@@ -1,4 +1,4 @@
-/* main.c
+/** @file main.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

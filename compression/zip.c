@@ -1,4 +1,4 @@
-/* zip.c
+/** @file compression/zip.c
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
