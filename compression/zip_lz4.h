@@ -13,7 +13,9 @@
 #error "Include zip.h, not zip_lz4.h"
 #endif
 
-int lz4_compress(const char* infile, const char* outfile, int compression_level, unsigned flags);
-int lz4_decompress(const char* infile, const char* outfile, unsigned flags);
+#include "zip.h"
+
+int lz4_compress(const char* infile, const char* outfile, int compression_level, enum lz4_flags flags);
+int lz4_decompress(const char* infile, const char* outfile, enum lz4_flags flags);
 
 #endif

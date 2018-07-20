@@ -94,7 +94,7 @@ static int lz4_compress_write(FILE* fp_in, FILE* fp_out, int compression_level, 
 	return 0;
 }
 
-int lz4_compress(const char* infile, const char* outfile, int compression_level, unsigned flags){
+int lz4_compress(const char* infile, const char* outfile, int compression_level, enum lz4_flags flags){
 	FILE* fp_in = NULL;
 	FILE* fp_out = NULL;
 	LZ4F_compressionContext_t ctx = NULL;
@@ -244,7 +244,7 @@ static int lz4_decompress_read(FILE* fp_in, FILE* fp_out, LZ4F_dctx* dctx){
 	return 0;
 }
 
-int lz4_decompress(const char* infile, const char* outfile, unsigned flags){
+int lz4_decompress(const char* infile, const char* outfile, enum lz4_flags flags){
 	FILE* fp_in = NULL;
 	FILE* fp_out = NULL;
 	LZ4F_dctx* dctx = NULL;

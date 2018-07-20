@@ -15,9 +15,9 @@
 
 /**
  * @brief The MEGA API key to use.
- * You must generate your own MEGA API key for use with this program.
- * You can create one <a href=https://mega.nz/sdk>here</a>.
- *
+ * You must generate your own MEGA API key for use with this program.<br>
+ * You can create one <a href=https://mega.nz/sdk>here</a>.<br>
+ * <br>
  * Once this is done, create a file called "keys.c" that defines this constant like so:<br>
  * `const char* const MEGA_API_KEY = "ABCDEFGH";`
  */
@@ -25,9 +25,9 @@ extern const char* const MEGA_API_KEY;
 
 /**
  * @brief The MEGA sample username to use.
- * You must generate your own MEGA account for use with this program.
- * You can create one <a href=https://mega.nz/register>here</a>.
- *
+ * You must generate your own MEGA account for use with this program.<br>
+ * You can create one <a href=https://mega.nz/register>here</a>.<br>
+ * <br>
  * Once this is done, create a file called "keys.c" that defines this constant like so:<br>
  * `const char* const MEGA_SAMPLE_USERNAME = "johndoe@example.com";`
  */
@@ -35,8 +35,8 @@ extern const char* const MEGA_SAMPLE_USERNAME;
 
 /**
  * @brief The MEGA sample password to use.
- * You must generate your own MEGA account for use with this program.
- * You can create one <a href=https://mega.nz/register>here</a>.
+ * You must generate your own MEGA account for use with this program.<br>
+ * You can create one <a href=https://mega.nz/register>here</a>.<br>
  *
  * Once this is done, create a file called "keys.c" that defines this constant like so:<br>
  * `const char* const MEGA_SAMPLE_PASSWORD = "hunter2";`

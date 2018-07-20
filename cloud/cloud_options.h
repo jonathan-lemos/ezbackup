@@ -25,19 +25,19 @@ struct cloud_options{
 	/** @brief The cloud service to use */
 	enum CLOUD_PROVIDER cp;
 	/** @brief The account's username/email (optional).
-	 * If this string is NULL, it will be asked for upon login.
+	 * If this string is NULL, it will be asked for upon login.<br>
 	 * This string must be dynamically allocated or set through co_set_username().
 	 * @see co_set_username()
 	 */
 	char* username;
 	/** @brief The account's password (optional).
-	 * If this string is NULL, it will be asked for upon login.
+	 * If this string is NULL, it will be asked for upon login.<br>
 	 * This string must be dynamically allocated or set through co_set_password().
 	 * @see co_set_password()
 	 */
 	char* password;
 	/** @brief The base directory of the backups.
-	 * If this string is NULL, it will be asked for upon login.
+	 * If this string is NULL, it will be asked for upon login.<br>
 	 * This string must be dynamically allocated or set through co_set_password().
 	 * @see co_set_password()
 	 */
@@ -48,11 +48,11 @@ struct cloud_options{
  * @brief Creates a new cloud options structure.
  * @see struct cloud_options
  *
- * @return A new cloud options structure.
- * Member cp will be set to CLOUD_NONE.
- * Members username and password will be set to NULL.
- * Member upload_directory will be set to "/Backups"
- *
+ * @return A new cloud options structure.<br>
+ * Member cp will be set to CLOUD_NONE.<br>
+ * Members username and password will be set to NULL.<br>
+ * Member upload_directory will be set to "/Backups"<br>
+ * <br>
  * This structure must be freed with co_free() when no longer in use.
  * @see co_free()
  */
@@ -63,7 +63,7 @@ struct cloud_options* co_new(void);
  *
  * @param co The cloud options structure to update.
  *
- * @param username The username to set.
+ * @param username The username to set.<br>
  * This parameter can be NULL.
  *
  * @return 0 on success, or negative on failure.
@@ -75,7 +75,7 @@ int co_set_username(struct cloud_options* co, const char* username);
  *
  * @param co The cloud options structure to update.
  *
- * @param password The password to set.
+ * @param password The password to set.<br>
  * This parameter can be NULL.
  *
  * @return 0 on success, or negative on failure.
@@ -87,7 +87,7 @@ int co_set_password(struct cloud_options* co, const char* password);
  *
  * @param co The cloud options structure to update.
  *
- * @param upload_directory The upload directory to set.
+ * @param upload_directory The upload directory to set.<br>
  * This parameter can be NULL.
  *
  * @return 0 on success, or negative on failure.
@@ -105,7 +105,7 @@ int co_set_default_upload_directory(struct cloud_options* co);
 
 /**
  * @brief Sets the cp field of a cloud_options structure.
- * co_set_cp(co, val) is identical to co->cp = val
+ * co_set_cp(co, val) is identical to co->cp = val<br>
  * This function only exists for completeness with the other functions.
  *
  * @param co The cloud options structure to update.

@@ -36,7 +36,7 @@ struct ZIP_FILE{
 	/* @brief A boolean value that's true if the ZIP_FILE is compressing. */
 	unsigned write;
 	/* @brief An enumeration that shows which compression algorithm is being used. */
-	enum COMPRESSOR c_type;
+	enum compressor c_type;
 	/* @brief A stream that depends on which compression algorithm is being used. */
 	union tag_strm{
 		z_stream zstrm;

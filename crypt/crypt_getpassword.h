@@ -11,16 +11,16 @@
 
 /**
  * @brief Gets a password securely from the terminal.
- * Terminal echo is disabled when the password is being read.
+ * Terminal echo is disabled when the password is being read.<br>
  * Any fragments of the the user's input besides the output are erased from memory.
  *
- * @param prompt The prompt to display to the user.
+ * @param prompt The prompt to display to the user.<br>
  * If this is NULL, a default "Enter password:" prompt is displayed.
  *
- * @param verify_prompt The verification prompt to display to the user.
+ * @param verify_prompt The verification prompt to display to the user.<br>
  * If this is NULL, no verification is asked for.
  *
- * @param out A pointer to a string that will contain the password that the user entered.
+ * @param out A pointer to a string that will contain the password that the user entered.<br>
  * If the user's verification does not match their initial password, or the function fails, this is set to NULL.
  *
  * @return 0 on success, positive if the user's verification does not match their initial password, negative on failure.

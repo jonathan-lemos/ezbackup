@@ -23,7 +23,7 @@ struct string_array{
 /**
  * @brief Creates a blank string array.
  *
- * @return A new string array.
+ * @return A new string array.<br>
  * This array must be freed with sa_free(), sa_to_raw_array(), or sa_merge() when no longer in use.
  * @see sa_free()
  * @see sa_to_raw_array()
@@ -38,7 +38,7 @@ struct string_array* sa_new(void);
  *
  * @param str The string to add.
  *
- * @return 0 on success, or negative on failure.
+ * @return 0 on success, or negative on failure.<br>
  * On failure, the array's contents are unchanged.
  */
 int sa_add(struct string_array* array, const char* str);
@@ -52,7 +52,7 @@ int sa_add(struct string_array* array, const char* str);
  *
  * @param index The index to insert the string into.
  *
- * @return 0 on success, or negative on failure.
+ * @return 0 on success, or negative on failure.<br>
  * On failure, the array's contents are unchanged.
  */
 int sa_insert(struct string_array* array, const char* str, size_t index);
@@ -64,7 +64,7 @@ int sa_insert(struct string_array* array, const char* str, size_t index);
  *
  * @param index The index of the string to remove.
  *
- * @return 0 on success or negative on failure.
+ * @return 0 on success or negative on failure.<br>
  * On failure, the array's contents are unchanged.
  */
 int sa_remove(struct string_array* array, size_t index);
@@ -92,7 +92,7 @@ void sa_sort(struct string_array* array);
 /**
  * @brief Frees all memory associated with a string array.
  *
- * @param array The array to free.
+ * @param array The array to free.<br>
  * This can be NULL, in which case the function does nothing.
  *
  * @return void
@@ -100,7 +100,7 @@ void sa_sort(struct string_array* array);
 void sa_free(struct string_array* array);
 
 /**
- * @brief Compares the contents of two string arrays.
+ * @brief Compares the contents of two string arrays.<br>
  * This function does not care about the order of the strings; it only cares about the contents of the strings.
  *
  * @param sa1 The first string array.
@@ -114,7 +114,7 @@ int sa_cmp(const struct string_array* sa1, const struct string_array* sa2);
 /**
  * @brief Converts a string array to a raw array and length.
  *
- * @param arr The string array to convert.
+ * @param arr The string array to convert.<br>
  * This array will be freed after this function completes and should not be reused.
  *
  * @param out A pointer to a raw string array that will be filled by this function.
@@ -131,11 +131,11 @@ void sa_to_raw_array(struct string_array* arr, char*** out, size_t* out_len);
  *
  * @param dst The array to be merged into.
  *
- * @param src The array that will be merged into the destination array.
- * If the function succeeds, this array will be freed and should not be reused.
+ * @param src The array that will be merged into the destination array.<br>
+ * If the function succeeds, this array will be freed and should not be reused.<br>
  * Otherwise, this array is still valid.
  *
- * @return 0 on success, or negative on failure.
+ * @return 0 on success, or negative on failure.<br>
  * On failure, neither array is changed.
  */
 int sa_merge(struct string_array* dst, struct string_array* src);
@@ -152,8 +152,8 @@ size_t sa_sanitize_directories(struct string_array* array);
 /**
  * @brief Splits a directory into its parent directories (e.g. "/dir1/dir2/dir3" -> {"/dir1", "/dir1/dir2", "/dir1/dir2/dir3"})
  *
- * @param directory The directory to split.
- * This directory does not necessarily have to exist as long as it could be a valid path.
+ * @param directory The directory to split.<br>
+ * This directory does not necessarily have to exist as long as it could be a valid path.<br>
  * The directory may or may not start with a '/' character.
  *
  * @return A string array corresponding to the parent directories, or NULL on failure.

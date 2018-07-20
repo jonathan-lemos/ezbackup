@@ -19,7 +19,7 @@ struct crypt_keys;
 /**
  * @brief Generates a new crypt keys structure.
  *
- * @return A blank crypt keys structure, or NULL on failure.
+ * @return A blank crypt keys structure, or NULL on failure.<br>
  * All values are set to 0 if it succeeds.
  */
 struct crypt_keys* crypt_new(void);
@@ -104,22 +104,22 @@ int crypt_set_salt(const unsigned char salt[8], struct crypt_keys* fk);
 
 /**
  * @brief Generates encryption keys based on a password.
- * This function must be called after crypt_set_encryption().
- * It is highly recommended that this function is called after crypt_gen_salt()/crypt_set_salt(), as this prevents rainbow table attacks against the encrypted file.
+ * This function must be called after crypt_set_encryption().<br>
+ * It is highly recommended that this function is called after crypt_gen_salt() or crypt_set_salt(), as this prevents rainbow table attacks against the encrypted file.<br>
  * Otherwise, the default salt value is all zeroes.
  * @see crypt_set_encryption()
  * @see crypt_gen_salt()
  * @see crypt_set_salt()
  *
- * @param data The data to be used as a password.
+ * @param data The data to be used as a password.<br>
  * This does not have to be a string; it can be any type of data of any length.
  *
  * @param data_len The length of the data to be used as the password.
  *
- * @param md The digest algorithm to be used during password generation.
+ * @param md The digest algorithm to be used during password generation.<br>
  * This parameter can be NULL, in which case SHA256 is used for compatibillity with the openssl command line utility.
  *
- * @param iterations The amount of iterations the password generation utility runs through.
+ * @param iterations The amount of iterations the password generation utility runs through.<br>
  * This must be 1 if compatibillity with the openssl command line utility is required.
  *
  * @param fk A crypt keys structure with its encryption set.
@@ -131,15 +131,15 @@ int crypt_gen_keys(const void* data, int data_len, const EVP_MD* md, int iterati
 
 /**
  * @brief Encrypts a file using a crypt keys structure.
- * This function must be called after crypt_gen_keys().
+ * This function must be called after crypt_gen_keys().<br>
  * @see crypt_gen_keys()
  *
  * @param in Path to a file to be encrypted.
  *
  * @param fk The crypt keys structure to encrypt with.
  *
- * @param out Path to write the encrypted file to.
- * If this file already exists, it will be overwritten.
+ * @param out Path to write the encrypted file to.<br>
+ * If this file already exists, it will be overwritten.<br>
  * If this function fails, the output file is removed.
  *
  * @return 0 on success, or negative on failure.
@@ -148,20 +148,20 @@ int crypt_encrypt(const char* in, struct crypt_keys* fk, const char* out);
 
 /**
  * @brief Encrypts a file using a crypt keys structure and an optional progress bar.
- * This function must be called after crypt_gen_keys().
+ * This function must be called after crypt_gen_keys().<br>
  * @see crypt_gen_keys()
  *
  * @param in Path to a file to be encrypted.
  *
  * @param fk The crypt keys structure to encrypt with.
  *
- * @param out Path to write the encrypted file to.
- * If this file already exists, it will be overwritten.
+ * @param out Path to write the encrypted file to.<br>
+ * If this file already exists, it will be overwritten.<br>
  * If this function fails, the output file is removed.
  *
  * @param verbose 0 if a progress bar should not be displayed. Any other value if it should.
  *
- * @param progress_msg The progress message to display.
+ * @param progress_msg The progress message to display.<br>
  * If this parameter is NULL, a default "Encrypting file..." message is displayed.
  *
  * @return 0 on success, or negative on failure.
@@ -170,7 +170,7 @@ int crypt_encrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int
 
 /**
  * @brief Decrypts a file using a crypt keys structure.
- * This function must be called after crypt_gen_keys() and crypt_extract_salt()
+ * This function must be called after crypt_gen_keys() and crypt_extract_salt()<br>
  * @see crypt_gen_keys()
  * @see crypt_extract_salt()
  *
@@ -178,8 +178,8 @@ int crypt_encrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int
  *
  * @param fk The crypt keys structure to decrypt with.
  *
- * @param out Path to write the decrypted file to.
- * If this file already exists, it will be overwritten.
+ * @param out Path to write the decrypted file to.<br>
+ * If this file already exists, it will be overwritten.<br>
  * If this function fails, the output file is removed.
  *
  * @return 0 on success, or negative on failure.
@@ -196,13 +196,13 @@ int crypt_decrypt(const char* in, struct crypt_keys* fk, const char* out);
  *
  * @param fk The crypt keys structure to decrypt with.
  *
- * @param out Path to write the decrypted file to.
- * If this file already exists, it will be overwritten.
+ * @param out Path to write the decrypted file to.<br>
+ * If this file already exists, it will be overwritten.<br>
  * If this function fails, the output file is removed.
  *
  * @param verbose 0 if a progress bar should not be displayed. Any other value if it should.
  *
- * @param progress_msg The progress message to display.
+ * @param progress_msg The progress message to display.<br>
  * If this parameter is NULL, a default "Decrypting file..." message is displayed.
  *
  * @return 0 on success, or negative on failure.
@@ -233,7 +233,7 @@ void crypt_free(struct crypt_keys* fk);
 
 /**
  * @brief Resets a crypt keys structure for reuse.
- * This also scrubs sensitive data like encryption keys and the initialization vector.
+ * This also scrubs sensitive data like encryption keys and the initialization vector.<br>
  * The resulting crypt keys structure will be identical to one returned by crypt_new()
  * @see crypt_new()
  *

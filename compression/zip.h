@@ -12,7 +12,7 @@
 /**
  * @brief An enumeration that holds the possible compression algorithms
  */
-enum COMPRESSOR{
+enum compressor{
 	/**
 	 * @brief An invalid compressor value.
 	 */
@@ -20,9 +20,9 @@ enum COMPRESSOR{
 #ifndef NO_GZIP_SUPPORT
 	/**
 	 * @brief gzip.
-	 * This is effectively the standard for Linux/OSX compression.
-	 * It is available on almost all Linux/OSX systems by default. Windows users will need to download 7zip to use this algorithm.
-	 *
+	 * This is effectively the standard for Linux/OSX compression.<br>
+	 * It is available on almost all Linux/OSX systems by default. Windows users may need to download 7zip to use this algorithm.<br>
+	 * <br>
 	 * It uses relatively little memory, which makes it great for systems with low amounts of RAM.
 	 */
 	COMPRESSOR_GZIP,
@@ -30,23 +30,25 @@ enum COMPRESSOR{
 #ifndef NO_BZIP2_SUPPORT
 	/**
 	 * @brief bzip2.
-	 * This offers nearly the same compatibillity as gzip while offering higher compression ratios.
-	 * As a downside, it uses more memory and takes longer than gzip.
+	 * This offers nearly the same compatibillity as gzip while offering higher compression ratios.<br>
+	 * As a downside, it uses more memory and takes longer than gzip.<br>
+	 * <br>
+	 * It is available on almost all Linux/OSX systems by default. Windows users may need to download 7zip to use this algorithm.
 	 */
 	COMPRESSOR_BZIP2,
 #endif
 #ifndef NO_XZ_SUPPORT
 	/**
 	 * @brief xz/lzma2.
-	 * This algorithm offers the highest compression ratios while taking the longest time and most memory to compress.
-	 * This is not as ubiquitous as gzip/bzip2, but is still available on a majority of Linux systems by default. Linux users may need to install xz to use this algorithm, while OSX/Windows users will need to download 7zip.
+	 * This algorithm offers the highest compression ratios while taking the longest time and most memory to compress.<br>
+	 * This is not as ubiquitous as gzip/bzip2, but is still available on a majority of Linux systems by default. Linux users may need to install xz to use this algorithm, while OSX/Windows users may need to download 7zip.
 	 */
 	COMPRESSOR_XZ,
 #endif
 #ifndef NO_LZ4_SUPPORT
 	/**
 	 * @brief lz4.
-	 * This algorithm offers decent compression ratios while compressing several times as fast as the other algorithms.
+	 * This algorithm offers decent compression ratios while compressing several times as fast as the other algorithms.<br>
 	 * This algorithm is only included by default on a handful of Linux distros. Linux users will probably need to install lz4 to use this algorithm, while OSX/Windows users will need to download 7zip-ZS (regular 7zip does not have lz4 support).
 	 */
 	COMPRESSOR_LZ4,
@@ -58,59 +60,95 @@ enum COMPRESSOR{
 	COMPRESSOR_NONE
 };
 
-#define GZIP_NORMAL (0x0)       /**< gzip: Do not use any special options. This flag is only valid by itself. */
-#define GZIP_HUFFMAN_ONLY (0x1) /**< gzip: Force Huffman encoding only (no string match). */
-#define GZIP_FILTERED (0x2)     /**< gzip: Input data is filtered (many small values that are somewhat random) */
-#define GZIP_RLE (0x4)          /**< gzip: Force run-length-encoding. This works best on PNG files. */
-#define GZIP_LOWMEM (0x8)       /**< gzip: Use a lower amount of memory. This decreases compression ratio. */
+/**
+ * @brief Special flags for gzip.
+ * These can be combined with the '|' operator.
+ */
+enum gzip_flags{
+	GZIP_NORMAL       = 0,      /**< Do not use any special options. This flag is only valid by itself. */
+	GZIP_HUFFMAN_ONLY = 1 << 0, /**< Force Huffman enconding only (no string match). This flag is not valid with GZIP_FILTERED or GZIP_RLE */
+	GZIP_FILTERED     = 1 << 1, /**< Input data is filtered (many small values that are somewhat random). This flag is not valid with GZIP_HUFFMAN_ONLY or GZIP_RLE. */
+	GZIP_RLE          = 1 << 2, /**< Force run-length-encoding. This works best on PNG files. This flag is not valid with GZIP_HUFFMAN_ONLY or GZIP_FILTERED. */
+	GZIP_LOWMEM       = 1 << 3  /**< Decrease memory usage. This unfortunately decreases compression ratios as well. */
+};
 
-#define BZIP2_NORMAL (0x0)      /**< bzip2: Do not use any special options. This flag is only valid by itself. */
+/**
+ * @brief Special flags for bzip2.
+ * These can be combined with the '|' operator.
+ */
+enum bzip2_flags{
+	BZIP2_NORMAL = 0            /**< Do not use any special options. This flag is only valid by itself. */
+};
 
-#define XZ_NORMAL (0x0)         /**< xz: Do not use any special options. This flag is only valid by itself. */
-#define XZ_EXTREME (0x1)        /**< xz: Use extreme compression mode. This marginally increases compression ratios, but greatly increases time and memory usage. */
+/**
+ * @brief Special flags for xz.
+ * These can be combined with the '|' operator.
+ */
+enum xz_flags{
+	XZ_NORMAL = 0,              /**< Do not use any special options. This flag is only valid by itself. */
+	XZ_EXTREME = 1 << 0          /**< Use extreme compression mode. This slightly increases compression ratios, but significantly increases time and memory usage. */
+};
 
-#define LZ4_NORMAL (0x0)        /**< lz4: Do not use any special options. This flag is only valid by itself. */
+/**
+ * @brief Special flags for lz4.
+ * These can be combined with the '|' operator.
+ */
+enum lz4_flags{
+	LZ4_NORMAL = 0              /**< Do not use any special options. This flag is only valid by itself. */
+};
+
+/**
+ * @brief Flags for usage with zip_compress().
+ * The member of this union used depends on the compressor type used.
+ * @see zip_compress()
+ */
+union zip_flags{
+	enum gzip_flags  gzipf;  /**< Flags if the compressor type is COMPRESSOR_GZIP. */
+	enum bzip2_flags bzip2f; /**< Flags if the compressor type is COMPRESSOR_BZIP2. */
+	enum xz_flags    xzf;    /**< Flags if the compressor type is COMPRESSOR_XZ. */
+	enum lz4_flags   lz4f;   /**< Flags if the compressor type is COMPRESSOR_LZ4. */
+};
 
 /**
  * @brief Compresses a file.
  *
  * @param infile Path to the file that should be compressed.
  *
- * @param outfile Path of the resulting output file.
+ * @param outfile Path of the resulting output file.<br>
  * If this file already exists, it will be overwritten.
  *
  * @param c_type The compression algorithm to use.
  *
- * @param compression_level A value from 0-9 indicating how much the data should be compressed.
- * A level of 1 runs the fastest but has the lowest compression ratios.
- * A level of 9 runs the slowest but has the highest compression ratios.
- * A level of 0 gives the default value.
+ * @param compression_level A value from 0-9 indicating how much the data should be compressed.<br>
+ * A level of 1 runs the fastest but has the lowest compression ratios.<br>
+ * A level of 9 runs the slowest but has the highest compression ratios.<br>
+ * A level of 0 uses the default value.
  *
- * @param flags Special flags to give to the compression algorithm.
- * Flags can be combined using the "|" operator (e.g. GZIP_RLE | GZIP_LOWMEM)
+ * @param flags Special flags to give to the compression algorithm.<br>
+ * @see union zip_flags
  *
- * @return 0 on success, or negative on failure.
+ * @return 0 on success, or negative on failure.<br>
  * On failure, the output file is automatically deleted.
  */
-int zip_compress(const char* infile, const char* outfile, enum COMPRESSOR c_type, int compression_level, unsigned flags);
+int zip_compress(const char* infile, const char* outfile, enum compressor c_type, int compression_level, union zip_flags flags);
 
 /**
  * @brief Decompresses a file.
  *
  * @param infile Path to the file that should be decompressed.
  *
- * @param outfile Path of the resulting output file.
+ * @param outfile Path of the resulting output file.<br>
  * If this file already exists, it will be overwritten.
  *
  * @param c_type The compression algorithm to use.
  *
- * @param flags Special flags to give to the decompression algorithm.
+ * @param flags Special flags to give to the decompression algorithm.<br>
  * At the moment, decompression does not have any flags available to it.
  *
- * @return 0 on success, or negative on failure.
+ * @return 0 on success, or negative on failure.<br>
  * On failure, the output file is automatically deleted.
  */
-int zip_decompress(const char* infile, const char* outfile, enum COMPRESSOR c_type, unsigned flags);
+int zip_decompress(const char* infile, const char* outfile, enum compressor c_type, union zip_flags flags);
 
 /**
  * @brief Gets a file extension from a compressor value (e.g. COMPRESSOR_GZIP -> ".gz")
@@ -119,7 +157,7 @@ int zip_decompress(const char* infile, const char* outfile, enum COMPRESSOR c_ty
  *
  * @return The corresponding file extension, or NULL if the compressor value is invalid.
  */
-const char* get_compression_extension(enum COMPRESSOR c_type);
+const char* get_compression_extension(enum compressor c_type);
 
 /**
  * @brief Gets a compressor value from its corresponding string representation (e.g. "gzip" -> COMPRESSOR_GZIP)
@@ -128,7 +166,7 @@ const char* get_compression_extension(enum COMPRESSOR c_type);
  *
  * @return The corresponding compressor value, or COMPRESSOR_INVALID if the string did not match any of the available compressors.
  */
-enum COMPRESSOR get_compressor_byname(const char* name);
+enum compressor get_compressor_byname(const char* name);
 
 /**
  * @brief Gets a compressor value's string representation. (e.g. COMPRESSOR_GZIP -> "gzip")
@@ -137,6 +175,6 @@ enum COMPRESSOR get_compressor_byname(const char* name);
  *
  * @return The corresponding string representation, or NULL if the compressor value was invalid.
  */
-const char* compressor_tostring(enum COMPRESSOR c_type);
+const char* compressor_tostring(enum compressor c_type);
 
 #endif

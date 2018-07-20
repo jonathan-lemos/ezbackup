@@ -16,7 +16,7 @@
  *
  * @return The user's selected operation, or OP_INVALID if there was an error.
  */
-enum OPERATION menu_operation(void);
+enum operation menu_operation(void);
 
 /**
  * @brief Creates a menu allowing the user to edit the options in an options structure.

@@ -112,7 +112,7 @@ int menu_compressor(struct options* opt){
 		"none",
 		"Exit"
 	};
-	enum COMPRESSOR list_compressor[] = {
+	enum compressor list_compressor[] = {
 		COMPRESSOR_GZIP,
 		COMPRESSOR_BZIP2,
 		COMPRESSOR_XZ,
