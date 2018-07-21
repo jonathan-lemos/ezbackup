@@ -61,7 +61,8 @@ docs:
 
 .PHONY: clean
 clean:
-	rm -f *.o $(NAME) $(CLEANOBJECTS) $(CLEANCXXOBJECTS) main.c.* vgcore.* $(TESTOBJECTS) $(TESTCXXOBJECTS) tests/*.o cloud/*.o $(DBGOBJECTS) $(OBJECTS) docs/*
+	rm -f *.o $(NAME) $(CLEANOBJECTS) $(CLEANCXXOBJECTS) main.c.* vgcore.* $(TESTOBJECTS) $(TESTCXXOBJECTS) tests/*.o cloud/*.o $(DBGOBJECTS) $(OBJECTS)
+	rm -rf docs
 
 .PHONY: linecount
 linecount:
