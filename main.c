@@ -13,10 +13,10 @@
 
 int main(int argc, char** argv){
 	struct options* opt = NULL;
-	enum OPERATION op;
+	enum operation op;
 	int ret = 0;
 
-	log_setlevel(LEVEL_WARNING);
+	log_setlevel(LEVEL_INFO);
 
 	if (argc > 1){
 		int res;

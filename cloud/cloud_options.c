@@ -20,6 +20,7 @@ struct cloud_options* co_new(void){
 		log_enomem();
 		return NULL;
 	}
+	ret->cp = CLOUD_NONE;
 	co_set_default_upload_directory(ret);
 	return ret;
 }
@@ -107,13 +108,13 @@ int co_set_default_upload_directory(struct cloud_options* co){
 	return co_set_upload_directory(co, "/Backups");
 }
 
-int co_set_cp(struct cloud_options* co, enum CLOUD_PROVIDER cp){
+int co_set_cp(struct cloud_options* co, enum cloud_provider cp){
 	co->cp = cp;
 	return 0;
 }
 
-enum CLOUD_PROVIDER cloud_provider_from_string(const char* str){
-	enum CLOUD_PROVIDER ret = CLOUD_INVALID;
+enum cloud_provider cloud_provider_from_string(const char* str){
+	enum cloud_provider ret = CLOUD_INVALID;
 	if (!strcmp(str, "mega") ||
 			!strcmp(str, "MEGA") ||
 			!strcmp(str, "mega.nz") ||
@@ -131,7 +132,7 @@ enum CLOUD_PROVIDER cloud_provider_from_string(const char* str){
 	return ret;
 }
 
-const char* cloud_provider_to_string(enum CLOUD_PROVIDER cp){
+const char* cloud_provider_to_string(enum cloud_provider cp){
 	switch (cp){
 	case CLOUD_NONE:
 		return "None";

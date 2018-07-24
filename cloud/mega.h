@@ -49,6 +49,7 @@ int MEGAlogin(const char* username, const char* password, MEGAhandle** out);
  * @brief Makes a directory within a MEGA account.
  *
  * @param dir The directory to create.
+ * This will not recursively create directories.
  *
  * @param mh A handle returned by MEGAlogin().
  * @see MEGAlogin().
@@ -146,7 +147,7 @@ int MEGAupload(const char* in_file, const char* upload_path, const char* msg, ME
  * @brief Removes a file or directory stored within a MEGA account.
  *
  * @param file The file or directory to remove.<br>
- * A directory can only be removed if it is empty.
+ * If a directory is specified, all of its contents will be removed as well.
  *
  * @param mh A handle returned by MEGAlogin()<br>
  * @see MEGAlogin()

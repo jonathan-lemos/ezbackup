@@ -62,7 +62,7 @@ static int make_file_paths(const char* file, const char* base_directory, unsigne
 			ret = -1;
 			goto cleanup;
 		}
-		if (make_internal_directory_paths(base_directory, &output_files, &output_deltas) != -1){
+		if (make_internal_directory_paths(base_directory, &output_files, &output_deltas) != 0){
 			log_error("Failed to determine internal directory paths.");
 			ret = -1;
 			goto cleanup;
@@ -80,8 +80,9 @@ static int make_file_paths(const char* file, const char* base_directory, unsigne
 	if (out_delta_path){
 		char tmp[16];
 		sprintf(tmp, "%lu", backup_time);
-		*out_file_path = sh_concat(sh_concat_path(sh_dup(output_deltas), file), tmp);
-		if (!(*out_file_path)){
+		*out_delta_path = sh_concat_path(sh_dup(output_deltas), file);
+		*out_delta_path = sh_concat(*out_delta_path, tmp);
+		if (!(*out_delta_path)){
 			log_error("Failed to create out_delta_path.");
 			ret = -1;
 			goto cleanup;
@@ -95,41 +96,6 @@ cleanup:
 	}
 	free(output_files);
 	free(output_deltas);
-	return ret;
-}
-
-static int make_parent_directories(const char* file, const char* output_directory){
-	char* file_path = NULL;
-	char* delta_path = NULL;
-	char* file_parent = NULL;
-	char* delta_parent = NULL;
-	int ret = 0;
-
-	if (make_file_paths(file, output_directory, 0, &file_path, &delta_path) != 0){
-		log_error("Could not determine file paths");
-		ret = -1;
-		goto cleanup;
-	}
-
-	file_parent = sh_parent_dir(file_path);
-	delta_parent = sh_parent_dir(delta_path);
-	if (!file_parent || !delta_parent){
-		log_error("Could not determine parent directory");
-		ret = -1;
-		goto cleanup;
-	}
-
-	if (mkdir_recursive(file_parent) < 0 || mkdir_recursive(delta_parent) < 0){
-		log_error("Failed to create parent directory");
-		ret = -1;
-		goto cleanup;
-	}
-
-cleanup:
-	free(file_path);
-	free(delta_path);
-	free(file_parent);
-	free(delta_parent);
 	return ret;
 }
 
@@ -160,9 +126,11 @@ cleanup:
 	return ret;
 }
 
-static int copy_single_file(const char* file, const struct options* opt, unsigned c_flags, unsigned long backup_time, struct cloud_data* cd, const char* cloud_directory){
+static int copy_single_file(const char* file, const struct options* opt, union zip_flags c_flags, unsigned long backup_time, struct cloud_data* cd, const char* cloud_directory){
 	char* path_files = NULL;
 	char* path_delta = NULL;
+	char* file_parent = NULL;
+	char* delta_parent = NULL;
 	int ret = 0;
 
 	if (make_file_paths(file, opt->output_directory, backup_time, &path_files, &path_delta) != 0){
@@ -171,11 +139,17 @@ static int copy_single_file(const char* file, const struct options* opt, unsigne
 		goto cleanup;
 	}
 
+	file_parent = sh_parent_dir(path_files);
+	delta_parent = sh_parent_dir(path_delta);
+	if (mkdir_recursive(file_parent) < 0 || mkdir_recursive(delta_parent) < 0){
+		log_warning("Failed to make one or more parent directories.");
+	}
+
 	if (file_exists(path_files) && rename_file(path_files, path_delta) != 0){
 		log_warning_ex("Failed to create delta for %s", path_files);
 	}
 
-	if (zip_compress(file, path_files, opt->comp_algorithm, opt->comp_level, c_flags) != 0){
+	if (zip_compress(file, path_files, opt->c_type, opt->c_level, c_flags) != 0){
 		log_error("Failed to compress output file");
 		ret = -1;
 		goto cleanup;
@@ -195,6 +169,8 @@ static int copy_single_file(const char* file, const struct options* opt, unsigne
 cleanup:
 	free(path_files);
 	free(path_delta);
+	free(file_parent);
+	free(delta_parent);
 	return ret;
 }
 
@@ -250,7 +226,7 @@ static int copy_files(const struct options* opt, FILE* fp_checksum, FILE* fp_che
 			}
 			else if (res == 0){
 				printf("%s\n", tmp);
-				if (copy_single_file(tmp, opt, 0, backup_time, cd, opt->cloud_options->upload_directory) != 0){
+				if (copy_single_file(tmp, opt, opt->c_flags, backup_time, cd, opt->cloud_options->upload_directory) != 0){
 					log_warning_ex("Failed to copy %s", tmp);
 				}
 			}
@@ -280,14 +256,8 @@ int backup(const struct options* opt){
 	unsigned long backup_time = time(NULL);
 	int ret = 0;
 
-	if (mkdir_recursive(opt->output_directory) != 0){
+	if (mkdir_recursive(opt->output_directory) < 0){
 		log_error("Failed to create output directory");
-		ret = -1;
-		goto cleanup;
-	}
-
-	if (create_internal_directories(opt->output_directory, &dir_files, &dir_deltas) != 0){
-		log_error("Failed to create internal directories");
 		ret = -1;
 		goto cleanup;
 	}
@@ -325,13 +295,7 @@ int backup(const struct options* opt){
 		}
 	}
 
-	if (make_internal_subdirectories(dir_files, dir_deltas, opt->directories, opt->exclude) != 0){
-		log_error("Failed to make internal subdirectories");
-		ret = -1;
-		goto cleanup;
-	}
-
-	if (copy_files(opt, dir_files, dir_deltas, fp_checksum, fp_checksum_prev, backup_time) != 0){
+	if (copy_files(opt, fp_checksum, fp_checksum_prev, backup_time) != 0){
 		log_error("Error copying files to their destinations");
 		ret = -1;
 		goto cleanup;

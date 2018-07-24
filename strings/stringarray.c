@@ -112,9 +112,22 @@ void sa_sort(struct string_array* array){
 	qsort(array->strings, array->len, sizeof(*(array->strings)), cmp);
 }
 
+void sa_reset(struct string_array* array){
+	size_t i;
+	if (!array){
+		return;
+	}
+
+	for (i = 0; i < array->len; ++i){
+		free(array->strings[i]);
+	}
+	free(array->strings);
+	array->strings = NULL;
+	array->len = 0;
+}
+
 void sa_free(struct string_array* array){
 	size_t i;
-
 	if (!array){
 		return;
 	}

@@ -115,7 +115,7 @@ static int get_default_backup_directory(char** out){
  *
  * returns -1 if out is NULL, 0 on success
  * index of bad argument on bad argument */
-int parse_options_cmdline(int argc, char** argv, struct options** output, enum OPERATION* out_op){
+int parse_options_cmdline(int argc, char** argv, struct options** output, enum operation* out_op){
 	int i;
 	struct options* out = *output;
 
@@ -145,7 +145,7 @@ int parse_options_cmdline(int argc, char** argv, struct options** output, enum O
 				!strcmp(argv[i], "--compressor")){
 			/* check next argument */
 			++i;
-			out->comp_algorithm = get_compressor_byname(argv[i]);
+			out->c_type = get_compressor_byname(argv[i]);
 		}
 		/* checksum */
 		else if (!strcmp(argv[i], "-C") ||
@@ -270,8 +270,9 @@ struct options* options_new(void){
 	opt->hash_algorithm = EVP_sha1();
 	opt->enc_algorithm = EVP_aes_256_cbc();
 	opt->enc_password = NULL;
-	opt->comp_algorithm = COMPRESSOR_GZIP;
-	opt->comp_level = 0;
+	opt->c_type = COMPRESSOR_GZIP;
+	opt->c_level = 0;
+	memset(&(opt->c_flags), 0, sizeof(opt->c_flags));
 	if (get_default_backup_directory(&(opt->output_directory)) != 0){
 		log_debug("Failed to make backup directory");
 		return NULL;
@@ -401,20 +402,25 @@ int parse_options_fromfile(const char* file, struct options** output){
 		log_warning("Key ENC_PASSWORD missing from file");
 	}
 
-	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "COMP_ALGORITHM");
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "C_TYPE");
 	if (res >= 0){
-		opt->comp_algorithm = *(int*)entries[res]->value - '0';
+		opt->c_type = *(enum compressor*)entries[res]->value;
 	}
 	else{
-		log_warning("Key COMP_ALGORITHM missing from file");
+		log_warning("Key C_TYPE missing from file");
 	}
 
-	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "COMP_LEVEL");
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "C_LEVEL");
 	if (res >= 0){
-		opt->comp_level = *(int*)entries[res]->value - '0';
+		opt->c_level = *(int*)entries[res]->value;
 	}
 	else{
-		log_warning("Key COMP_LEVEL missing from file");
+		log_warning("Key C_LEVEL missing from file");
+	}
+
+	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "C_FLAGS");
+	if (res >= 0){
+		opt->c_flags = *(union zip_flags*)entries[res]->value;
 	}
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "OUTPUT_DIRECTORY");
@@ -431,7 +437,7 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "CO_CP");
 	if (res >= 0){
-		opt->cloud_options->cp = *(int*)entries[res]->value - '0';
+		opt->cloud_options->cp = *(enum cloud_provider*)entries[res]->value;
 	}
 	else{
 		log_warning("Key CO_CP missing from file");
@@ -496,7 +502,6 @@ int write_options_tofile(const char* file, const struct options* opt){
 	unsigned char* tmp_old = NULL;
 	char* tmp_pw = NULL;
 	size_t tmp_len = 0;
-	int tmp_int = 0;
 	size_t i;
 	int ret = 0;
 
@@ -582,22 +587,23 @@ int write_options_tofile(const char* file, const struct options* opt){
 	free(tmp_pw);
 	tmp_pw = NULL;
 
-	tmp_int = opt->comp_algorithm + '0';
-	if (add_option_tofile(fp, "COMP_ALGORITHM", &tmp_int, sizeof(tmp_int)) != 0){
-		log_warning("Failed to add COMP_ALGORITHM to file");
+	if (add_option_tofile(fp, "C_TYPE", &(opt->c_type), sizeof(opt->c_type)) != 0){
+		log_warning("Failed to add C_TYPE to file");
 	}
 
-	tmp_int = opt->comp_level + '0';
-	if (add_option_tofile(fp, "COMP_LEVEL", &tmp_int, sizeof(tmp_int)) != 0){
-		log_warning("Failed to add COMP_LEVEL to file");
+	if (add_option_tofile(fp, "C_LEVEL", &(opt->c_level), sizeof(opt->c_level)) != 0){
+		log_warning("Failed to add C_LEVEL to file");
+	}
+
+	if (add_option_tofile(fp, "C_FLAGS", &(opt->c_flags), sizeof(opt->c_flags)) != 0){
+		log_warning("Failed to add C_FLAGS to file");
 	}
 
 	if (add_option_tofile(fp, "OUTPUT_DIRECTORY", opt->output_directory, strlen(opt->output_directory) + 1) != 0){
 		log_warning("Failed to add OUTPUT_DIRECTORY to file");
 	}
 
-	tmp_int = opt->cloud_options->cp + '0';
-	if (add_option_tofile(fp, "CO_CP", &tmp_int, sizeof(tmp_int)) != 0){
+	if (add_option_tofile(fp, "CO_CP", &(opt->cloud_options->cp), sizeof(opt->cloud_options->cp)) != 0){
 		log_warning("Failed to add CO_CP to file");
 	}
 
@@ -621,7 +627,7 @@ int write_options_tofile(const char* file, const struct options* opt){
 		log_warning("Failed to add CO_UPLOAD_DIRECTORY to file");
 	}
 
-	if (add_option_tofile(fp, "FLAGS", &opt->flags.dword, sizeof(opt->flags.dword)) != 0){
+	if (add_option_tofile(fp, "FLAGS", &(opt->flags.dword), sizeof(opt->flags.dword)) != 0){
 		log_warning("Failed to add FLAGS to file");
 	}
 
@@ -671,12 +677,16 @@ int options_cmp(const struct options* opt1, const struct options* opt2){
 		return sh_cmp_nullsafe(opt1->enc_password, opt2->enc_password);
 	}
 
-	if (opt1->comp_algorithm != opt2->comp_algorithm){
-		return (long)opt1->comp_algorithm - (long)opt2->comp_algorithm;
+	if (opt1->c_type != opt2->c_type){
+		return (long)opt1->c_type - (long)opt2->c_type;
 	}
 
-	if (opt1->comp_level != opt2->comp_level){
-		return opt1->comp_level - opt2->comp_level;
+	if (opt1->c_level != opt2->c_level){
+		return opt1->c_level - opt2->c_level;
+	}
+
+	if (opt1->c_flags.gzipf != opt2->c_flags.gzipf){
+		return opt1->c_flags.gzipf - opt2->c_flags.gzipf;
 	}
 
 	if (sh_cmp_nullsafe(opt1->output_directory, opt2->output_directory) != 0){
@@ -784,7 +794,7 @@ cleanup:
 	return ret;
 }
 
-const char* operation_tostring(enum OPERATION op){
+const char* operation_tostring(enum operation op){
 	switch (op){
 	case OP_BACKUP:
 		return "Backup";

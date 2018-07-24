@@ -28,7 +28,7 @@ static char* option_subtitle(const char* option, const char* subtitle){
 		return ret;
 	}
 
-	ret = sh_concat(sh_concat(sh_concat(sh_dup(option), " ("), subtitle), ")");
+	ret = sh_sprintf("%s (%s)", option, subtitle);
 	if (!ret){
 		log_error("Failed to create subtitle");
 	}
@@ -98,7 +98,7 @@ int menu_compression_level(struct options* opt){
 	};
 
 	res = display_menu(options_compression_level, ARRAY_SIZE(options_compression_level), "Select a compression level");
-	opt->comp_level = res;
+	opt->c_level = res;
 	return 0;
 }
 
@@ -124,7 +124,7 @@ int menu_compressor(struct options* opt){
 	if (res == 5){
 		return 0;
 	}
-	opt->comp_algorithm = list_compressor[res];
+	opt->c_type = list_compressor[res];
 	return 0;
 }
 
@@ -276,153 +276,158 @@ int menu_enc_password(struct options* opt){
 
 int menu_directories(struct options* opt){
 	int res;
-	const char** options_initial = NULL;
+	int ret = 0;
+	struct string_array* options_menu = sa_new();
 	const char* options_dialog[] = {
 		"OK"
 	};
+	char* options_confirm[] = {
+		NULL,
+		"Exit"
+	};
+
+	if (!options_menu){
+		log_error("Failed to create options menu");
+		ret = -1;
+		goto cleanup;
+	}
 
 	/* TODO: refactor */
 	do{
+		char* str = NULL;
+		int res_confirm;
 		size_t i;
 
-		options_initial = malloc((opt->directories->len + 2) * sizeof(*(opt->directories)));
-		if (!options_initial){
-			log_enomem();
-			return -1;
-		}
-		options_initial[0] = "Add a directory";
-		options_initial[1] = "Exit";
-		for (i = 2; i < opt->directories->len + 2; ++i){
-			options_initial[i] = opt->directories->strings[i - 2];
+		sa_add(options_menu, "Add a directory");
+		sa_add(options_menu, "Exit");
+		for (i = 0; i < opt->directories->len; ++i){
+			sa_add(options_menu, opt->directories->strings[i]);
 		}
 
-		res = display_menu(options_initial, opt->directories->len + 2, "Directories");
+		res = display_menu((const char* const*)options_menu->strings, options_menu->len, "Directories");
 
 		switch (res){
-			char* str;
-			int res_confirm;
-			char** options_confirm;
 		case 0:
 			str = readline("Enter directory:");
 			if (strcmp(str, "") != 0 && sa_add(opt->directories, str) != 0){
 				display_dialog(options_dialog, ARRAY_SIZE(options_dialog), "Failed to add string to directory list");
-				return -1;
+				ret = -1;
+				goto cleanup;
 			}
 			free(str);
-			if ((res = sa_sanitize_directories(opt->directories)) > 0){
+			if ((res_confirm = sa_sanitize_directories(opt->directories)) > 0){
 				display_dialog(options_dialog, ARRAY_SIZE(options_dialog), "Directory specified was invalid");
 			}
-			else if (res < 0){
+			else if (res_confirm < 0){
 				display_dialog(options_dialog, ARRAY_SIZE(options_dialog), "Warning: Failed to sanitize directory list");
 			}
 			break;
 		case 1:
 			break;
 		default:
-			options_confirm = malloc(2 * sizeof(*options_confirm));
-			if (!options_confirm){
+			options_confirm[0] = sh_sprintf("Remove %s", opt->directories->strings[res - 2]);
+			if (!options_confirm[0]){
 				log_enomem();
-				return -1;
+				ret = -1;
+				goto cleanup;
 			}
-			options_confirm[0] = malloc(sizeof("Remove ") + strlen(opt->directories->strings[res - 2]));
-			if (!options_confirm){
-				log_enomem();
-				return -1;
-			}
-			strcpy(options_confirm[0], "Remove ");
-			strcat(options_confirm[0], opt->directories->strings[res - 2]);
-			options_confirm[1] = "Exit";
-			res_confirm = display_menu((const char**)options_confirm, 2, "Removing directory");
+			res_confirm = display_menu((const char* const*)options_confirm, 2, "Removing directory");
 
 			if (res_confirm == 0){
 				if (sa_remove(opt->directories, res - 2) != 0){
 					log_debug("Failed to remove_directory()");
-					return -1;
+					ret = -1;
+					goto cleanup;
 				}
 			}
 
 			free(options_confirm[0]);
-			free(options_confirm);
 			break;
 		}
+		sa_reset(options_menu);
 	}while (res != 1);
-	return 0;
+
+cleanup:
+	sa_free(options_menu);
+	return ret;
 }
 
 int menu_exclude(struct options* opt){
 	int res;
-	const char** options_initial = NULL;
+	int ret = 0;
+	struct string_array* options_menu = sa_new();
 	const char* options_dialog[] = {
 		"OK"
 	};
+	char* options_confirm[] = {
+		NULL,
+		"Exit"
+	};
+
+	if (!options_menu){
+		log_error("Failed to create options menu");
+		ret = -1;
+		goto cleanup;
+	}
 
 	/* TODO: refactor */
 	do{
+		char* str = NULL;
+		int res_confirm;
 		size_t i;
 
-		options_initial = malloc((opt->exclude->len + 2) * sizeof(*(opt->exclude)));
-		if (!options_initial){
-			log_enomem();
-			return -1;
-		}
-		options_initial[0] = "Add an exclude path";
-		options_initial[1] = "Exit";
-		for (i = 2; i < opt->exclude->len + 2; ++i){
-			options_initial[i] = opt->exclude->strings[i - 2];
+		sa_add(options_menu, "Add an exclude path");
+		sa_add(options_menu, "Exit");
+		for (i = 0; i < opt->exclude->len; ++i){
+			sa_add(options_menu, opt->exclude->strings[i]);
 		}
 
-		res = display_menu(options_initial, opt->exclude->len + 2, "Exclude paths");
+		res = display_menu((const char* const*)options_menu->strings, options_menu->len, "Exclude paths");
 
 		switch (res){
-			char* str;
-			int res_confirm;
-			char** options_confirm;
 		case 0:
 			str = readline("Enter exclude path:");
 			if (strcmp(str, "") != 0 && sa_add(opt->exclude, str) != 0){
-				log_debug("Failed to add string to exclude list");
-				return -1;
+				display_dialog(options_dialog, ARRAY_SIZE(options_dialog), "Failed to add string to exclude list");
+				ret = -1;
+				goto cleanup;
 			}
 			free(str);
-			if ((res = sa_sanitize_directories(opt->exclude)) > 0){
+			if ((res_confirm = sa_sanitize_directories(opt->exclude)) > 0){
 				display_dialog(options_dialog, ARRAY_SIZE(options_dialog), "Exclude path specified was invalid");
 			}
-			else if (res < 0){
+			else if (res_confirm < 0){
 				display_dialog(options_dialog, ARRAY_SIZE(options_dialog), "Warning: Failed to sanitize exclude list");
 			}
-
 			break;
 		case 1:
 			break;
 		default:
-			options_confirm = malloc(2 * sizeof(*options_confirm));
-			if (!options_confirm){
+			options_confirm[0] = sh_sprintf("Remove %s", opt->exclude->strings[res - 2]);
+			if (!options_confirm[0]){
 				log_enomem();
-				return -1;
+				ret = -1;
+				goto cleanup;
 			}
-			options_confirm[0] = malloc(sizeof("Remove ") + strlen(opt->exclude->strings[res - 2]));
-			if (!options_confirm){
-				log_enomem();
-				return -1;
-			}
-			strcpy(options_confirm[0], "Remove ");
-			strcat(options_confirm[0], opt->exclude->strings[res - 2]);
-			options_confirm[1] = "Exit";
-			res_confirm = display_menu((const char**)options_confirm, 2, "Removing exclude path");
+			res_confirm = display_menu((const char* const*)options_confirm, 2, "Removing exclude path");
 
 			if (res_confirm == 0){
 				if (sa_remove(opt->exclude, res - 2) != 0){
-					log_debug("Failed to remove_string()");
-					return -1;
+					log_debug("Failed to remove_directory()");
+					ret = -1;
+					goto cleanup;
 				}
 			}
 
 			free(options_confirm[0]);
-			free(options_confirm);
 			break;
 		}
+		sa_reset(options_menu);
 	}while (res != 1);
-	return 0;
+
+cleanup:
+	sa_free(options_menu);
+	return ret;
 }
 
 int menu_output_directory(struct options* opt){
@@ -466,12 +471,12 @@ int menu_cloud_provider(struct options* opt){
 int menu_cloud_username(struct options* opt){
 	char* tmp = readline("Enter username:");
 	if (strcmp(tmp, "") == 0){
-		free(tmp);
 		co_set_username(opt->cloud_options, NULL);
 	}
 	else{
 		co_set_username(opt->cloud_options, tmp);
 	}
+	free(tmp);
 	return 0;
 }
 
@@ -552,14 +557,14 @@ int menu_compression_main(struct options* opt){
 	char* options_compression[3];
 	char buf[16];
 
-	if (opt->comp_level == 0){
+	if (opt->c_level == 0){
 		strcpy(buf, "Default");
 	}
 	else{
-		sprintf(buf, "%d", opt->comp_level);
+		sprintf(buf, "%d", opt->c_level);
 	}
 
-	options_compression[0] = option_subtitle("Compression Algorithm", compressor_tostring(opt->comp_algorithm));
+	options_compression[0] = option_subtitle("Compression Algorithm", compressor_tostring(opt->c_type));
 	options_compression[1] = option_subtitle("Compression Level    ", buf);
 	options_compression[2] = option_subtitle("Exit", NULL);
 
@@ -569,16 +574,16 @@ int menu_compression_main(struct options* opt){
 		case 0:
 			menu_compressor(opt);
 			free(options_compression[0]);
-			options_compression[0] = option_subtitle("Compression Algorithm", compressor_tostring(opt->comp_algorithm));
+			options_compression[0] = option_subtitle("Compression Algorithm", compressor_tostring(opt->c_type));
 			break;
 		case 1:
 			menu_compression_level(opt);
 			free(options_compression[1]);
-			if (opt->comp_level == 0){
+			if (opt->c_level == 0){
 				strcpy(buf, "Default");
 			}
 			else{
-				sprintf(buf, "%d", opt->comp_level);
+				sprintf(buf, "%d", opt->c_level);
 			}
 			options_compression[1] = option_subtitle("Compression Level    ", buf);
 			break;
@@ -694,7 +699,7 @@ int menu_configure(struct options* opt){
 	return 0;
 }
 
-enum OPERATION menu_operation(void){
+enum operation menu_operation(void){
 	int res;
 	const char* options_operation[] = {
 		"Backup",

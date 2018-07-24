@@ -239,7 +239,7 @@ int file_exists(const char* path){
 
 int mkdir_recursive(const char* dir){
 	struct string_array* components = NULL;
-	size_t i;
+	long i;
 
 	components = sa_get_parent_dirs(dir);
 	if (!components){
@@ -249,11 +249,18 @@ int mkdir_recursive(const char* dir){
 
 	if (directory_exists(dir)){
 		log_info_ex("Directory %s already exists.", dir);
+		sa_free(components);
 		return 1;
 	}
 
-	for (i = 0; i < components->len; ++i){
-		if (!directory_exists(components->strings[i]) && mkdir(components->strings[i], 0755) != 0){
+	for (i = (long)(components->len - 1); i >= 0; --i){
+		if (directory_exists(components->strings[i])){
+			break;
+		}
+	}
+	++i;
+	for (; i < (long)components->len; ++i){
+		if (mkdir(components->strings[i], 0755) != 0){
 			log_error_ex2("Failed to make directory %s (%s)", components->strings[i], strerror(errno));
 			sa_free(components);
 			return -1;

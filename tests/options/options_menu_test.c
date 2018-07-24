@@ -17,7 +17,7 @@ const struct unit_test options_menu_tests[] = {
 MAKE_PKG(options_menu_tests, options_menu_pkg);
 
 void test_menu_operation(enum TEST_STATUS* status){
-	enum OPERATION op;
+	enum operation op;
 	op = menu_operation();
 
 	eprintf_default("You chose %s\n", operation_tostring(op));

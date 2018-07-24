@@ -112,7 +112,7 @@ static const struct cloud_functions CF_MEGA = {
 	MEGArm,
 	MEGAlogout
 };
-static const struct cloud_functions* cloud_provider_to_cloud_functions(enum CLOUD_PROVIDER cp){
+static const struct cloud_functions* cloud_provider_to_cloud_functions(enum cloud_provider cp){
 	switch (cp){
 	case CLOUD_NONE:
 		return &CF_NULL;
@@ -321,7 +321,7 @@ static struct string_array* create_menu_entries(const char* base_dir, char*** en
 
 int cloud_mkdir(const char* dir, struct cloud_data* cd){
 	struct string_array* parent_dirs = sa_get_parent_dirs(dir);
-	size_t i;
+	long i;
 	int ret = 0;
 
 	if (!parent_dirs){
@@ -329,7 +329,13 @@ int cloud_mkdir(const char* dir, struct cloud_data* cd){
 		return -1;
 	}
 
-	for (i = 0; i < parent_dirs->len; ++i){
+	for (i = (long)(parent_dirs->len - 1); i >= 0; --i){
+		if (cd->cf->stat(parent_dirs->strings[i], NULL, cd->handle) == 0){
+			break;
+		}
+	}
+	++i;
+	for (; i < (long)parent_dirs->len; ++i){
 		if (cd->cf->mkdir(parent_dirs->strings[i], cd->handle) != 0){
 			log_warning_ex2("%s: Failed to create directory %s", cd->name, parent_dirs->strings[i]);
 			ret = -1;
@@ -398,7 +404,7 @@ cleanup:
 int cloud_stat(const char* dir_or_file, struct stat* out, struct cloud_data* cd){
 	struct stat st;
 	if (cd->cf->stat(dir_or_file, out ? out : &st, cd->handle) != 0){
-		log_error_ex2("%s: Failed to stat %s", cd->name, dir_or_file);
+		log_debug_ex2("%s: Failed to stat %s", cd->name, dir_or_file);
 		return -1;
 	}
 	return 0;

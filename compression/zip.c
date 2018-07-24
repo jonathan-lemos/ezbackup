@@ -234,7 +234,7 @@ static struct ZIP_FILE* xz_open(const char* file, const char* mode){
 }
 #endif
 
-static struct ZIP_FILE* zip_open(const char* file, int write, enum compressor c_type, int compression_level, union zip_flags flags){
+static struct ZIP_FILE* zip_open(const char* file, int write, enum compressor c_type, int compression_level, unsigned flags){
 	char truemode[16];
 	int modeptr = 2;
 
@@ -252,19 +252,19 @@ static struct ZIP_FILE* zip_open(const char* file, int write, enum compressor c_
 		switch (c_type){
 #ifndef NO_GZIP_SUPPORT
 		case COMPRESSOR_GZIP:
-			if (flags.gzipf & GZIP_HUFFMAN_ONLY){
+			if (flags & GZIP_HUFFMAN_ONLY){
 				truemode[modeptr] = 'h';
 				modeptr++;
 			}
-			else if (flags.gzipf & GZIP_FILTERED){
+			else if (flags & GZIP_FILTERED){
 				truemode[modeptr] = 'f';
 				modeptr++;
 			}
-			else if (flags.gzipf & GZIP_RLE){
+			else if (flags & GZIP_RLE){
 				truemode[modeptr] = 'R';
 				modeptr++;
 			}
-			if (flags.gzipf & GZIP_LOWMEM){
+			if (flags & GZIP_LOWMEM){
 				truemode[modeptr] = 'l';
 				modeptr++;
 			}
@@ -272,7 +272,7 @@ static struct ZIP_FILE* zip_open(const char* file, int write, enum compressor c_
 #endif
 #ifndef NO_XZ_SUPPORT
 		case COMPRESSOR_XZ:
-			if (flags.xzf & XZ_EXTREME){
+			if (flags & XZ_EXTREME){
 				truemode[modeptr] = 'e';
 				modeptr++;
 			}
@@ -485,13 +485,13 @@ static int zip_compress_write(FILE* fp_in, struct ZIP_FILE* zfp){
 	return 0;
 }
 
-int zip_compress(const char* infile, const char* outfile, enum compressor c_type, int compression_level, union zip_flags flags){
+int zip_compress(const char* infile, const char* outfile, enum compressor c_type, int compression_level, unsigned flags){
 	struct ZIP_FILE* zfp = NULL;
 	FILE* fp_in = NULL;
 	int ret = 0;
 
 	if (c_type == COMPRESSOR_LZ4){
-		return lz4_compress(infile, outfile, compression_level, flags.lz4f);
+		return lz4_compress(infile, outfile, compression_level, flags);
 	}
 
 	if (c_type == COMPRESSOR_NONE){
@@ -681,13 +681,13 @@ static int zip_decompress_read(struct ZIP_FILE* zfp, FILE* fp_out){
 	return 0;
 }
 
-int zip_decompress(const char* infile, const char* outfile, enum compressor c_type, union zip_flags flags){
+int zip_decompress(const char* infile, const char* outfile, enum compressor c_type, unsigned flags){
 	struct ZIP_FILE* zfp = NULL;
 	FILE* fp_out = NULL;
 	int ret = 0;
 
 	if (c_type == COMPRESSOR_LZ4){
-		return lz4_decompress(infile, outfile, flags.lz4f);
+		return lz4_decompress(infile, outfile, flags);
 	}
 
 	if (c_type == COMPRESSOR_NONE){

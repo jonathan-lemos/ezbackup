@@ -179,7 +179,7 @@ int cloud_download_ui(const char* base_dir, char** out_file, struct cloud_data* 
  * @brief Removes a file or directory from a cloud account.
  *
  * @param dir_or_file A file or directory to remove.<br>
- * A directory can only be removed if it is empty.
+ * If a directory is specified, all of its contents will be removed.
  *
  * @param cd A cloud data structure returned by cloud_login()
  * @see cloud_login()

@@ -90,6 +90,17 @@ int sa_contains(const struct string_array* array, const char* str);
 void sa_sort(struct string_array* array);
 
 /**
+ * @brief Resets a string array so that it is identical to one returned by sa_new().<br>
+ * This frees all memory associated with the string array's contents.
+ *
+ * @param array The array to reset.<br>
+ * This can be NULL, in which case the function does nothing.
+ *
+ * @return void
+ */
+void sa_reset(struct string_array* array);
+
+/**
  * @brief Frees all memory associated with a string array.
  *
  * @param array The array to free.<br>

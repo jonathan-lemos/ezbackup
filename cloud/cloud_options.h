@@ -12,7 +12,7 @@
 /**
  * @brief List of available cloud providers
  */
-enum CLOUD_PROVIDER{
+enum cloud_provider{
 	CLOUD_INVALID = 0,/**< Invalid cloud provider */
 	CLOUD_MEGA = 1,   /**< mega.nz */
 	CLOUD_NONE = 2    /**< No cloud provider */
@@ -23,7 +23,7 @@ enum CLOUD_PROVIDER{
  */
 struct cloud_options{
 	/** @brief The cloud service to use */
-	enum CLOUD_PROVIDER cp;
+	enum cloud_provider cp;
 	/** @brief The account's username/email (optional).
 	 * If this string is NULL, it will be asked for upon login.<br>
 	 * This string must be dynamically allocated or set through co_set_username().
@@ -114,7 +114,7 @@ int co_set_default_upload_directory(struct cloud_options* co);
  *
  * @return 0
  */
-int co_set_cp(struct cloud_options* co, enum CLOUD_PROVIDER cp);
+int co_set_cp(struct cloud_options* co, enum cloud_provider cp);
 
 /**
  * @brief Converts a string to its equivalent CLOUD_PROVIDER.
@@ -124,7 +124,7 @@ int co_set_cp(struct cloud_options* co, enum CLOUD_PROVIDER cp);
  *
  * @return The string's corresponding CLOUD_PROVIDER, or CLOUD_INVALID if the string does not match any valid entries
  */
-enum CLOUD_PROVIDER cloud_provider_from_string(const char* str);
+enum cloud_provider cloud_provider_from_string(const char* str);
 
 /**
  * @brief Converts a CLOUD_PROVIDER to its string equivalent
@@ -134,7 +134,7 @@ enum CLOUD_PROVIDER cloud_provider_from_string(const char* str);
  *
  * @return The CLOUD_PROVIDER's equivalent string representation, or NULL for an invalid value.
  */
-const char* cloud_provider_to_string(enum CLOUD_PROVIDER cp);
+const char* cloud_provider_to_string(enum cloud_provider cp);
 
 /**
  * @brief Frees all memory associated with a cloud options structure.

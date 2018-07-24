@@ -36,8 +36,9 @@ struct options{
 	const EVP_MD*         hash_algorithm;   /**< The hash algorithm to use for checksum files. */
 	const EVP_CIPHER*     enc_algorithm;    /**< The encryption algorithm to use. */
 	char*                 enc_password;     /**< The encryption password to use. This can be NULL. Otherwise, it must be dynamically allocated. */
-	enum compressor       comp_algorithm;   /**< The compression algorithm to use. */
-	int                   comp_level;       /**< The compression level to use. 0 uses the default level. */
+	enum compressor       c_type;           /**< The compression algorithm to use. */
+	int                   c_level;          /**< The compression level to use. 0 uses the default level. */
+	unsigned              c_flags;          /**< The compression flags to use. */
 	char*                 output_directory; /**< The backup directory on disk. This must be dynamically allocated. */
 	struct cloud_options* cloud_options;    /**< The cloud options to use. This cannot be NULL, but its members can be. */
 	union tagflags{                         /**< The special flags to use. This can be represented as a series of bits or as an unsigned integer. */

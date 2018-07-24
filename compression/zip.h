@@ -64,50 +64,31 @@ enum compressor{
  * @brief Special flags for gzip.
  * These can be combined with the '|' operator.
  */
-enum gzip_flags{
-	GZIP_NORMAL       = 0,      /**< Do not use any special options. This flag is only valid by itself. */
-	GZIP_HUFFMAN_ONLY = 1 << 0, /**< Force Huffman enconding only (no string match). This flag is not valid with GZIP_FILTERED or GZIP_RLE */
-	GZIP_FILTERED     = 1 << 1, /**< Input data is filtered (many small values that are somewhat random). This flag is not valid with GZIP_HUFFMAN_ONLY or GZIP_RLE. */
-	GZIP_RLE          = 1 << 2, /**< Force run-length-encoding. This works best on PNG files. This flag is not valid with GZIP_HUFFMAN_ONLY or GZIP_FILTERED. */
-	GZIP_LOWMEM       = 1 << 3  /**< Decrease memory usage. This unfortunately decreases compression ratios as well. */
-};
+#define GZIP_NORMAL       (0)      /**< Do not use any special options. This flag is only valid by itself. */
+#define GZIP_HUFFMAN_ONLY (1 << 0) /**< Force Huffman enconding only (no string match). This flag is not valid with GZIP_FILTERED or GZIP_RLE */
+#define GZIP_FILTERED     (1 << 1) /**< Input data is filtered (many small values that are somewhat random). This flag is not valid with GZIP_HUFFMAN_ONLY or GZIP_RLE. */
+#define GZIP_RLE          (1 << 2) /**< Force run-length-encoding. This works best on PNG files. This flag is not valid with GZIP_HUFFMAN_ONLY or GZIP_FILTERED. */
+#define GZIP_LOWMEM       (1 << 3) /**< Decrease memory usage. This unfortunately decreases compression ratios as well. */
 
 /**
  * @brief Special flags for bzip2.
  * These can be combined with the '|' operator.
  */
-enum bzip2_flags{
-	BZIP2_NORMAL = 0            /**< Do not use any special options. This flag is only valid by itself. */
-};
+#define BZIP2_NORMAL (0)           /**< Do not use any special options. This flag is only valid by itself. */
 
 /**
  * @brief Special flags for xz.
  * These can be combined with the '|' operator.
  */
-enum xz_flags{
-	XZ_NORMAL = 0,              /**< Do not use any special options. This flag is only valid by itself. */
-	XZ_EXTREME = 1 << 0          /**< Use extreme compression mode. This slightly increases compression ratios, but significantly increases time and memory usage. */
-};
+
+#define XZ_NORMAL  (0)             /**< Do not use any special options. This flag is only valid by itself. */
+#define XZ_EXTREME (1 << 0)        /**< Use extreme compression mode. This slightly increases compression ratios, but significantly increases time and memory usage. */
 
 /**
  * @brief Special flags for lz4.
  * These can be combined with the '|' operator.
  */
-enum lz4_flags{
-	LZ4_NORMAL = 0              /**< Do not use any special options. This flag is only valid by itself. */
-};
-
-/**
- * @brief Flags for usage with zip_compress().
- * The member of this union used depends on the compressor type used.
- * @see zip_compress()
- */
-union zip_flags{
-	enum gzip_flags  gzipf;  /**< Flags if the compressor type is COMPRESSOR_GZIP. */
-	enum bzip2_flags bzip2f; /**< Flags if the compressor type is COMPRESSOR_BZIP2. */
-	enum xz_flags    xzf;    /**< Flags if the compressor type is COMPRESSOR_XZ. */
-	enum lz4_flags   lz4f;   /**< Flags if the compressor type is COMPRESSOR_LZ4. */
-};
+#define LZ4_NORMAL (0)            /**< Do not use any special options. This flag is only valid by itself. */
 
 /**
  * @brief Compresses a file.
@@ -125,12 +106,11 @@ union zip_flags{
  * A level of 0 uses the default value.
  *
  * @param flags Special flags to give to the compression algorithm.<br>
- * @see union zip_flags
  *
  * @return 0 on success, or negative on failure.<br>
  * On failure, the output file is automatically deleted.
  */
-int zip_compress(const char* infile, const char* outfile, enum compressor c_type, int compression_level, union zip_flags flags);
+int zip_compress(const char* infile, const char* outfile, enum compressor c_type, int compression_level, unsigned flags);
 
 /**
  * @brief Decompresses a file.
@@ -148,7 +128,7 @@ int zip_compress(const char* infile, const char* outfile, enum compressor c_type
  * @return 0 on success, or negative on failure.<br>
  * On failure, the output file is automatically deleted.
  */
-int zip_decompress(const char* infile, const char* outfile, enum compressor c_type, union zip_flags flags);
+int zip_decompress(const char* infile, const char* outfile, enum compressor c_type, unsigned flags);
 
 /**
  * @brief Gets a file extension from a compressor value (e.g. COMPRESSOR_GZIP -> ".gz")

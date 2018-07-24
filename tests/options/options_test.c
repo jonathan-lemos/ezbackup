@@ -49,7 +49,7 @@ cleanup:
 
 void test_parse_options_cmdline(enum TEST_STATUS* status){
 	struct options* opt;
-	enum OPERATION op;
+	enum operation op;
 	char* argv_pass[] = {
 		"PROG_NAME",
 		"backup",
