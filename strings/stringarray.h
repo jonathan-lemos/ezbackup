@@ -16,8 +16,8 @@
  * The length is automatically managed.
  */
 struct string_array{
-	char** strings; /**< The strings in the array. */
-	size_t len;     /**< The length of the array. */
+	char** strings; /**< @brief The strings in the array. */
+	size_t len;     /**< @brief The length of the array. */
 };
 
 /**

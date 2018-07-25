@@ -16,9 +16,9 @@
  * @brief An option entry structure.
  */
 struct opt_entry{
-	char* key;        /**< A dynamically-allocated string corresponding to the key. */
-	void* value;      /**< A dynamically-allocated series of bytes corresponding to the value. */
-	size_t value_len; /**< The length of the byte array. */
+	char* key;        /**< @brief A dynamically-allocated string corresponding to the key. */
+	void* value;      /**< @brief A dynamically-allocated series of bytes corresponding to the value. */
+	size_t value_len; /**< @brief The length of the byte array. */
 };
 
 /**

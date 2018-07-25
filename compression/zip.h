@@ -19,7 +19,7 @@ enum compressor{
 	COMPRESSOR_INVALID = 0,
 #ifndef NO_GZIP_SUPPORT
 	/**
-	 * @brief gzip.
+	 * @brief gzip.<br>
 	 * This is effectively the standard for Linux/OSX compression.<br>
 	 * It is available on almost all Linux/OSX systems by default. Windows users may need to download 7zip to use this algorithm.<br>
 	 * <br>
@@ -29,7 +29,7 @@ enum compressor{
 #endif
 #ifndef NO_BZIP2_SUPPORT
 	/**
-	 * @brief bzip2.
+	 * @brief bzip2.<br>
 	 * This offers nearly the same compatibillity as gzip while offering higher compression ratios.<br>
 	 * As a downside, it uses more memory and takes longer than gzip.<br>
 	 * <br>
@@ -39,7 +39,7 @@ enum compressor{
 #endif
 #ifndef NO_XZ_SUPPORT
 	/**
-	 * @brief xz/lzma2.
+	 * @brief xz/lzma2.<br>
 	 * This algorithm offers the highest compression ratios while taking the longest time and most memory to compress.<br>
 	 * This is not as ubiquitous as gzip/bzip2, but is still available on a majority of Linux systems by default. Linux users may need to install xz to use this algorithm, while OSX/Windows users may need to download 7zip.
 	 */
@@ -47,14 +47,14 @@ enum compressor{
 #endif
 #ifndef NO_LZ4_SUPPORT
 	/**
-	 * @brief lz4.
+	 * @brief lz4.<br>
 	 * This algorithm offers decent compression ratios while compressing several times as fast as the other algorithms.<br>
 	 * This algorithm is only included by default on a handful of Linux distros. Linux users will probably need to install lz4 to use this algorithm, while OSX/Windows users will need to download 7zip-ZS (regular 7zip does not have lz4 support).
 	 */
 	COMPRESSOR_LZ4,
 #endif
 	/**
-	 * @brief No compressor.
+	 * @brief No compressor.<br>
 	 * Compression/decompression simply copies the file.
 	 */
 	COMPRESSOR_NONE

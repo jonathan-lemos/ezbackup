@@ -19,33 +19,33 @@
  * @brief An operation for the main program to perform.
  */
 enum operation{
-	OP_INVALID = 0,   /**< Invalid operation. */
-	OP_BACKUP  = 1,   /**< Backup. */
-	OP_RESTORE = 2,   /**< Restore. */
-	OP_CONFIGURE = 3, /**< Configure. */
-	OP_EXIT = 4       /**< Exit. */
+	OP_INVALID = 0,   /**< @brief Invalid operation. */
+	OP_BACKUP  = 1,   /**< @brief Backup. */
+	OP_RESTORE = 2,   /**< @brief Restore. */
+	OP_CONFIGURE = 3, /**< @brief Configure. */
+	OP_EXIT = 4       /**< @brief Exit. */
 };
 
 /**
  * @brief A structure containing the program's options.
  */
 struct options{
-	char*                 prev_backup;      /**< This option is deprecated. */
-	struct string_array*  directories;      /**< A list of directories to back up. This cannot be NULL, but it can contain 0 strings. */
-	struct string_array*  exclude;          /**< A list of directories to exclude. This cannot be NULL, but it can contain 0 strings. */
-	const EVP_MD*         hash_algorithm;   /**< The hash algorithm to use for checksum files. */
-	const EVP_CIPHER*     enc_algorithm;    /**< The encryption algorithm to use. */
-	char*                 enc_password;     /**< The encryption password to use. This can be NULL. Otherwise, it must be dynamically allocated. */
-	enum compressor       c_type;           /**< The compression algorithm to use. */
-	int                   c_level;          /**< The compression level to use. 0 uses the default level. */
-	unsigned              c_flags;          /**< The compression flags to use. */
-	char*                 output_directory; /**< The backup directory on disk. This must be dynamically allocated. */
-	struct cloud_options* cloud_options;    /**< The cloud options to use. This cannot be NULL, but its members can be. */
-	union tagflags{                         /**< The special flags to use. This can be represented as a series of bits or as an unsigned integer. */
+	char*                 prev_backup;      /**< @brief This option is deprecated. */
+	struct string_array*  directories;      /**< @brief A list of directories to back up. This cannot be NULL, but it can contain 0 strings. */
+	struct string_array*  exclude;          /**< @brief A list of directories to exclude. This cannot be NULL, but it can contain 0 strings. */
+	const EVP_MD*         hash_algorithm;   /**< @brief The hash algorithm to use for checksum files. */
+	const EVP_CIPHER*     enc_algorithm;    /**< @brief The encryption algorithm to use. */
+	char*                 enc_password;     /**< @brief The encryption password to use. This can be NULL. Otherwise, it must be dynamically allocated. */
+	enum compressor       c_type;           /**< @brief The compression algorithm to use. */
+	int                   c_level;          /**< @brief The compression level to use. 0 uses the default level. */
+	unsigned              c_flags;          /**< @brief The compression flags to use. */
+	char*                 output_directory; /**< @brief The backup directory on disk. This must be dynamically allocated. */
+	struct cloud_options* cloud_options;    /**< @brief The cloud options to use. This cannot be NULL, but its members can be. */
+	union tagflags{                         /**< @brief The special flags to use. This can be represented as a series of bits or as an unsigned integer. */
 		struct tagbits{
-			unsigned      flag_verbose: 1;  /**< Verbose output. */
+			unsigned      flag_verbose: 1;  /**< @brief Verbose output. */
 		}bits;
-		unsigned          dword;            /**< All flags as an unsigned integer. */
+		unsigned          dword;            /**< @brief All flags as an unsigned integer. */
 	}flags;
 };
 

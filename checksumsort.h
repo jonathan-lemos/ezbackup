@@ -20,8 +20,8 @@
  * @brief Holds the data needed for a checksum entry.
  */
 struct element{
-	char* file;     /**< The filename. */
-	char* checksum; /**< The null-ternimated hexadecimal checksum string corresponding to the file's contents. */
+	char* file;     /**< @brief The filename. */
+	char* checksum; /**< @brief The null-ternimated hexadecimal checksum string corresponding to the file's contents. */
 };
 
 /**
@@ -30,14 +30,14 @@ struct element{
  * @see merge_files()
  */
 struct minheapnode{
-	struct element* e; /**< The element. @see struct element */
-	int i;             /**< The index of the file it came from */
+	struct element* e; /**< @brief The element. @see struct element */
+	int i;             /**< @brief The index of the file it came from */
 };
 
 /**
  * @brief Writes an element to a checksum file.<br>
  *
- * Format: /path/to/file\0ABCDEF123456\n
+ * Format: /path/to/file\0ABCDEF123456\\n
  *
  * @param fp The output file.<br>
  * This FILE* must be opened in writing binary ("wb") mode.

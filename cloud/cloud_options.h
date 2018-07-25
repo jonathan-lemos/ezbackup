@@ -38,7 +38,7 @@ struct cloud_options{
 	char* password;
 	/** @brief The base directory of the backups.
 	 * If this string is NULL, it will be asked for upon login.<br>
-	 * This string must be dynamically allocated or set through co_set_password().
+	 * This string must be dynamically allocated or set through co_set_upload_directory().
 	 * @see co_set_password()
 	 */
 	char* upload_directory;

@@ -16,10 +16,10 @@
  * @brief A progress bar structure.
  */
 struct progress{
-	const char* text;      /**< The message to display above the progress bar. */
-	uint64_t    count;     /**< The current progress level. */
-	uint64_t    max;       /**< The maximum progress level. */
-	time_t      time_prev; /**< The current time. This is used to make sure the progressbar only updates once per second. */
+	const char* text;      /**< @brief The message to display above the progress bar. */
+	uint64_t    count;     /**< @brief The current progress level. */
+	uint64_t    max;       /**< @brief The maximum progress level. */
+	time_t      time_prev; /**< @brief The current time. This is used to make sure the progressbar only updates once per second. */
 };
 
 /**

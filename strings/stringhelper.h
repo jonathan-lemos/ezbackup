@@ -50,10 +50,12 @@ char* sh_concat(char* in, const char* extension);
 /**
  * @brief Concatenates a path to a dynamic string.<br>
  * Examples:<br>
- * `sh_concat_path("/dir1", "/file.txt")  -> "/dir1/file.txt"`<br>
- * `sh_concat_path("/dir1", "file.txt")   -> "/dir1/file.txt"`<br>
- * `sh_concat_path("/dir1/", "/file.txt") -> "/dir1/file.txt"`<br>
- * `sh_concat_path("dir1", "file.txt")    -> "dir1/file.txt"`
+ * ```C
+ * sh_concat_path("/dir1", "/file.txt")  -> "/dir1/file.txt"
+ * sh_concat_path("/dir1", "file.txt")   -> "/dir1/file.txt"
+ * sh_concat_path("/dir1/", "/file.txt") -> "/dir1/file.txt"
+ * sh_concat_path("dir1", "file.txt")    -> "dir1/file.txt"
+ * ```
  *
  * @param in A dynamic string.<br>
  * This pointer is free()'d once this function completes, regardless of if it succeeds or not.<br>
@@ -68,9 +70,11 @@ char* sh_concat_path(char* in, const char* extension);
 /**
  * @brief Returns the filename for a path.<br>
  * Examples:<br>
- * `sh_filename("/home/equifax/passwords.txt"); -> "passwords.txt"`<br>
- * `sh_filename("/home/equifax/passwords/");    -> "passwords/"`<br>
- * `sh_filename("equifax_passwords.txt");       -> "equifax_passwords.txt"`
+ * ```C
+ * sh_filename("/home/equifax/passwords.txt"); -> "passwords.txt"
+ * sh_filename("/home/equifax/passwords/");    -> "passwords/"
+ * sh_filename("equifax_passwords.txt");       -> "equifax_passwords.txt"
+ * ```
  *
  * @param in A string containing a path.<br>
  * This path does not necessarily have to exist.
@@ -84,9 +88,11 @@ const char* sh_filename(const char* in);
 /**
  * @brief Returns the file extension for a path.<br>
  * Examples:<br>
- * `sh_file_ext("/home/equifax/passwords.txt") -> ".txt"`<br>
- * `sh_file_ext("/home/equifax/passwords/")    -> "passwords/"`<br>
- * `sh_file_ext("/home/equifax/passwords")     -> "passwords"`
+ * ```C
+ * sh_file_ext("/home/equifax/passwords.txt") -> ".txt"
+ * sh_file_ext("/home/equifax/passwords/")    -> "passwords/"
+ * sh_file_ext("/home/equifax/passwords")     -> "passwords"
+ * ```
  *
  * @param in A string containing a path.<br>
  * This path does not necessarily have to exist.
@@ -100,10 +106,12 @@ const char* sh_file_ext(const char* in);
 /**
  * @brief Returns the parent directory for a path.<br>
  * Examples:<br>
- * `sh_parent_dir("/home/equifax/passwords.txt") -> "/home/equifax"`<br>
- * `sh_parent_dir("/home/equifax/passwords/")    -> "/home/equifax"`<br>
- * `sh_parent_dir("/home")                       -> "/"`<br>
- * `sh_parent_dir("/")                           -> NULL`
+ * ```C
+ * sh_parent_dir("/home/equifax/passwords.txt") -> "/home/equifax"
+ * sh_parent_dir("/home/equifax/passwords/")    -> "/home/equifax"
+ * sh_parent_dir("/home")                       -> "/"
+ * sh_parent_dir("/")                           -> NULL
+ * ```
  *
  * @param in A string containing a path.<br>
  * This path does not necessarily have to exist.
@@ -116,11 +124,13 @@ char* sh_parent_dir(const char* in);
 /**
  * @brief Returns true if the haystack starts with the needle, or false if not.<br>
  * Examples:<br>
- * `sh_starts_with("hunter2", "hunt")     -> true`<br>
- * `sh_starts_with("hunter2", "h")        -> true`<br>
- * `sh_starts_with("hunter2", "hunter2")  -> true`<br>
- * `sh_starts_with("hunter2", "hunter23") -> false`<br>
- * `sh_starts_with("hunter2", "Hunter2")  -> false`
+ * ```C
+ * sh_starts_with("hunter2", "hunt")     -> true
+ * sh_starts_with("hunter2", "h")        -> true
+ * sh_starts_with("hunter2", "hunter2")  -> true
+ * sh_starts_with("hunter2", "hunter23") -> false
+ * sh_starts_with("hunter2", "Hunter2")  -> false
+ * ```
  *
  * @param haystack The string to search within.
  *
@@ -149,9 +159,11 @@ char* sh_getcwd(void);
  *
  * @return For two non-null strings, the return value is the same as strcmp().<br>
  * Otherwise:<br>
- * `sh_cmp_nullsafe(NULL, "non-null")  > 0`<br>
- * `sh_cmp_nullsafe("non-null", NULL)  < 0`<br>
- * `sh_cmp_nullsafe(NULL, NULL)       == 0`
+ * ```C
+ * sh_cmp_nullsafe(NULL, "non-null")  > 0
+ * sh_cmp_nullsafe("non-null", NULL)  < 0
+ * sh_cmp_nullsafe(NULL, NULL)       == 0
+ * ```
  */
 int sh_cmp_nullsafe(const char* str1, const char* str2);
 

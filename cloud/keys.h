@@ -19,7 +19,9 @@
  * You can create one <a href=https://mega.nz/sdk>here</a>.<br>
  * <br>
  * Once this is done, create a file called "keys.c" that defines this constant like so:<br>
- * `const char* const MEGA_API_KEY = "ABCDEFGH";`
+ * ```C
+ * const char* const MEGA_API_KEY = "ABCDEFGH";
+ * ```
  */
 extern const char* const MEGA_API_KEY;
 
@@ -29,7 +31,9 @@ extern const char* const MEGA_API_KEY;
  * You can create one <a href=https://mega.nz/register>here</a>.<br>
  * <br>
  * Once this is done, create a file called "keys.c" that defines this constant like so:<br>
- * `const char* const MEGA_SAMPLE_USERNAME = "johndoe@example.com";`
+ * ```C
+ * const char* const MEGA_SAMPLE_USERNAME = "johndoe@example.com";
+ * ```
  */
 extern const char* const MEGA_SAMPLE_USERNAME;
 
@@ -39,7 +43,9 @@ extern const char* const MEGA_SAMPLE_USERNAME;
  * You can create one <a href=https://mega.nz/register>here</a>.<br>
  *
  * Once this is done, create a file called "keys.c" that defines this constant like so:<br>
- * `const char* const MEGA_SAMPLE_PASSWORD = "hunter2";`
+ * ```C
+ * const char* const MEGA_SAMPLE_PASSWORD = "hunter2";
+ * ```
  */
 extern const char* const MEGA_SAMPLE_PASSWORD;
 

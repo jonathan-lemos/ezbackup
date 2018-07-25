@@ -31,17 +31,13 @@
  * Analogous to FILE* for regular files.
  */
 struct ZIP_FILE{
-	/** @brief The file that's being compressed/decompressed. */
-	FILE* fp;
-	/** @brief A boolean value that's true if the ZIP_FILE is compressing. */
-	unsigned write;
-	/** @brief An enumeration that shows which compression algorithm is being used. */
-	enum compressor c_type;
-	/** @brief A stream that depends on which compression algorithm is being used. */
-	union tag_strm{
-		z_stream zstrm;
-		bz_stream bzstrm;
-		lzma_stream xzstrm;
+	FILE* fp;               /**< @brief The file that's being compressed/decompressed. */
+	unsigned write;         /**< @brief A boolean value that's true if the ZIP_FILE is compressing. */
+	enum compressor c_type; /**< @brief An enumeration that shows which compression algorithm is being used. */
+	union tag_strm{         /**< @brief A stream (de)compression structure that depends on which compression algorithm is being used. */
+		z_stream zstrm;     /**< @brief gzip (de)compression stream. */
+		bz_stream bzstrm;   /**< @brief bzip2 (de)compression stream. */
+		lzma_stream xzstrm; /**< @brief xz (de)compression stream. */
 	}strm;
 };
 
