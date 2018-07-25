@@ -66,8 +66,8 @@ clean:
 
 .PHONY: linecount
 linecount:
-	wc -l makefile readme.txt $(foreach dir,$(DIRECTORIES),$(dir)/*.h $(dir)/*.c $(dir)/*.cpp) $(foreach test,$(TESTS),$(test).c) $(foreach cxxtest,$(CXXTESTS),$(cxxtest).cpp) tests/test_framework.h tests/test_framework.c tests/test_all.c 2>/dev/null | sort -g
+	wc -l makefile readme.txt $(foreach dir,$(DIRECTORIES),$(dir)/*.h $(dir)/*.c $(dir)/*.cpp) $(foreach test,$(TESTS),$(test).c) $(foreach cxxtest,$(CXXTESTS),$(cxxtest).cpp) tests/test_framework.h tests/test_framework.c tests/test_all.c 2>/dev/null | sort -k2,2
 
 .PHONY: linecount_notests
 linecount_notests:
-	wc -l makefile readme.txt $(foreach dir,$(DIRECTORIES),$(dir)/*.h $(dir)/*.c $(dir)/*.cpp) 2>/dev/null | sort -g
+	wc -l makefile readme.txt $(foreach dir,$(DIRECTORIES),$(dir)/*.h $(dir)/*.c $(dir)/*.cpp) 2>/dev/null | sort -k2,2
