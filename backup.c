@@ -126,7 +126,7 @@ cleanup:
 	return ret;
 }
 
-static int copy_single_file(const char* file, const struct options* opt, union zip_flags c_flags, unsigned long backup_time, struct cloud_data* cd, const char* cloud_directory){
+static int copy_single_file(const char* file, const struct options* opt, unsigned long backup_time, struct cloud_data* cd, const char* cloud_directory){
 	char* path_files = NULL;
 	char* path_delta = NULL;
 	char* file_parent = NULL;
@@ -149,7 +149,7 @@ static int copy_single_file(const char* file, const struct options* opt, union z
 		log_warning_ex("Failed to create delta for %s", path_files);
 	}
 
-	if (zip_compress(file, path_files, opt->c_type, opt->c_level, c_flags) != 0){
+	if (zip_compress(file, path_files, opt->c_type, opt->c_level, opt->c_flags) != 0){
 		log_error("Failed to compress output file");
 		ret = -1;
 		goto cleanup;
@@ -226,7 +226,7 @@ static int copy_files(const struct options* opt, FILE* fp_checksum, FILE* fp_che
 			}
 			else if (res == 0){
 				printf("%s\n", tmp);
-				if (copy_single_file(tmp, opt, opt->c_flags, backup_time, cd, opt->cloud_options->upload_directory) != 0){
+				if (copy_single_file(tmp, opt, backup_time, cd, opt->cloud_options->upload_directory) != 0){
 					log_warning_ex("Failed to copy %s", tmp);
 				}
 			}

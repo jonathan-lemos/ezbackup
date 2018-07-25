@@ -50,10 +50,10 @@ char* sh_concat(char* in, const char* extension);
 /**
  * @brief Concatenates a path to a dynamic string.
  * Examples:<br>
- * `sh_concat_path("/dir1", "/file.txt");  -> "/dir1/file.txt"`<br>
- * `sh_concat_path("/dir1", "file.txt");   -> "/dir1/file.txt"`<br>
- * `sh_concat_path("/dir1/", "/file.txt"); -> "/dir1/file.txt"`<br>
- * `sh_concat_path("dir1", "file.txt");    -> "dir1/file.txt"`
+ * `sh_concat_path("/dir1", "/file.txt")  -> "/dir1/file.txt"`<br>
+ * `sh_concat_path("/dir1", "file.txt")   -> "/dir1/file.txt"`<br>
+ * `sh_concat_path("/dir1/", "/file.txt") -> "/dir1/file.txt"`<br>
+ * `sh_concat_path("dir1", "file.txt")    -> "dir1/file.txt"`
  *
  * @param in A dynamic string.<br>
  * This pointer is free()'d once this function completes, regardless of if it succeeds or not.<br>
@@ -174,6 +174,8 @@ int sh_ncasecmp(const char* str1, const char* str2);
  * This function is like sprintf(), but it allocates the destination string instead of requiring a static buffer.
  *
  * @param format A printf format string.
+ *
+ * @param ... The printf format string's arguments, if any.
  *
  * @return A string corresponding to the format string filled in with its arguments, or NULL on error.<br>
  * This string must be free()'d when no longer in use.

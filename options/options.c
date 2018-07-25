@@ -420,7 +420,7 @@ int parse_options_fromfile(const char* file, struct options** output){
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "C_FLAGS");
 	if (res >= 0){
-		opt->c_flags = *(union zip_flags*)entries[res]->value;
+		opt->c_flags = *(unsigned*)entries[res]->value;
 	}
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "OUTPUT_DIRECTORY");
@@ -685,8 +685,8 @@ int options_cmp(const struct options* opt1, const struct options* opt2){
 		return opt1->c_level - opt2->c_level;
 	}
 
-	if (opt1->c_flags.gzipf != opt2->c_flags.gzipf){
-		return opt1->c_flags.gzipf - opt2->c_flags.gzipf;
+	if (opt1->c_flags != opt2->c_flags){
+		return (long)opt1->c_flags - (long)opt2->c_flags;
 	}
 
 	if (sh_cmp_nullsafe(opt1->output_directory, opt2->output_directory) != 0){
