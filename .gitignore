@@ -1,3 +1,4 @@
 cloud/keys.c
 *.o
 ezbackup
+docs/*

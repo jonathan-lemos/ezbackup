@@ -29,7 +29,7 @@
  * @param prompt The prompt to display to the user.
  *
  * @return The user's input, or NULL on error.<br>
- * This value does not include the trailing '\n'.<br>
+ * This value does not include the trailing '\\n'.<br>
  * This value must be free()'d when no longer in use.
  */
 char* __mreadline(const char* prompt);
@@ -42,8 +42,8 @@ char* __mreadline(const char* prompt);
  *
  * @param prompt The prompt to display to the user.
  *
- * @param The user's input, or NULL on error.<br>
- * This value does not include the trailing '\n'.<br>
+ * @return The user's input, or NULL on error.<br>
+ * This value does not include the trailing '\\n'.<br>
  * This value must be free()'d when no longer in use.
  */
 #define readline(prompt) __mreadline(prompt)
