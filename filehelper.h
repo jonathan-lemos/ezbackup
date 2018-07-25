@@ -32,7 +32,7 @@ struct TMPFILE{
 };
 
 /**
- * @brief Reads bytes from a file.
+ * @brief Reads bytes from a file.<br>
  *
  * Nearly identical to fread(dest, 1, length, fp), but this function contains some extra error checking.
  *
@@ -63,7 +63,7 @@ int read_file(FILE* fp, unsigned char* dest, size_t length);
 struct TMPFILE* temp_fopen(void);
 
 /**
- * @brief Synchronizes the FILE* and filename.
+ * @brief Synchronizes the FILE* and filename.<br>
  *
  * This function is necessary when you need to flush the internal FILE*'s buffers before using the filename, or when the filename is directly used and you need to update the FILE* to reflect those changes.
  *
@@ -130,10 +130,10 @@ uint64_t get_file_size(const char* file);
 int copy_file(const char* _old, const char* _new);
 
 /**
- * @brief Moves a file.
+ * @brief Moves a file.<br>
  *
  * This function works instantly if the source and destination are on the same disk.<br>
- * Otherwise, it has to copy the file and then remove the old one.<br>
+ * Otherwise, it has to copy the file and then remove the old one.
  *
  * @param _old The file to rename.
  *

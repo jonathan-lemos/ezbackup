@@ -23,7 +23,7 @@ struct progress{
 };
 
 /**
- * @brief Starts a progress bar on stdout.
+ * @brief Starts a progress bar on stdout.<br>
  *
  * This progress bar is not thread-safe if other threads write to stdout.
  *

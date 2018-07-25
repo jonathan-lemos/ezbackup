@@ -94,7 +94,7 @@ public:
 		this->transfer = transfer->copy();
 
 		if (p){
-			finish_progress(p);
+			error->getErrorCode() == mega::MegaError::API_OK ? finish_progress(p) : finish_progress_fail(p);
 			p = NULL;
 		}
 

@@ -21,7 +21,7 @@
 char* sh_new(void);
 
 /**
- * @brief Duplicates a string or converts a static string to a dynamic one.
+ * @brief Duplicates a string or converts a static string to a dynamic one.<br>
  * This function is essentially equivalent to strdup() with more error checking.
  *
  * @param in The string to duplicate.<br>
@@ -48,7 +48,7 @@ char* sh_dup(const char* in);
 char* sh_concat(char* in, const char* extension);
 
 /**
- * @brief Concatenates a path to a dynamic string.
+ * @brief Concatenates a path to a dynamic string.<br>
  * Examples:<br>
  * `sh_concat_path("/dir1", "/file.txt")  -> "/dir1/file.txt"`<br>
  * `sh_concat_path("/dir1", "file.txt")   -> "/dir1/file.txt"`<br>
@@ -66,7 +66,7 @@ char* sh_concat(char* in, const char* extension);
 char* sh_concat_path(char* in, const char* extension);
 
 /**
- * @brief Returns the filename for a path.
+ * @brief Returns the filename for a path.<br>
  * Examples:<br>
  * `sh_filename("/home/equifax/passwords.txt"); -> "passwords.txt"`<br>
  * `sh_filename("/home/equifax/passwords/");    -> "passwords/"`<br>
@@ -82,7 +82,7 @@ char* sh_concat_path(char* in, const char* extension);
 const char* sh_filename(const char* in);
 
 /**
- * @brief Returns the file extension for a path.
+ * @brief Returns the file extension for a path.<br>
  * Examples:<br>
  * `sh_file_ext("/home/equifax/passwords.txt") -> ".txt"`<br>
  * `sh_file_ext("/home/equifax/passwords/")    -> "passwords/"`<br>
@@ -98,7 +98,7 @@ const char* sh_filename(const char* in);
 const char* sh_file_ext(const char* in);
 
 /**
- * @brief Returns the parent directory for a path.
+ * @brief Returns the parent directory for a path.<br>
  * Examples:<br>
  * `sh_parent_dir("/home/equifax/passwords.txt") -> "/home/equifax"`<br>
  * `sh_parent_dir("/home/equifax/passwords/")    -> "/home/equifax"`<br>
@@ -114,7 +114,7 @@ const char* sh_file_ext(const char* in);
 char* sh_parent_dir(const char* in);
 
 /**
- * @brief Returns true if the haystack starts with the needle, or false if not.
+ * @brief Returns true if the haystack starts with the needle, or false if not.<br>
  * Examples:<br>
  * `sh_starts_with("hunter2", "hunt")     -> true`<br>
  * `sh_starts_with("hunter2", "h")        -> true`<br>
@@ -131,7 +131,7 @@ char* sh_parent_dir(const char* in);
 int sh_starts_with(const char* haystack, const char* needle);
 
 /**
- * @brief Gets the current directory as a dynamic string.
+ * @brief Gets the current directory as a dynamic string.<br>
  *
  * @return The current directory, or NULL on error.<br>
  * This string must be free()'d when no longer in use.
@@ -139,7 +139,7 @@ int sh_starts_with(const char* haystack, const char* needle);
 char* sh_getcwd(void);
 
 /**
- * @brief Compares two strings that may or may not be NULL.
+ * @brief Compares two strings that may or may not be NULL.<br>
  *
  * @param str1 The first string.<br>
  * This can be NULL.
@@ -170,7 +170,7 @@ int sh_cmp_nullsafe(const char* str1, const char* str2);
 int sh_ncasecmp(const char* str1, const char* str2);
 
 /**
- * @brief Creates a string out of a printf statement.
+ * @brief Creates a string out of a printf statement.<br>
  * This function is like sprintf(), but it allocates the destination string instead of requiring a static buffer.
  *
  * @param format A printf format string.

@@ -43,7 +43,7 @@ int cloud_login(struct cloud_options* co, struct cloud_data** out_cd);
 int cloud_mkdir(const char* dir, struct cloud_data* cd);
 
 /**
- * @brief Lets the user choose a directory to create within a cloud account.
+ * @brief Lets the user choose a directory to create within a cloud account.<br>
  *
  * The prompt will look like the following:<br>
  * /base/dir/[user input]<br>
@@ -66,7 +66,7 @@ int cloud_mkdir(const char* dir, struct cloud_data* cd);
 int cloud_mkdir_ui(const char* base_dir, char** chosen_dir, struct cloud_data* cd);
 
 /**
- * @brief Fills a stat structure for a file in a cloud account.
+ * @brief Fills a stat structure for a file in a cloud account.<br>
  * At the moment, the uid/gid values are always set to the current user's values, and permissions are always set to 0755.<br>
  * TODO: implement support for these values.
  *
@@ -115,7 +115,7 @@ int cloud_rename(const char* _old, const char* _new, struct cloud_data* cd);
 int cloud_upload(const char* in_file, const char* upload_dir, struct cloud_data* cd);
 
 /**
- * @brief Lets the user choose a directory to upload to.
+ * @brief Lets the user choose a directory to upload to.<br>
  *
  * This pulls up a cli file explorer that allows the user to create/select a directory.<br>
  * The user can choose to exit, in which case a file is not uploaded, and a positive value is returned to reflect this.<br>
@@ -191,7 +191,7 @@ int cloud_download_ui(const char* base_dir, char** out_file, struct cloud_data* 
 int cloud_remove(const char* dir_or_file, struct cloud_data* cd);
 
 /**
- * @brief Lets the user choose a file to remove.
+ * @brief Lets the user choose a file to remove.<br>
  *
  * This pulls up a cli file explorer that allows the user to choose a file.<br>
  * The user can choose to exit, in which case a file is not removed, and a positive value is returned to reflect this.<br>

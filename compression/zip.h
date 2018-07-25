@@ -60,34 +60,21 @@ enum compressor{
 	COMPRESSOR_NONE
 };
 
-/**
- * @brief Special flags for gzip.
- * These can be combined with the '|' operator.
- */
+/* gzip options */
 #define GZIP_NORMAL       (0)      /**< Do not use any special options. This flag is only valid by itself. */
 #define GZIP_HUFFMAN_ONLY (1 << 0) /**< Force Huffman enconding only (no string match). This flag is not valid with GZIP_FILTERED or GZIP_RLE */
 #define GZIP_FILTERED     (1 << 1) /**< Input data is filtered (many small values that are somewhat random). This flag is not valid with GZIP_HUFFMAN_ONLY or GZIP_RLE. */
 #define GZIP_RLE          (1 << 2) /**< Force run-length-encoding. This works best on PNG files. This flag is not valid with GZIP_HUFFMAN_ONLY or GZIP_FILTERED. */
 #define GZIP_LOWMEM       (1 << 3) /**< Decrease memory usage. This unfortunately decreases compression ratios as well. */
 
-/**
- * @brief Special flags for bzip2.
- * These can be combined with the '|' operator.
- */
+/* gzip options */
 #define BZIP2_NORMAL (0)           /**< Do not use any special options. This flag is only valid by itself. */
 
-/**
- * @brief Special flags for xz.
- * These can be combined with the '|' operator.
- */
-
+/* xz options */
 #define XZ_NORMAL  (0)             /**< Do not use any special options. This flag is only valid by itself. */
 #define XZ_EXTREME (1 << 0)        /**< Use extreme compression mode. This slightly increases compression ratios, but significantly increases time and memory usage. */
 
-/**
- * @brief Special flags for lz4.
- * These can be combined with the '|' operator.
- */
+/* lz4 options */
 #define LZ4_NORMAL (0)            /**< Do not use any special options. This flag is only valid by itself. */
 
 /**

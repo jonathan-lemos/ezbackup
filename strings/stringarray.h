@@ -12,7 +12,7 @@
 #include <stddef.h>
 
 /**
- * @brief An array of strings.
+ * @brief An array of strings.<br>
  * The length is automatically managed.
  */
 struct string_array{
@@ -137,7 +137,7 @@ int sa_cmp(const struct string_array* sa1, const struct string_array* sa2);
 void sa_to_raw_array(struct string_array* arr, char*** out, size_t* out_len);
 
 /**
- * @brief Merges two string arrays into one.
+ * @brief Merges two string arrays into one.<br>
  * The contents of the source string array will be appended to the destination string array.
  *
  * @param dst The array to be merged into.

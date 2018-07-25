@@ -24,7 +24,7 @@ enum LOG_LEVEL{
 };
 
 /**
- * @brief Sets the current logging level.
+ * @brief Sets the current logging level.<br>
  * All messages greater than the current level are silenced.<br>
  * This function is not thread-safe.
  * @see enum LOG_LEVEL
@@ -36,7 +36,7 @@ enum LOG_LEVEL{
 void log_setlevel(enum LOG_LEVEL level);
 
 /**
- * @brief Logs a message to stderr.
+ * @brief Logs a message to stderr.<br>
  * Do not call this function directly. Use one of the macros provided by this library.
  *
  * @param file The file where the error takes place.
@@ -97,7 +97,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
 #define log_info(msg) log_msg(__FILE__, __LINE__, LEVEL_INFO, msg)
 
 /**
- * @brief Logs a LEVEL_FATAL message with a single printf parameter.
+ * @brief Logs a LEVEL_FATAL message with a single printf parameter.<br>
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
@@ -109,7 +109,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
 #define log_fatal_ex(msg, strerr) log_msg(__FILE__, __LINE__, LEVEL_FATAL, msg, strerr)
 
 /**
- * @brief Logs a LEVEL_ERROR message with a single printf parameter.
+ * @brief Logs a LEVEL_ERROR message with a single printf parameter.<br>
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
@@ -121,7 +121,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
 #define log_error_ex(msg, strerr) log_msg(__FILE__, __LINE__, LEVEL_ERROR, msg, strerr)
 
 /**
- * @brief Logs a LEVEL_WARNING message with a single printf parameter.
+ * @brief Logs a LEVEL_WARNING message with a single printf parameter.<br>
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
@@ -133,7 +133,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
 #define log_warning_ex(msg, strerr) log_msg(__FILE__, __LINE__, LEVEL_WARNING, msg, strerr)
 
 /**
- * @brief Logs a LEVEL_DEBUG message with a single printf parameter.
+ * @brief Logs a LEVEL_DEBUG message with a single printf parameter.<br>
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
@@ -145,7 +145,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
 #define log_debug_ex(msg, strerr) log_msg(__FILE__, __LINE__, LEVEL_DEBUG, msg, strerr)
 
 /**
- * @brief Logs a LEVEL_INFO message with a single printf parameter.
+ * @brief Logs a LEVEL_INFO message with a single printf parameter.<br>
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
@@ -157,7 +157,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
 #define log_info_ex(msg, strerr) log_msg(__FILE__, __LINE__, LEVEL_INFO, msg, strerr)
 
 /**
- * @brief Logs a LEVEL_FATAL message with a two printf parameters.
+ * @brief Logs a LEVEL_FATAL message with a two printf parameters.<br>
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
@@ -171,7 +171,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
 #define log_fatal_ex2(msg, file, strerr) log_msg(__FILE__, __LINE__, LEVEL_FATAL, msg, file, strerr)
 
 /**
- * @brief Logs a LEVEL_ERROR message with a two printf parameters.
+ * @brief Logs a LEVEL_ERROR message with a two printf parameters.<br>
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
@@ -185,7 +185,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
 #define log_error_ex2(msg, file, strerr) log_msg(__FILE__, __LINE__, LEVEL_ERROR, msg, file, strerr)
 
 /**
- * @brief Logs a LEVEL_WARNING message with a two printf parameters.
+ * @brief Logs a LEVEL_WARNING message with a two printf parameters.<br>
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
@@ -199,7 +199,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
 #define log_warning_ex2(msg, file, strerr) log_msg(__FILE__, __LINE__, LEVEL_WARNING, msg, file, strerr)
 
 /**
- * @brief Logs a LEVEL_DEBUG message with a two printf parameters.
+ * @brief Logs a LEVEL_DEBUG message with a two printf parameters.<br>
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.
@@ -213,7 +213,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
 #define log_debug_ex2(msg, file, strerr) log_msg(__FILE__, __LINE__, LEVEL_DEBUG, msg, file, strerr)
 
 /**
- * @brief Logs a LEVEL_INFO message with a two printf parameters.
+ * @brief Logs a LEVEL_INFO message with a two printf parameters.<br>
  * Unfortunately, C89 does not support variadic macros, which is why this function exists.
  *
  * @param msg The message as a printf format string.

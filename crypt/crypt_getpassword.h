@@ -10,7 +10,7 @@
 #define __CRYPT_CRYPT_GETPASSWORD_H
 
 /**
- * @brief Gets a password securely from the terminal.
+ * @brief Gets a password securely from the terminal.<br>
  * Terminal echo is disabled when the password is being read.<br>
  * Any fragments of the the user's input besides the output are erased from memory.
  *
@@ -28,7 +28,7 @@
 int crypt_getpassword(const char* prompt, const char* verify_prompt, char** out);
 
 /**
- * @brief Frees a password securely.
+ * @brief Frees a password securely.<br>
  * This makes sure that the password does not remain in memory once it is free.
  *
  * @param password The password to free.

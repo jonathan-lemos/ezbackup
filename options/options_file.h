@@ -35,8 +35,9 @@ struct opt_entry{
 FILE* create_option_file(const char* path);
 
 /**
- * @brief Adds an option to a file.
- * Said option can be accessed through its key.
+ * @brief Adds an option to a file.<br>
+ * Said option can be accessed through its key with binsearch_opt_entries().
+ * @see binsearch_opt_entries()
  *
  * @param fp A file pointer returned by create_option_file()<br>
  * @see create_option_file()
@@ -55,7 +56,7 @@ FILE* create_option_file(const char* path);
 int add_option_tofile(FILE* fp, const char* key, const void* value, size_t value_len);
 
 /**
- * @brief Reads the keys/values stored in an option file.
+ * @brief Reads the keys/values stored in an option file.<br>
  * This option file must have had its entries created through add_option_tofile()<br>
  * The output will be sorted in strcmp() order by their keys.
  * @see add_option_tofile()

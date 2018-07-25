@@ -25,7 +25,7 @@ struct crypt_keys;
 struct crypt_keys* crypt_new(void);
 
 /**
- * @brief Scrubs data with random values.
+ * @brief Scrubs data with random values.<br>
  * This prevents fragments of sensitive information such as a password or a key being left in memory.
  *
  * @param data The data to scrub.
@@ -37,7 +37,7 @@ struct crypt_keys* crypt_new(void);
 int crypt_scrub(void* data, int len);
 
 /**
- * @brief Generates random data.
+ * @brief Generates random data.<br>
  * This is identical to crypt_scrub(), as both functions simply fill data with random values.
  * @see crypt_scrub()
  *
@@ -66,7 +66,7 @@ unsigned char crypt_randc(void);
 const EVP_CIPHER* crypt_get_cipher(const char* encryption_name);
 
 /**
- * @brief Sets the encryption type.
+ * @brief Sets the encryption type.<br>
  * This function must be called after crypt_new()
  *
  * @param encryption The encryption type to set.
@@ -90,7 +90,7 @@ int crypt_set_encryption(const EVP_CIPHER* encryption, struct crypt_keys* fk);
 int crypt_gen_salt(struct crypt_keys* fk);
 
 /**
- * @brief Sets the salt to a user-specified value.
+ * @brief Sets the salt to a user-specified value.<br>
  * Do not use with a hard-coded value unless its for testing purposes, as this defeats the purpose of a salt.
  *
  * @param salt The salt to set.
@@ -103,7 +103,7 @@ int crypt_gen_salt(struct crypt_keys* fk);
 int crypt_set_salt(const unsigned char salt[8], struct crypt_keys* fk);
 
 /**
- * @brief Generates encryption keys based on a password.
+ * @brief Generates encryption keys based on a password.<br>
  * This function must be called after crypt_set_encryption().<br>
  * It is highly recommended that this function is called after crypt_gen_salt() or crypt_set_salt(), as this prevents rainbow table attacks against the encrypted file.<br>
  * Otherwise, the default salt value is all zeroes.
@@ -130,7 +130,7 @@ int crypt_set_salt(const unsigned char salt[8], struct crypt_keys* fk);
 int crypt_gen_keys(const void* data, int data_len, const EVP_MD* md, int iterations, struct crypt_keys* fk);
 
 /**
- * @brief Encrypts a file using a crypt keys structure.
+ * @brief Encrypts a file using a crypt keys structure.<br>
  * This function must be called after crypt_gen_keys().<br>
  * @see crypt_gen_keys()
  *
@@ -147,7 +147,7 @@ int crypt_gen_keys(const void* data, int data_len, const EVP_MD* md, int iterati
 int crypt_encrypt(const char* in, struct crypt_keys* fk, const char* out);
 
 /**
- * @brief Encrypts a file using a crypt keys structure and an optional progress bar.
+ * @brief Encrypts a file using a crypt keys structure and an optional progress bar.<br>
  * This function must be called after crypt_gen_keys().<br>
  * @see crypt_gen_keys()
  *
@@ -169,7 +169,7 @@ int crypt_encrypt(const char* in, struct crypt_keys* fk, const char* out);
 int crypt_encrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int verbose, const char* progress_msg);
 
 /**
- * @brief Decrypts a file using a crypt keys structure.
+ * @brief Decrypts a file using a crypt keys structure.<br>
  * This function must be called after crypt_gen_keys() and crypt_extract_salt()<br>
  * @see crypt_gen_keys()
  * @see crypt_extract_salt()
@@ -187,7 +187,7 @@ int crypt_encrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int
 int crypt_decrypt(const char* in, struct crypt_keys* fk, const char* out);
 
 /**
- * @brief Decrypts a file using a crypt keys structure and an optional progress bar.
+ * @brief Decrypts a file using a crypt keys structure and an optional progress bar.<br>
  * This function must be called after crypt_gen_keys() and crypt_extract_salt()
  * @see crypt_gen_keys()
  * @see crypt_extract_salt()
@@ -222,7 +222,7 @@ int crypt_decrypt_ex(const char* in, struct crypt_keys* fk, const char* out, int
 int crypt_extract_salt(const char* in, struct crypt_keys* fk);
 
 /**
- * @brief Frees all memory associated with a crypt keys structure.
+ * @brief Frees all memory associated with a crypt keys structure.<br>
  * This also scrubs sensitive data like encryption keys and the initialization vector.
  *
  * @param fk The crypt keys structure to free.
@@ -232,7 +232,7 @@ int crypt_extract_salt(const char* in, struct crypt_keys* fk);
 void crypt_free(struct crypt_keys* fk);
 
 /**
- * @brief Resets a crypt keys structure for reuse.
+ * @brief Resets a crypt keys structure for reuse.<br>
  * This also scrubs sensitive data like encryption keys and the initialization vector.<br>
  * The resulting crypt keys structure will be identical to one returned by crypt_new()
  * @see crypt_new()

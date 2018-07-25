@@ -104,8 +104,8 @@ int co_set_upload_directory(struct cloud_options* co, const char* upload_directo
 int co_set_default_upload_directory(struct cloud_options* co);
 
 /**
- * @brief Sets the cp field of a cloud_options structure.
- * co_set_cp(co, val) is identical to co->cp = val<br>
+ * @brief Sets the cp field of a cloud_options structure.<br>
+ * `co_set_cp(co, val)` is identical to `co->cp = val`<br>
  * This function only exists for completeness with the other functions.
  *
  * @param co The cloud options structure to update.
@@ -117,7 +117,7 @@ int co_set_default_upload_directory(struct cloud_options* co);
 int co_set_cp(struct cloud_options* co, enum cloud_provider cp);
 
 /**
- * @brief Converts a string to its equivalent CLOUD_PROVIDER.
+ * @brief Converts a string to its equivalent CLOUD_PROVIDER.<br>
  * Example: "mega.nz" -> CLOUD_MEGA
  *
  * @param str The string to convert.
@@ -127,7 +127,7 @@ int co_set_cp(struct cloud_options* co, enum cloud_provider cp);
 enum cloud_provider cloud_provider_from_string(const char* str);
 
 /**
- * @brief Converts a CLOUD_PROVIDER to its string equivalent
+ * @brief Converts a CLOUD_PROVIDER to its string equivalent<br>
  * Example: CLOUD_MEGA -> "mega.nz"
  *
  * @param cp The CLOUD_PROVIDER to convert.
@@ -146,7 +146,7 @@ const char* cloud_provider_to_string(enum cloud_provider cp);
 void co_free(struct cloud_options* co);
 
 /**
- * @brief Compares the contents of two cloud_options structures, returning 0 if they are equivalent, or non-zero if they are not.
+ * @brief Compares the contents of two cloud_options structures, returning 0 if they are equivalent, or non-zero if they are not.<br>
  * This function will always return the same value for the same two cloud options structures.
  *
  * @param co1 The first cloud options structure.

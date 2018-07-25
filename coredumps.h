@@ -20,7 +20,7 @@
 int disable_core_dumps(void);
 
 /**
- * @brief Re-enables core dumps on the system if they were previously disabled.
+ * @brief Re-enables core dumps on the system if they were previously disabled.<br>
  *
  * This function tends to fail even when disable_core_dumps() works, but core dumps are not necessary for this program to function, so failure to re-enable core dumps is not a major problem.
  * @see disable_core_dumps()

@@ -72,7 +72,7 @@ void usage(const char* progname);
 struct options* options_new(void);
 
 /**
- * @brief Compares two options structures.
+ * @brief Compares two options structures.<br>
  * Returns 0 if they are the same and non-zero if they are different.<br>
  * The same two structures will always result in the same value.
  *
@@ -115,7 +115,7 @@ void options_free(struct options* o);
 int parse_options_cmdline(int argc, char** argv, struct options** out, enum operation* op_out);
 
 /**
- * @brief Creates an options structure from a file.
+ * @brief Creates an options structure from a file.<br>
  * This file must be created by write_options_tofile()<br>
  * For most cases, get_prev_options() is a better alternative, as it reads from a predetermined location.
  * @see write_options_tofile()
@@ -134,7 +134,7 @@ int parse_options_cmdline(int argc, char** argv, struct options** out, enum oper
 int parse_options_fromfile(const char* file, struct options** out);
 
 /**
- * @brief Writes an options structure to a file.
+ * @brief Writes an options structure to a file.<br>
  * The contents can be parsed with parse_options_fromfile()<br>
  * For most cases, set_prev_options() is a better alternative, as it writes to a predetermined location.
  * @see parse_options_fromfile()
@@ -149,7 +149,7 @@ int parse_options_fromfile(const char* file, struct options** out);
 int write_options_tofile(const char* file, const struct options* opt);
 
 /**
- * @brief Gets the previous options from a previous call to set_prev_options()
+ * @brief Gets the previous options from a previous call to set_prev_options()<br>
  * This function is valid even when the program exits and reopens, as long as the file created by set_prev_options() still exists.<br>
  * If no previous file could be found, this function creates a new default options file on disk.
  * @see set_prev_options()
@@ -165,7 +165,7 @@ int write_options_tofile(const char* file, const struct options* opt);
 int get_prev_options(struct options** out);
 
 /**
- * @brief Writes an options structure to a predetermined location on disk.
+ * @brief Writes an options structure to a predetermined location on disk.<br>
  * This options file can be retrieved with get_prev_options().
  * @see get_prev_options()
  *

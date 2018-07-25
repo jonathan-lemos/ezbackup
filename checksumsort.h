@@ -25,7 +25,7 @@ struct element{
 };
 
 /**
- * @brief A node in the merging heap.
+ * @brief A node in the merging heap.<br>
  * The index of the file is necessary for merge_files() to draw the next element from the correct file.
  * @see merge_files()
  */
@@ -35,7 +35,7 @@ struct minheapnode{
 };
 
 /**
- * @brief Writes an element to a checksum file.
+ * @brief Writes an element to a checksum file.<br>
  *
  * Format: /path/to/file\0ABCDEF123456\n
  *
@@ -65,7 +65,7 @@ struct element* get_next_checksum_element(FILE* fp);
 /* TODO: return an integer since there's multiple reasons for NULL */
 
 /**
- * @brief Retrieves the checksum element at a certain index.
+ * @brief Retrieves the checksum element at a certain index.<br>
  *
  * This function is slow because it rewinds the fp and moves sequentially to the n'th element.
  *
@@ -81,7 +81,7 @@ struct element* get_next_checksum_element(FILE* fp);
 struct element* get_checksum_element_index(FILE* fp, int index);
 
 /**
- * @brief Returns the index of the median element of {low, mid, high}
+ * @brief Returns the index of the median element of {low, mid, high}<br>
  *
  * This function is meant to provide a pivot for quicksort_elements() that divides the list somewhat evenly.<br>
  * This allows quicksort_elements() to sort more quickly and reliably.
@@ -98,7 +98,7 @@ struct element* get_checksum_element_index(FILE* fp, int index);
 int median_of_three(struct element** elements, int low, int high);
 
 /**
- * @brief Quicksorts a list of elements.
+ * @brief Quicksorts a list of elements.<br>
  *
  * This sorts the initial runs for create_initial_runs().
  * @see create_initial_runs()
@@ -134,7 +134,7 @@ void free_element(struct element* e);
 void free_element_array(struct element** elements, size_t size);
 
 /**
- * @brief Creates an array of individually sorted checksum lists from a single unsorted checksum list.
+ * @brief Creates an array of individually sorted checksum lists from a single unsorted checksum list.<br>
  *
  * This is necessary to allow us to sort a checksum file larger than the available RAM on the system.<br>
  * Each of the files are sorted individually, but the files are not sorted relative to one another.<br>
@@ -157,7 +157,7 @@ void free_element_array(struct element** elements, size_t size);
 int create_initial_runs(FILE* in_file, struct TMPFILE*** out, size_t* n_files);
 
 /**
- * @brief Merges the files created by create_initial_runs() into a single sorted checksum list.
+ * @brief Merges the files created by create_initial_runs() into a single sorted checksum list.<br>
  *
  * This function does not free the temporary files. That must be done by the caller.
  * @see create_initial_runs()

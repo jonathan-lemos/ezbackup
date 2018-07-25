@@ -60,7 +60,7 @@ int checksum(const char* file, const EVP_MD* algorithm, unsigned char** out, uns
 int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out);
 
 /**
- * @brief Adds a file's checksum to a checksum list.
+ * @brief Adds a file's checksum to a checksum list.<br>
  *
  * Said checksum will have the following format:<br>
  * /path/to/file\0ABCDEF123456\n
@@ -95,7 +95,7 @@ int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, F
 int sort_checksum_file(const char* in_out);
 
 /**
- * @brief Searches a sorted checksum list for a filename, and returns its checksum if it exists.
+ * @brief Searches a sorted checksum list for a filename, and returns its checksum if it exists.<br>
  *
  * This function just calls search_file()
  * @see search_file()
@@ -132,6 +132,7 @@ int search_for_checksum(FILE* fp, const char* key, char** checksum);
 int create_removed_list(const char* checksum_file, const char* out_file);
 
 /* TODO: return an integer since there's multiple reasons for NULL */
+
 /**
  * @brief Gets the next entry in a removed file list
  * @see create_removed_list
