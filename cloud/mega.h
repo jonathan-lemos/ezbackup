@@ -87,7 +87,7 @@ int MEGAreaddir(const char* dir, char*** out, size_t* out_len, MEGAhandle* mh);
  * @param mh A handle returned by MEGAlogin()
  * @see MEGAlogin()
  *
- * @return 0 on success, or negative on failure.
+ * @return 0 on success, positive if the file does not exist, or negative on failure.
  */
 int MEGAstat(const char* file_path, struct stat* out, MEGAhandle* mh);
 

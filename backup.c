@@ -79,7 +79,7 @@ static int make_file_paths(const char* file, const char* base_directory, unsigne
 	}
 	if (out_delta_path){
 		char tmp[16];
-		sprintf(tmp, "%lu", backup_time);
+		sprintf(tmp, ".%lu", backup_time);
 		*out_delta_path = sh_concat_path(sh_dup(output_deltas), file);
 		*out_delta_path = sh_concat(*out_delta_path, tmp);
 		if (!(*out_delta_path)){
@@ -99,23 +99,44 @@ cleanup:
 	return ret;
 }
 
-static int cloud_copy_single_file(const char* file, const char* cloud_directory, struct cloud_data* cd, unsigned backup_time){
+static int cloud_copy_single_file(const char* file_orig_path, const char* file_final, const char* cloud_directory, struct cloud_data* cd, unsigned backup_time){
 	char* cloud_path_files = NULL;
 	char* cloud_path_delta = NULL;
+	char* cloud_parent_files = NULL;
+	char* cloud_parent_delta = NULL;
 	int ret = 0;
 
-	if (make_file_paths(file, cloud_directory, backup_time, &cloud_path_files, &cloud_path_delta) != 0){
+	if (make_file_paths(file_orig_path, cloud_directory, backup_time, &cloud_path_files, &cloud_path_delta) != 0){
 		log_error("Failed to create cloud paths.");
 		ret = -1;
 		goto cleanup;
 	}
 
-	if (cloud_stat(cloud_path_files, NULL, cd) == 0 && cloud_rename(cloud_path_files, cloud_path_delta, cd) != 0){
-		log_warning_ex("Failed to create delta for %s.", cloud_path_files);
+	cloud_parent_files = sh_parent_dir(cloud_path_files);
+	cloud_parent_delta = sh_parent_dir(cloud_path_delta);
+	if (!cloud_parent_files || !cloud_parent_delta){
+		log_warning("Failed to create parent directories.");
+		ret = -1;
+		goto cleanup;
 	}
 
-	if (cloud_upload(file, cloud_path_files, cd) != 0){
-		log_error_ex("Failed to upload %s to the cloud.", file);
+	if (cloud_mkdir(cloud_parent_files, cd) < 0){
+		log_warning_ex("Failed to create file parent directory %s.", cloud_parent_files);
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (cloud_stat(cloud_path_files, NULL, cd) > 0){
+		if (cloud_mkdir(cloud_parent_delta, cd) < 0){
+			log_warning_ex("Failed to create delta parent directory %s.", cloud_parent_delta);
+		}
+		else if (cloud_rename(cloud_path_files, cloud_path_delta, cd) != 0){
+			log_warning_ex("Failed to create delta for %s.", cloud_path_files);
+		}
+	}
+
+	if (cloud_upload(file_final, cloud_path_files, cd) != 0){
+		log_error_ex("Failed to upload %s to the cloud.", file_final);
 		ret = -1;
 		goto cleanup;
 	}
@@ -123,6 +144,8 @@ static int cloud_copy_single_file(const char* file, const char* cloud_directory,
 cleanup:
 	free(cloud_path_files);
 	free(cloud_path_delta);
+	free(cloud_parent_files);
+	free(cloud_parent_delta);
 	return ret;
 }
 
@@ -161,7 +184,7 @@ static int copy_single_file(const char* file, const struct options* opt, unsigne
 		goto cleanup;
 	}
 
-	if (cd && cloud_copy_single_file(path_files, cloud_directory, cd, backup_time) != 0){
+	if (cd && cloud_copy_single_file(file, path_files, cloud_directory, cd, backup_time) != 0){
 		log_warning_ex("Failed to upload %s to the cloud", path_files);
 		ret = -1;
 	}

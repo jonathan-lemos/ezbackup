@@ -328,7 +328,7 @@ int MEGAstat(const char* file_path, struct stat* out, MEGAhandle* mh){
 
 	if (!node){
 		log_debug_ex("MEGA: File/directory %s not found", file_path);
-		return -1;
+		return 1;
 	}
 
 	if (!out){
@@ -510,7 +510,7 @@ int MEGAupload(const char* in_file, const char* upload_dir, const char* msg, MEG
 
 	/* get folder node */
 	node = mega_api->getNodeByPath(upload_dir);
-	if (node->isFile()){
+	if (node && node->isFile()){
 		log_warning("MEGA: The upload file already exists.");
 		delete node;
 		return -1;

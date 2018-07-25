@@ -341,7 +341,7 @@ int cloud_mkdir(const char* dir, struct cloud_data* cd){
 			ret = -1;
 		}
 	}
-
+	sa_free(parent_dirs);
 	return ret;
 }
 
@@ -630,7 +630,6 @@ cleanup:
 int cloud_upload(const char* in_file, const char* upload_dir, struct cloud_data* cd){
 	struct string_array* parent_dirs = sa_get_parent_dirs(upload_dir);
 	char* progress_msg = sh_sprintf("%s: Uploading %s to %s...", cd->name, in_file, upload_dir);
-	size_t i;
 	int ret = 0;
 
 	if (!parent_dirs){
@@ -641,12 +640,6 @@ int cloud_upload(const char* in_file, const char* upload_dir, struct cloud_data*
 
 	if (!progress_msg){
 		log_warning("Failed to make progress message");
-	}
-
-	for (i = 0; i < parent_dirs->len; ++i){
-		if (cd->cf->mkdir(parent_dirs->strings[i], cd->handle) < 0){
-			log_warning_ex2("%s: Failed to make parent directory %s", cd->name, parent_dirs->strings[i]);
-		}
 	}
 
 	if (cd->cf->upload(in_file, upload_dir, progress_msg ? progress_msg : "Uploading file...", cd->handle) != 0){

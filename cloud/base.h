@@ -38,7 +38,7 @@ int cloud_login(struct cloud_options* co, struct cloud_data** out_cd);
  * @param cd A cloud data structure returned by cloud_login()
  * @see cloud_login().
  *
- * @return 0 on success, or negative on failure.
+ * @return 0 on success, positive if the directory already exists, or negative on failure.
  */
 int cloud_mkdir(const char* dir, struct cloud_data* cd);
 
@@ -78,7 +78,7 @@ int cloud_mkdir_ui(const char* base_dir, char** chosen_dir, struct cloud_data* c
  * @param cd A cloud data structure returned by cloud_login().
  * @see cloud_login()
  *
- * @return 0 on success, negative on failure.
+ * @return 0 on success, positive if the file does not exist, negative on failure.
  */
 int cloud_stat(const char* dir_or_file, struct stat* out, struct cloud_data* cd);
 
@@ -103,7 +103,9 @@ int cloud_rename(const char* _old, const char* _new, struct cloud_data* cd);
  *
  * @param in_file Path to a file on disk to upload to the cloud.
  *
- * @param upload_dir A path to the directory to upload the file to. This path can also include the filename.
+ * @param upload_dir A path to the directory to upload the file to. This path can also include the filename.<br>
+ * This function does not create the destination directory if it does not exist. Create those using cloud_mkdir().
+ * @see cloud_mkdir().
  *
  * @param cd A cloud data structure returned by cloud_login().
  * @see cloud_login()

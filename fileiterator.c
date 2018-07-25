@@ -176,6 +176,9 @@ const char* fi_directory_name(const struct fi_stack* fis){
 
 void fi_end(struct fi_stack* fis){
 	size_t i;
+	if (!fis){
+		return;
+	}
 	if (!fis->dir_stack){
 		free(fis);
 		return;

@@ -56,6 +56,7 @@ const char* fi_directory_name(const struct fi_stack* fis);
  * @brief Stops iterating files and frees all memory associated with the structure.
  *
  * @param fis An fi_stack* structure to free.
+ * This can be NULL, in which case this function does nothing.
  *
  * @return void
  */

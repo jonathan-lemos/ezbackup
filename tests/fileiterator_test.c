@@ -9,6 +9,7 @@
 #include "fileiterator_test.h"
 #include "../fileiterator.h"
 #include "../log.h"
+#include "../readline_include.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -22,57 +23,38 @@ MAKE_PKG(fileiterator_tests, fileiterator_pkg);
 void test_fi_normal(enum TEST_STATUS* status){
 	struct fi_stack* fis = NULL;
 	char* tmp = NULL;
+	char* dir = NULL;
 
-	fis = fi_start("/");
+	dir = readline("Enter directory:");
+
+	fis = fi_start(dir);
 	TEST_ASSERT(fis);
 
 	while ((tmp = fi_next(fis)) != NULL){
-		if (strlen(tmp) <= 60){
-			printf("%s", tmp);
-		}
-		else{
-			printf("%.60s...", tmp);
-		}
-		printf(
-				"          "\
-				"          "\
-				"          "\
-				"          "\
-				"          "\
-				"          "\
-				"   \r");
+		printf("%s\n", tmp);
 		TEST_FREE(tmp, free);
 	}
 	printf("\n");
 
 cleanup:
 	fis ? fi_end(fis) : (void)0;
+	free(dir);
 	free(tmp);
 }
 
 void test_fi_skip_dir(enum TEST_STATUS* status){
 	struct fi_stack* fis = NULL;
 	char* tmp = NULL;
+	char* dir = NULL;
 	int ctr = 0;
 
-	fis = fi_start("/");
+	dir = readline("Enter directory:");
+
+	fis = fi_start(dir);
 	TEST_ASSERT(fis);
 
 	while ((tmp = fi_next(fis)) != NULL){
-		if (strlen(tmp) <= 60){
-			printf("%s", tmp);
-		}
-		else{
-			printf("%.60s...", tmp);
-		}
-		printf(
-				"          "\
-				"          "\
-				"          "\
-				"          "\
-				"          "\
-				"          "\
-				"   \r");
+		printf("%s\n", tmp);
 		TEST_FREE(tmp, free);
 
 		ctr++;
@@ -85,6 +67,7 @@ void test_fi_skip_dir(enum TEST_STATUS* status){
 
 cleanup:
 	fis ? fi_end(fis) : (void)0;
+	free(dir);
 	free(tmp);
 }
 
