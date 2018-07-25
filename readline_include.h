@@ -14,7 +14,7 @@
 #elif defined(__OpenBSD__)
 #include <readline/readline.h>
 #else
-#error "This operating system is not supported"
+#error "This operating system does not support readline"
 #endif
 
 /**
