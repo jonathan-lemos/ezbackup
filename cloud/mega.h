@@ -129,9 +129,10 @@ int MEGAdownload(const char* download_path, const char* out_file, const char* ms
  *
  * @param upload_path The directory to upload the file to.<br>
  * This can optionally have the filename appended to it.<br>
- * Example: /upload/dir or /upload/dir/file.txt is fine.<br>
+ * Example: "/upload/dir" or "/upload/dir/file.txt" is fine.<br>
  * <br>
- * If the directory does not exist, it will be created.
+ * If the directory does not exist, it will be created.<br>
+ * If the file already exists, it will be overwritten.<br>
  *
  * @param msg The progress message to display.<br>
  * This argument can be NULL, in which case no progress bar is displayed.

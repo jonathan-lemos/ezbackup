@@ -511,9 +511,17 @@ int MEGAupload(const char* in_file, const char* upload_dir, const char* msg, MEG
 	/* get folder node */
 	node = mega_api->getNodeByPath(upload_dir);
 	if (node && node->isFile()){
-		log_warning("MEGA: The upload file already exists.");
+		mega::SynchronousRequestListener srl;
+		log_info_ex("MEGA: File %s already exists; removing it.", upload_dir);
+		mega_api->remove(node, &srl);
+		srl.wait();
+		if (srl.getError()->getErrorCode() != mega::MegaError::API_OK){
+			log_error_ex("MEGA: Failed to remove file %s.", upload_dir);
+			delete node;
+			return -1;
+		}
 		delete node;
-		return -1;
+		node = nullptr;
 	}
 	/* if the path does not specify a valid directory */
 	if (!node){

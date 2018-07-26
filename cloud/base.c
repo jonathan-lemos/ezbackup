@@ -403,11 +403,11 @@ cleanup:
 
 int cloud_stat(const char* dir_or_file, struct stat* out, struct cloud_data* cd){
 	struct stat st;
-	if (cd->cf->stat(dir_or_file, out ? out : &st, cd->handle) != 0){
+	int res;
+	if ((res = cd->cf->stat(dir_or_file, out ? out : &st, cd->handle)) < 0){
 		log_debug_ex2("%s: Failed to stat %s", cd->name, dir_or_file);
-		return -1;
 	}
-	return 0;
+	return res;
 }
 
 int cloud_rename(const char* _old, const char* _new, struct cloud_data* cd){
@@ -570,7 +570,7 @@ cleanup:
 	return ret;
 }
 
-int cloud_login(struct cloud_options* co, struct cloud_data** out_cd){
+int cloud_login(const struct cloud_options* co, struct cloud_data** out_cd){
 	int ret = 0;
 	int co_contains_username = co->username != NULL;
 	int co_contains_password = co->password != NULL;

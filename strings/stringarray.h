@@ -152,7 +152,8 @@ void sa_to_raw_array(struct string_array* arr, char*** out, size_t* out_len);
 int sa_merge(struct string_array* dst, struct string_array* src);
 
 /**
- * @brief Removes all entries from a string array that do not correspond to a valid directory.
+ * @brief Removes all entries from a string array that do not correspond to a valid directory.<br>
+ * Also concatenates trailing slashes to all strings if they don't already have one.
  *
  * @param array The array to sanitize.
  *
@@ -161,7 +162,7 @@ int sa_merge(struct string_array* dst, struct string_array* src);
 size_t sa_sanitize_directories(struct string_array* array);
 
 /**
- * @brief Splits a directory into its parent directories (e.g. "/dir1/dir2/dir3" -> {"/dir1", "/dir1/dir2", "/dir1/dir2/dir3"})
+ * @brief Splits a directory into its parent directories (e.g. `"/dir1/dir2/dir3" -> {"/dir1", "/dir1/dir2", "/dir1/dir2/dir3"}`)
  *
  * @param directory The directory to split.<br>
  * This directory does not necessarily have to exist as long as it could be a valid path.<br>

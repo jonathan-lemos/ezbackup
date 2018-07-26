@@ -28,7 +28,7 @@ struct cloud_data;
  *
  * @return 0 on success, or negative on failure.
  */
-int cloud_login(struct cloud_options* co, struct cloud_data** out_cd);
+int cloud_login(const struct cloud_options* co, struct cloud_data** out_cd);
 
 /**
  * @brief Makes a directory within a cloud account.
@@ -101,7 +101,8 @@ int cloud_rename(const char* _old, const char* _new, struct cloud_data* cd);
 /**
  * @brief Uploads a file to a cloud account.
  *
- * @param in_file Path to a file on disk to upload to the cloud.
+ * @param in_file Path to a file on disk to upload to the cloud.<br>
+ * If the file already exists, it will be overwritten.
  *
  * @param upload_dir A path to the directory to upload the file to. This path can also include the filename.<br>
  * This function does not create the destination directory if it does not exist. Create those using cloud_mkdir().
@@ -122,7 +123,8 @@ int cloud_upload(const char* in_file, const char* upload_dir, struct cloud_data*
  * <br>
  * Unlike cloud_upload(), this function does not let the user specify the uploaded filename. That will always be equal to the filename on disk.
  *
- * @param in_file Path to a file on disk to upload to the cloud.
+ * @param in_file Path to a file on disk to upload to the cloud.<br>
+ * If the file already exists, it will be overwritten.
  *
  * @param base_dir The directory to start the file explorer within.
  *

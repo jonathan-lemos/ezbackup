@@ -246,6 +246,14 @@ size_t sa_sanitize_directories(struct string_array* array){
 			sa_remove(array, i);
 			i--;
 			n_removed++;
+			continue;
+		}
+		if (array->strings[i][strlen(array->strings[i]) - 1] != '/' &&
+				(array->strings[i] = sh_concat(array->strings[i], "/")) == NULL){
+			log_warning("Failed to concatenate trailing slash to string.");
+			sa_remove(array, i);
+			i--;
+			n_removed++;
 		}
 	}
 	return n_removed;
