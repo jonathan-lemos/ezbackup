@@ -1,6 +1,5 @@
 Dependencies:
-
-openssl
+OpenSSL
 ncurses
 libedit
 zlib
@@ -8,12 +7,6 @@ bzlib
 liblzma
 liblz4
 meganz/sdk
-	libcurl
-	c-ares
-	libcrypto
-	zlib (included with libarchive)
-	sqlite
-	freeimage
 
 to fix meganz sdk memory leak:
 Insert the following 2 lines in [sdk_directory]/src/posix/net.cpp:
@@ -40,6 +33,5 @@ restore functionality
 public/private key functionality
 encrypt checksum file/make sure same password is used between backups
 compression progress bars
-free functions safe w/ null
 pthread
 remove unused directories

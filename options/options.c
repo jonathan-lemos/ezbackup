@@ -70,7 +70,7 @@ void usage(const char* progname){
 	printf("\t-o, --output </out/dir>\n");
 	printf("\t-p, --password <password>\n");
 	printf("\t-q, --quiet\n");
-	printf("\t-u, --username <username>");
+	printf("\t-u, --username <username>\n");
 	printf("\t-x, --exclude </dir1 /dir2 /...>\n");
 }
 
@@ -123,7 +123,7 @@ int parse_options_cmdline(int argc, char** argv, struct options** output, enum o
 		free(out);
 	}
 
-	if ((out = options_new()) != 0){
+	if ((out = options_new()) == NULL){
 		log_debug("Failed to get default options");
 		return -1;
 	}

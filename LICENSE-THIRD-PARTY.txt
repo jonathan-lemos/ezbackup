@@ -1,17 +1,15 @@
-Components licensed under the OpenSSL Licence:
-	OpenSSL, Copyright (c) 1995-2016 The OpenSSL Project
+----------------------------------------------------------------------------
+1) Copyright notice for OpenSSL (https://www.openssl.org/source/license.txt)
+----------------------------------------------------------------------------
+LICENSE ISSUES
+==============
 
-The OpenSSL License (full text):
+The OpenSSL toolkit stays under a double license, i.e. both the conditions of
+the OpenSSL License and the original SSLeay license apply to the toolkit.
+See below for the actual license texts.
 
-  LICENSE ISSUES
-  ==============
-
-  The OpenSSL toolkit stays under a double license, i.e. both the conditions of
-  the OpenSSL License and the original SSLeay license apply to the toolkit.
-  See below for the actual license texts.
-
-  OpenSSL License
-  ---------------
+OpenSSL License
+---------------
 
 /* ====================================================================
  * Copyright (c) 1998-2018 The OpenSSL Project.  All rights reserved.
@@ -67,8 +65,8 @@ The OpenSSL License (full text):
  *
  */
 
- Original SSLeay License
- -----------------------
+Original SSLeay License
+-----------------------
 
 /* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
  * All rights reserved.
@@ -127,22 +125,21 @@ The OpenSSL License (full text):
  * [including the GNU Public Licence.]
  */
 
-Components licensed under the BSD-2-Clause license:
-	libarchive, Copyright (c) 2003-2009 Tim Kientzle
-	MEGA SDK, Copyright (c) 2013 Mega Limited
-	libedit, Copyright (c) 1997 The NetBSD Foundation, Inc.
-
-The BSD-2-Clause license:
+-------------------------------------------------------------------------------------
+2) Copyright notice for MEGA SDK (https://github.com/meganz/sdk/blob/develop/LICENSE)
+-------------------------------------------------------------------------------------
+Copyright (c) 2013, Mega Limited
+All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions
 are met:
 1. Redistributions of source code must retain the above copyright
-   notice, this list of conditions and the following disclaimer
-   in this position and unchanged.
+notice, this list of conditions and the following disclaimer
+in this position and unchanged.
 2. Redistributions in binary form must reproduce the above copyright
-   notice, this list of conditions and the following disclaimer in the
-   documentation and/or other materials provided with the distribution.
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
 
 THIS SOFTWARE IS PROVIDED BY THE AUTHOR(S) ``AS IS'' AND ANY EXPRESS OR
 IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
@@ -155,11 +152,43 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Components licensed under the X11 License:
-	ncurses, Copyright (c) 1998-2016,2017 Free Software Foundation, Inc.
-	ncurses menus, Copyright (c) 1998-2016,2017 Free Software Foundation, Inc.
+-----------------------------------------------------------------------------------------
+3) Copyright notice for libedit (https://github.com/jhanssen/libedit/blob/master/COPYING)
+-----------------------------------------------------------------------------------------
+Copyright (c) 1992, 1993
+The Regents of the University of California.  All rights reserved.
 
-The X11 License:
+This code is derived from software contributed to Berkeley by
+Christos Zoulas of Cornell University.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+3. Neither the name of the University nor the names of its contributors
+may be used to endorse or promote products derived from this software
+without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGE.
+
+------------------------------------------------------------------------------------
+4) Copyright notice for ncurses ://invisible-island.net/ncurses/ncurses-license.html
+------------------------------------------------------------------------------------
+Copyright (c) 1998-2016,2017 Free Software Foundation, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the
@@ -184,3 +213,96 @@ Except as contained in this notice, the name(s) of the above copyright
 holders shall not be used in advertising or otherwise to promote the
 sale, use or other dealings in this Software without prior written
 authorization.
+
+---------------------------------------------------------------------
+5) Copyright notice for zlib (https://www.zlib.net/zlib_license.html)
+---------------------------------------------------------------------
+Copyright (C) 1995-2017 Jean-loup Gailly and Mark Adler
+
+This software is provided 'as-is', without any express or implied
+warranty.  In no event will the authors be held liable for any damages
+arising from the use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not
+claim that you wrote the original software. If you use this software
+in a product, an acknowledgment in the product documentation would be
+appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be
+misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
+
+Jean-loup Gailly        Mark Adler
+jloup@gzip.org          madler@alumni.caltech.edu
+
+----------------------------------------------------------------------------------------
+6) Copyright notice for bzlib (https://github.com/asimonov-im/bzip2/blob/master/LICENSE)
+----------------------------------------------------------------------------------------
+This program, "bzip2", the associated library "libbzip2", and all
+documentation, are copyright (C) 1996-2010 Julian R Seward.  All
+rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+
+2. The origin of this software must not be misrepresented; you must
+not claim that you wrote the original software.  If you use this
+software in a product, an acknowledgment in the product
+documentation would be appreciated but is not required.
+
+3. Altered source versions must be plainly marked as such, and must
+not be misrepresented as being the original software.
+
+4. The name of the author may not be used to endorse or promote
+products derived from this software without specific prior written
+permission.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS
+OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Julian Seward, jseward@bzip.org
+bzip2/libbzip2 version 1.0.6 of 6 September 2010
+
+--------------------------------------------------------------------------------
+7) Copyright notice for liblz4 (https://github.com/lz4/lz4/blob/dev/lib/LICENSE)
+--------------------------------------------------------------------------------
+LZ4 Library
+Copyright (c) 2011-2016, Yann Collet
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice, this
+list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+SS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
