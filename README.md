@@ -50,6 +50,12 @@ cd docs/html
 firefox index.html     # firefox can be replaced with any web browser.
 ```
 
+### Cleaning the project folder.
+```shell
+make clean
+```
+This reverts the project folder to its default state.
+
 ## Features
 * Compression  (gzip, bzip2, xz, lz4)
 * Encryption   (all symmetric ciphers supported by OpenSSL)
