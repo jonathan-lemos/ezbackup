@@ -9,11 +9,14 @@
 #ifndef __OPTIONS_H
 #define __OPTIONS_H
 
-/* compressor */
 #include "../compression/zip.h"
 #include "../cloud/cloud_options.h"
 #include "../strings/stringarray.h"
 #include <openssl/evp.h>
+
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
 
 /**
  * @brief An operation for the main program to perform.
@@ -30,7 +33,7 @@ enum operation{
  * @brief A structure containing the program's options.
  */
 struct options{
-	char*                 prev_backup;      /**< @brief This option is deprecated. */
+	char*                 prev_backup __attribute__((deprecated)); /**< @brief This option is deprecated. */
 	struct string_array*  directories;      /**< @brief A list of directories to back up. This cannot be NULL, but it can contain 0 strings. */
 	struct string_array*  exclude;          /**< @brief A list of directories to exclude. This cannot be NULL, but it can contain 0 strings. */
 	const EVP_MD*         hash_algorithm;   /**< @brief The hash algorithm to use for checksum files. */
@@ -69,7 +72,7 @@ void usage(const char* progname);
  * @return A new options structure, or NULL on failure.<br>
  * This structure must be freed with options_free() when no longer in use.
  */
-struct options* options_new(void);
+struct options* options_new(void) __attribute__((malloc));
 
 /**
  * @brief Compares two options structures.<br>

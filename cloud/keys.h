@@ -26,7 +26,7 @@
 extern const char* const MEGA_API_KEY;
 
 /**
- * @brief The MEGA sample username to use.<br>
+ * @brief The MEGA sample username to use for testing purposes.<br>
  * You must generate your own MEGA account for use with this program.<br>
  * You can create one <a href=https://mega.nz/register>here</a>.<br>
  * <br>
@@ -38,7 +38,7 @@ extern const char* const MEGA_API_KEY;
 extern const char* const MEGA_SAMPLE_USERNAME;
 
 /**
- * @brief The MEGA sample password to use.<br>
+ * @brief The MEGA sample password to use for testing purposes.<br>
  * You must generate your own MEGA account for use with this program.<br>
  * You can create one <a href=https://mega.nz/register>here</a>.<br>
  *

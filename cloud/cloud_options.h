@@ -9,6 +9,10 @@
 #ifndef __CLOUD_OPTIONS_H
 #define __CLOUD_OPTIONS_H
 
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
+
 /**
  * @brief List of available cloud providers
  */
@@ -56,7 +60,7 @@ struct cloud_options{
  * This structure must be freed with co_free() when no longer in use.
  * @see co_free()
  */
-struct cloud_options* co_new(void);
+struct cloud_options* co_new(void) __attribute__((malloc));
 
 /**
  * @brief Sets the username field of a cloud options structure to a value, freeing the old one if it exists.

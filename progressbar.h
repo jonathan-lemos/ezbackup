@@ -12,6 +12,10 @@
 #include <stdint.h>
 #include <time.h>
 
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
+
 /**
  * @brief A progress bar structure.
  */
@@ -36,7 +40,7 @@ struct progress{
  * @see finish_progress()
  * @see finish_progress_fail()
  */
-struct progress* start_progress(const char* text, uint64_t max);
+struct progress* start_progress(const char* text, uint64_t max) __attribute__((malloc));
 
 /**
  * @brief Increments the progress in a progress bar.

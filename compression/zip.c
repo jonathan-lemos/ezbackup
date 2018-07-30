@@ -30,6 +30,10 @@
 #include "zip_lz4.h"
 #endif
 
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
+
 static void* zalloc(void* q, unsigned n, unsigned m){
 	(void)q;
 	return calloc(n, m);
@@ -41,7 +45,7 @@ static void zfree(void* q, void* p){
 }
 
 #ifndef NO_GZIP_SUPPORT
-static struct ZIP_FILE* gzip_open(const char* file, const char* mode){
+__attribute__((malloc)) static struct ZIP_FILE* gzip_open(const char* file, const char* mode){
 	struct ZIP_FILE* ret = NULL;
 	const int gz_windowbits = 15 + 16;
 
@@ -113,7 +117,7 @@ static struct ZIP_FILE* gzip_open(const char* file, const char* mode){
 #endif
 
 #ifndef NO_BZIP2_SUPPORT
-static struct ZIP_FILE* bzip2_open(const char* file, const char* mode){
+__attribute__((malloc)) static struct ZIP_FILE* bzip2_open(const char* file, const char* mode){
 	struct ZIP_FILE* ret = NULL;
 
 	ret = malloc(sizeof(*ret));
@@ -174,7 +178,7 @@ static struct ZIP_FILE* bzip2_open(const char* file, const char* mode){
 #endif
 
 #ifndef NO_XZ_SUPPORT
-static struct ZIP_FILE* xz_open(const char* file, const char* mode){
+__attribute__((malloc)) static struct ZIP_FILE* xz_open(const char* file, const char* mode){
 	struct ZIP_FILE* ret = NULL;
 	lzma_stream xstrm = LZMA_STREAM_INIT;
 
@@ -234,7 +238,7 @@ static struct ZIP_FILE* xz_open(const char* file, const char* mode){
 }
 #endif
 
-static struct ZIP_FILE* zip_open(const char* file, int write, enum compressor c_type, int compression_level, unsigned flags){
+__attribute__((malloc)) static struct ZIP_FILE* zip_open(const char* file, int write, enum compressor c_type, int compression_level, unsigned flags){
 	char truemode[16];
 	int modeptr = 2;
 

@@ -12,6 +12,10 @@
 #include "cloud_options.h"
 #include <sys/stat.h>
 
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
+
 struct cloud_data;
 
 /**

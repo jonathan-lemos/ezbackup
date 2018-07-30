@@ -13,6 +13,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
+
 #ifndef BUFFER_LEN
 
 #ifndef __UNIT_TESTING__
@@ -60,7 +64,7 @@ int read_file(FILE* fp, unsigned char* dest, size_t length);
  * This structure must be temp_fclose()'d when no longer in use.
  * @see temp_fclose()
  */
-struct TMPFILE* temp_fopen(void);
+struct TMPFILE* temp_fopen(void) __attribute__((malloc));
 
 /**
  * @brief Synchronizes the FILE* and filename.<br>

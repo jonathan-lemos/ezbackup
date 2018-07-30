@@ -186,7 +186,7 @@ OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGE.
 
 ------------------------------------------------------------------------------------
-4) Copyright notice for ncurses ://invisible-island.net/ncurses/ncurses-license.html
+4) Copyright notice for ncurses (https://invisible-island.net/ncurses/ncurses-license.html)
 ------------------------------------------------------------------------------------
 Copyright (c) 1998-2016,2017 Free Software Foundation, Inc.
 

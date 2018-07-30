@@ -264,7 +264,6 @@ struct options* options_new(void){
 		log_enomem();
 		return NULL;
 	}
-	opt->prev_backup = NULL;
 	opt->directories = sa_new();
 	opt->exclude = sa_new();
 	opt->hash_algorithm = EVP_sha1();
@@ -332,15 +331,6 @@ int parse_options_fromfile(const char* file, struct options** output){
 		log_error("Failed to read options file");
 		ret = -1;
 		goto cleanup;
-	}
-
-	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "PREV_BACKUP");
-	if (res >= 0){
-		opt->prev_backup = entries[res]->value;
-	}
-	else{
-		log_warning("Key PREV_BACKUP missing from file");
-		opt->prev_backup = NULL;
 	}
 
 	res = binsearch_opt_entries((const struct opt_entry* const*)entries, entries_len, "DIRECTORIES");
@@ -512,10 +502,6 @@ int write_options_tofile(const char* file, const struct options* opt){
 		goto cleanup;
 	}
 
-	if (add_option_tofile(fp, "PREV_BACKUP", (const unsigned char*)opt->prev_backup, opt->prev_backup ? strlen(opt->prev_backup) + 1 : 0) != 0){
-		log_warning("Failed to add PREV_BACKUP to file");
-	}
-
 	/* get length of all strings including their '\0''s */
 	tmp_len = 0;
 	for (i = 0; i < opt->directories->len; ++i){
@@ -643,7 +629,6 @@ void options_free(struct options* opt){
 	if (!opt){
 		return;
 	}
-	free(opt->prev_backup);
 	sa_free(opt->directories);
 	sa_free(opt->exclude);
 	free(opt->enc_password);
@@ -653,10 +638,6 @@ void options_free(struct options* opt){
 }
 
 int options_cmp(const struct options* opt1, const struct options* opt2){
-	if (sh_cmp_nullsafe(opt1->prev_backup, opt2->prev_backup) != 0){
-		return sh_cmp_nullsafe(opt1->prev_backup, opt2->prev_backup);
-	}
-
 	if (sa_cmp(opt1->directories, opt2->directories) != 0){
 		return sa_cmp(opt1->directories, opt2->directories);
 	}

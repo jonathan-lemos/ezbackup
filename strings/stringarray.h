@@ -11,6 +11,10 @@
 
 #include <stddef.h>
 
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
+
 /**
  * @brief An array of strings.<br>
  * The length is automatically managed.
@@ -29,7 +33,7 @@ struct string_array{
  * @see sa_to_raw_array()
  * @see sa_merge()
  */
-struct string_array* sa_new(void);
+struct string_array* sa_new(void) __attribute__((malloc));
 
 /**
  * @brief Adds a string to a string array.

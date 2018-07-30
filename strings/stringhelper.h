@@ -12,13 +12,17 @@
 #include <stdarg.h>
 #include <stddef.h>
 
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
+
 /**
  * @brief Creates an empty dynamic string.
  *
  * @return An empty dynamic string, or NULL on failure.<br>
  * This string must be free()'d when no longer in use.
  */
-char* sh_new(void);
+char* sh_new(void) __attribute__((malloc));
 
 /**
  * @brief Duplicates a string or converts a static string to a dynamic one.<br>
@@ -192,6 +196,6 @@ int sh_ncasecmp(const char* str1, const char* str2);
  * @return A string corresponding to the format string filled in with its arguments, or NULL on error.<br>
  * This string must be free()'d when no longer in use.
  */
-char* sh_sprintf(const char* format, ...);
+char* sh_sprintf(const char* format, ...) __attribute__((format(printf, 1, 2)));
 
 #endif

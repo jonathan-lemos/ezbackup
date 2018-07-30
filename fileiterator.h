@@ -9,6 +9,10 @@
 #ifndef __FILE_ITERATOR_H
 #define __FILE_ITERATOR_H
 
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
+
 /**
  * @brief Starts iterating through files in a directory.<br>
  * If there are any subdirectories, their files/directories will also be recursively iterated through.
@@ -20,7 +24,7 @@
  * @see fi_next()
  * @see fi_end()
  */
-struct fi_stack* fi_start(const char* dir);
+struct fi_stack* fi_start(const char* dir) __attribute__((malloc));
 
 /**
  * @brief Returns the next filename in the fi_stack structure.
@@ -30,7 +34,7 @@ struct fi_stack* fi_start(const char* dir);
  *
  * @return The next filename in the fi_stack* structure, or NULL if there are not any left/there was an error.
  */
-char* fi_next(struct fi_stack* fis);
+char* fi_next(struct fi_stack* fis) __attribute__((malloc));
 
 /**
  * @brief Stops iterating files through the current directory and moves on to the next if there is one.
