@@ -267,7 +267,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  *
  * @return void
  */
-#define log_efopen(file) log_msg(__FILE__, __LINE__, LEVEL_ERROR, "Error opening %s (%s)", file, strerror(errno))
+#define log_efopen(file) log_msg(__FILE__, __LINE__, LEVEL_WARNING, "Error opening %s (%s)", file, strerror(errno))
 
 /**
  * @brief Logs that an fwrite() failed.

@@ -35,6 +35,9 @@ public:
 	~ProgressBarTransferListener(){
 		delete error;
 		delete transfer;
+		if (p){
+			finish_progress_fail(p);
+		}
 	}
 
 	void setMsg(const char* msg){
@@ -114,7 +117,7 @@ public:
 		delete transfer;
 		delete error;
 		if (p){
-			finish_progress(p);
+			finish_progress_fail(p);
 		}
 		transfer = NULL;
 		error = NULL;
@@ -131,9 +134,9 @@ public:
 	}
 
 private:
-	bool notified;
-	mega::MegaError* error;
-	mega::MegaTransfer* transfer;
+	bool notified = false;
+	mega::MegaError* error = NULL;
+	mega::MegaTransfer* transfer = NULL;
 	std::condition_variable cv;
 	std::mutex m;
 	progress* p = NULL;

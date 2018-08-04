@@ -12,6 +12,10 @@
 #include <stdio.h>
 #include <openssl/evp.h>
 
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
+
 /**
  * @brief Returns an EVP_MD* object for a given string.
  * @see checksum()
@@ -34,8 +38,9 @@ const EVP_MD* get_evp_md(const char* hash_name);
  * @param out A pointer to the location of the output checksum.<br>
  * Said location will be set to NULL if this function fails.<br>
  * The output checksum will be a series of raw bytes and not a hexadecimal string.<br>
+ * Use checksum_bytestring() for a hexadecimal string.<br>
  * This value must be free()'d when no longer in use.
- * @see bytes_to_hex()
+ * @see checksum_bytestring()
  *
  * @param len The length of the output checksum. Will be 0 if this function fails.
  *
@@ -44,8 +49,27 @@ const EVP_MD* get_evp_md(const char* hash_name);
 int checksum(const char* file, const EVP_MD* algorithm, unsigned char** out, unsigned* len);
 
 /**
- * @brief Converts a series of raw bytes into a null-terminated hexadecimal string.
+ * @brief Calculates the checksum for a given file and outputs it as a null-terminated hexadecimal string.
+ *
+ * @param file Path of the file to calculate the checksum for.
+ *
+ * @param algorithm The digest algorithm to use.
+ * @see get_evp_md()
+ *
+ * @param out A pointer to the location of the output checksum string.<br>
+ * For a series of raw bytes, use checksum().<br>
+ * Said location will be set to NULL if this function fails.<br>
+ * This value must be free()'d when no longer in use.
  * @see checksum()
+ *
+ * @return 0 on success, negative on failure
+ */
+int checksum_bytestring(const char* file, const EVP_MD* algorithm, char** out);
+
+/**
+ * @brief Converts a series of raw bytes into a null-terminated hexadecimal string.<br>
+ * This function is deprecated. Use to_base16() instead.
+ * @see to_base16()
  *
  * @param bytes The raw bytes to convert into a hexadecimal string.
  *
@@ -57,13 +81,14 @@ int checksum(const char* file, const EVP_MD* algorithm, unsigned char** out, uns
  *
  * @return 0 on success, negative on failure
  */
-int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out);
+int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out) __attribute__((deprecated));
 
 /**
  * @brief Adds a file's checksum to a checksum list.<br>
  *
  * Said checksum will have the following format:<br>
- * /path/to/file\0ABCDEF123456\n
+ * `/path/to/file\0ABCDEF123456\0\n`<br>
+ * This is necessary because any character besides '\0' is a valid character in a path.
  *
  * @param file The file to calculate a checksum for.
  *
@@ -79,9 +104,12 @@ int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out);
  * Undefined behavior if this list is not sorted.
  * @see sort_checksum_file()
  *
+ * @param out_hash A pointer to a string that will contain the generated hash.
+ * This can be NULL if it is not used.
+ *
  * @return 0 on success, positive if the file was unchanged from prev_checksums, negative on failure.
  */
-int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, FILE* prev_checksums);
+int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, FILE* prev_checksums, char** out_hash);
 
 /**
  * @brief Sorts a checksum list in strcmp() order by filename.

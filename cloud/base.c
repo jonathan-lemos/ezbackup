@@ -125,7 +125,7 @@ static const struct cloud_functions* cloud_provider_to_cloud_functions(enum clou
 }
 
 static char* read_username_stdin(void){
-	char* user = readline("Username:");
+	char* user = readline("Cloud username:");
 	if (!user){
 		log_warning("Failed to read from stdin");
 		return NULL;
@@ -140,7 +140,7 @@ static char* read_username_stdin(void){
 static char* read_password_stdin(void){
 	char* pw;
 	int res;
-	while ((res = crypt_getpassword("Password:", "Verify  :", &pw)) > 0){
+	while ((res = crypt_getpassword("Cloud password:", "Verify password:", &pw)) > 0){
 		printf("The passwords do not match.");
 	}
 

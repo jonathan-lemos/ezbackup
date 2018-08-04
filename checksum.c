@@ -6,27 +6,18 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
-/* prototypes */
 #include "checksum.h"
-
 #include "crypt/base16.h"
-/* error handling */
 #include "log.h"
 #include <errno.h>
 #include <openssl/err.h>
-/* read_file() */
 #include "filehelper.h"
-/* sorting the file */
 #include "checksumsort.h"
-/* FILE* */
+#include "strings/stringhelper.h"
 #include <stdio.h>
-/* digest algorithms */
 #include <openssl/evp.h>
-/* strstr() */
 #include <string.h>
-/* file size + does_file_exist() */
 #include <sys/stat.h>
-/* does_file_exist() */
 #include <errno.h>
 
 const EVP_MD* get_evp_md(const char* hash_name){
@@ -164,6 +155,28 @@ cleanup:
 	return ret;
 }
 
+int checksum_bytestring(const char* file, const EVP_MD* algorithm, char** out){
+	unsigned char* bytes;
+	unsigned len;
+	char* buf;
+
+	return_ifnull(out, -1);
+
+	if (checksum(file, algorithm, &bytes, &len) != 0){
+		log_error_ex("Failed to calculate checksum for file %s", file);
+		return -1;
+	}
+
+	if (to_base16(bytes, len, &buf) != 0){
+		log_error("Failed to convert checksum bytes to string");
+		free(bytes);
+		return -1;
+	}
+
+	free(bytes);
+	*out = buf;
+	return 0;
+}
 
 int file_to_element(const char* file, const EVP_MD* algorithm, struct element** out){
 	unsigned char* buffer = NULL;
@@ -195,7 +208,7 @@ int file_to_element(const char* file, const EVP_MD* algorithm, struct element** 
 	}
 
 	/* convert it to hex */
-	if (bytes_to_hex(buffer, len, &(*out)->checksum) != 0){
+	if (to_base16(buffer, len, &(*out)->checksum) != 0){
 		log_error("Failed to convert raw checksum to hexadecimal");
 		ret = -1;
 		goto cleanup;
@@ -226,13 +239,17 @@ cleanup:
  * way to seperate the hash from its filename is to use a '\0'
  *
  * returns 0 on success or err on error */
-int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, FILE* prev_checksums){
+int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, FILE* prev_checksums, char** out_hash){
 	struct element* e;
 	char* checksum = NULL;
 	int ret;
 
 	return_ifnull(file, -1);
 	return_ifnull(out, -1);
+
+	if (out_hash){
+		*out_hash = NULL;
+	}
 
 	if (!file_opened_for_writing(out)){
 		log_emode();
@@ -257,15 +274,22 @@ int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, F
 	else{
 		ret = 0;
 	}
-	free(checksum);
 
 	if (write_element_to_file(out, e) != 0){
 		free_element(e);
+		free(checksum);
 		log_debug("Could not write element to file");
 		return -1;
 	}
 
+	if (out_hash){
+		*out_hash = sh_dup(e->checksum);
+		if (!(*out_hash)){
+			log_warning("Failed to output hash.");
+		}
+	}
 	free_element(e);
+	free(checksum);
 	return ret;
 }
 

@@ -149,8 +149,8 @@ int crypt_hashpassword(const unsigned char* data, size_t data_len, unsigned char
 		return -1;
 	}
 
-	/* generate hash with 25000 rounds of the underlying pbkdf function */
-	if (!EVP_BytesToKey(keytype(), hashtype(), *salt, data, data_len, 25000, *hash, *hash + key_len)){
+	/* generate hash with 2500 rounds of the underlying pbkdf function */
+	if (!EVP_BytesToKey(keytype(), hashtype(), *salt, data, data_len, 2500, *hash, *hash + key_len)){
 		log_error("Failed to generate keys from data");
 		ERR_print_errors_fp(stderr);
 		return -1;

@@ -69,7 +69,10 @@ struct TMPFILE* temp_fopen(void) __attribute__((malloc));
 /**
  * @brief Synchronizes the FILE* and filename.<br>
  *
- * This function is necessary when you need to flush the internal FILE*'s buffers before using the filename, or when the filename is directly used and you need to update the FILE* to reflect those changes.
+ * This function is necessary when you need to flush the internal FILE*'s buffers before using the filename, or when the filename is directly used and you need to update the FILE* to reflect those changes.<br>
+ * The structure's file pointer will be rewound if this function sucessfully completes.<br>
+ * On failure, the contents of the structure are undefined and should be freed with temp_fclose().
+ * @see temp_fclose()
  *
  * @param tfp The temporary file to update.
  *

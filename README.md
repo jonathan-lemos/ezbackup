@@ -57,6 +57,7 @@ make clean
 This reverts the project folder to its default state.
 
 ## Features
+* Ncurses menu-based UI.
 * Compression  (gzip, bzip2, xz, lz4)
 * Encryption   (all symmetric ciphers supported by OpenSSL)
 * Cloud Backup (only mega.nz supported atm)
@@ -64,6 +65,9 @@ This reverts the project folder to its default state.
 * Include/Exclude specific directories.
 
 ## Roadmap
+* Cleaning functionality.
+* Progress bar refactoring (mutexes?).
+* Check if local disk and cloud are synced properly (check checksum file).
 * Implement compression flags properly.
 * Remove redundant directories/exclude paths (e.g. "/home/user" and "/home").
 * Restore functionality.

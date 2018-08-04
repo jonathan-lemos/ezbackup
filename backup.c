@@ -18,6 +18,7 @@
 #include "strings/stringarray.h"
 #include "compression/zip.h"
 #include "cloud/base.h"
+#include "readline_include.h"
 #include <errno.h>
 #include <string.h>
 #include <time.h>
@@ -51,7 +52,7 @@ cleanup:
 	return 0;
 }
 
-static int make_file_paths(const char* file, const char* base_directory, unsigned long backup_time, char** out_file_path, char** out_delta_path){
+static int make_file_paths(const char* file, const char* base_directory, const char* delta_extension, char** out_file_path, char** out_delta_path){
 	char* output_files = NULL;
 	char* output_deltas = NULL;
 	int ret = 0;
@@ -78,10 +79,9 @@ static int make_file_paths(const char* file, const char* base_directory, unsigne
 		}
 	}
 	if (out_delta_path){
-		char tmp[16];
-		sprintf(tmp, ".%lu", backup_time);
 		*out_delta_path = sh_concat_path(sh_dup(output_deltas), file);
-		*out_delta_path = sh_concat(*out_delta_path, tmp);
+		*out_delta_path = sh_concat(*out_delta_path, ".");
+		*out_delta_path = sh_concat(*out_delta_path, delta_extension);
 		if (!(*out_delta_path)){
 			log_error("Failed to create out_delta_path.");
 			ret = -1;
@@ -99,14 +99,14 @@ cleanup:
 	return ret;
 }
 
-static int cloud_copy_single_file(const char* file_orig_path, const char* file_final, const char* cloud_directory, struct cloud_data* cd, unsigned backup_time){
+static int cloud_copy_single_file(const char* file_orig_path, const char* file_final, const char* cloud_directory, struct cloud_data* cd, const char* delta_extension){
 	char* cloud_path_files = NULL;
 	char* cloud_path_delta = NULL;
 	char* cloud_parent_files = NULL;
 	char* cloud_parent_delta = NULL;
 	int ret = 0;
 
-	if (make_file_paths(file_orig_path, cloud_directory, backup_time, &cloud_path_files, &cloud_path_delta) != 0){
+	if (make_file_paths(file_orig_path, cloud_directory, delta_extension, &cloud_path_files, &cloud_path_delta) != 0){
 		log_error("Failed to create cloud paths.");
 		ret = -1;
 		goto cleanup;
@@ -149,14 +149,14 @@ cleanup:
 	return ret;
 }
 
-static int copy_single_file(const char* file, const struct options* opt, unsigned long backup_time, struct cloud_data* cd, const char* cloud_directory, const char* password){
+static int copy_single_file(const char* file, const struct options* opt, const char* delta_extension, struct cloud_data* cd, const char* cloud_directory, const char* password){
 	char* path_files = NULL;
 	char* path_delta = NULL;
 	char* file_parent = NULL;
 	char* delta_parent = NULL;
 	int ret = 0;
 
-	if (make_file_paths(file, opt->output_directory, backup_time, &path_files, &path_delta) != 0){
+	if (make_file_paths(file, opt->output_directory, delta_extension, &path_files, &path_delta) != 0){
 		log_error("Failed determining file path or delta path");
 		ret = -1;
 		goto cleanup;
@@ -184,7 +184,7 @@ static int copy_single_file(const char* file, const struct options* opt, unsigne
 		goto cleanup;
 	}
 
-	if (cd && cloud_copy_single_file(file, path_files, cloud_directory, cd, backup_time) != 0){
+	if (cd && cloud_copy_single_file(file, path_files, cloud_directory, cd, delta_extension) != 0){
 		log_warning_ex("Failed to upload %s to the cloud", path_files);
 		ret = -1;
 	}
@@ -197,13 +197,13 @@ cleanup:
 	return ret;
 }
 
-static int copy_files(const struct options* opt, FILE* fp_checksum, FILE* fp_checksum_prev, unsigned long backup_time){
+static int copy_files(const struct options* opt, const struct cloud_options* co, const char* delta_extension, FILE* fp_checksum, FILE* fp_checksum_prev){
 	char* password = NULL;
 	struct cloud_data* cd = NULL;
 	int ret = 0;
 	size_t i;
 
-	if (opt->cloud_options->cp != CLOUD_NONE && cloud_login(opt->cloud_options, &cd) != 0){
+	if (co->cp != CLOUD_NONE && cloud_login(co, &cd) != 0){
 		log_error("Could not connect to the cloud.");
 		ret = -1;
 		goto cleanup;
@@ -243,13 +243,13 @@ static int copy_files(const struct options* opt, FILE* fp_checksum, FILE* fp_che
 				continue;
 			}
 
-			res = add_checksum_to_file(tmp, opt->hash_algorithm, fp_checksum, fp_checksum_prev);
+			res = add_checksum_to_file(tmp, opt->hash_algorithm, fp_checksum, fp_checksum_prev, NULL);
 			if (res > 0){
 				log_info_ex("File %s was unchanged", tmp);
 			}
 			else if (res == 0){
 				printf("%s\n", tmp);
-				if (copy_single_file(tmp, opt, backup_time, cd, opt->cloud_options->upload_directory, password ? password : opt->enc_password) != 0){
+				if (copy_single_file(tmp, opt, delta_extension, cd, co->upload_directory, password ? password : opt->enc_password) != 0){
 					log_warning_ex("Failed to copy %s", tmp);
 				}
 			}
@@ -268,128 +268,265 @@ cleanup:
 	return ret;
 }
 
-static int remove_deleted_files(const char* output_directory, const struct cloud_options* co){
+static int cloud_remove_deleted_files(const char* checksum_file, const char* delta_extension, const struct cloud_options* co){
+	struct TMPFILE* tfp_removed = NULL;
 	struct cloud_data* cd = NULL;
-	char* dir_files = NULL;
-	struct fi_stack* fis = NULL;
-	char* tmp = NULL;
+	char* tmp;
 	int ret = 0;
 
-	if (make_internal_directory_paths(output_directory, &dir_files, NULL) != 0){
-		log_warning("Failed to determine file path.");
+	if (!file_exists(checksum_file)){
+		log_info("Previous checksum file does not exist.");
+		return 0;
+	}
+
+	tfp_removed = temp_fopen();
+	if (!tfp_removed){
+		log_warning("Failed to create temporary file.");
 		ret = -1;
 		goto cleanup;
 	}
 
-	if ((fis = fi_start(dir_files)) == NULL){
-		log_warning_ex("Failed to start fileiterator in directory %s", dir_files);
+	if (create_removed_list(checksum_file, tfp_removed->name)){
+		log_warning("Failed to create removed list.");
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (temp_fflush(tfp_removed) != 0){
+		log_warning("Failed to update temporary file pointer.");
 		ret = -1;
 		goto cleanup;
 	}
 
 	if (cloud_login(co, &cd) != 0){
-		log_warning("Failed to log in to cloud account.");
+		log_warning("Failed to log into cloud account.");
+		ret = -1;
+		goto cleanup;
 	}
 
-	while ((tmp = fi_next(fis)) != NULL){
-		char* path_on_disk = tmp + strlen(dir_files) - 1;
-		char* cloud_path = NULL;
+	while ((tmp = get_next_removed(tfp_removed->fp)) != NULL){
+		char* file_path = NULL;
+		char* delta_path = NULL;
+		char* delta_path_parent = NULL;
 
-		if (path_on_disk[0] != '/'){
-			path_on_disk++;
-			if (path_on_disk[0] != '/'){
-				log_warning_ex("Invalid path %s", path_on_disk);
-				free(tmp);
-				continue;
-			}
+		if (make_file_paths(tmp, co->upload_directory, delta_extension, &file_path, &delta_path) != 0){
+			log_warning_ex("Failed to create file paths for %s", tmp);
+			goto cleanup_inner_loop;
 		}
 
-		if (!file_exists(path_on_disk)){
-			log_info_ex("Removing %s as it no longer exists.", tmp);
-			if (remove(tmp) != 0){
-				log_warning_ex2("Failed to remove file %s (%s)", tmp, strerror(errno));
-				free(tmp);
-				continue;
-			}
-		}
-		else{
-			free(tmp);
-			continue;
+		if ((delta_path_parent = sh_parent_dir(delta_path)) == NULL){
+			log_warning_ex("Failed to determine parent dir for %s", delta_path);
+			goto cleanup_inner_loop;
 		}
 
-		cloud_path = sh_concat_path(sh_dup(co->upload_directory), path_on_disk);
-		if (!cloud_path){
-			log_warning("Failed to create cloud path");
-			free(tmp);
-			continue;
+		if (cloud_mkdir(delta_path_parent, cd) < 0){
+			log_warning_ex("Failed to create directory %s", delta_path);
+			goto cleanup_inner_loop;
 		}
 
-		if (cd && cloud_remove(cloud_path, cd) != 0){
-			log_warning_ex("Failed to remove cloud file %s", path_on_disk);
+		if (cloud_rename(file_path, delta_path, cd) != 0){
+			log_warning_ex2("Failed to rename %s to %s", file_path, delta_path);
+			goto cleanup_inner_loop;
 		}
 
-		free(cloud_path);
+		if (cloud_remove(file_path, cd) != 0){
+			log_warning_ex("Failed to remove %s", file_path);
+			goto cleanup_inner_loop;
+		}
+
+cleanup_inner_loop:
+		free(file_path);
+		free(delta_path);
+		free(delta_path_parent);
 		free(tmp);
 	}
 
 cleanup:
-	free(dir_files);
-	fi_end(fis);
+	temp_fclose(tfp_removed);
 	cloud_logout(cd);
+	return ret;
+}
+
+static int create_checksum_files(const char* checksum_file, const char* delta_extension, FILE** out_checksum, FILE** out_checksum_prev){
+	FILE* fp_checksum = NULL;
+	FILE* fp_checksum_prev = NULL;
+	char* checksum_file_prev = NULL;
+	int ret = 0;
+
+	return_ifnull(checksum_file, -1);
+	return_ifnull(out_checksum, -1);
+	return_ifnull(out_checksum_prev, -1);
+
+	if (!file_exists(checksum_file)){
+		fp_checksum = fopen(checksum_file, "wb");
+		if (!fp_checksum){
+			log_efopen(checksum_file);
+			ret = -1;
+			goto cleanup;
+		}
+		*out_checksum = fp_checksum;
+		*out_checksum_prev = NULL;
+		return 0;
+	}
+
+	checksum_file_prev = sh_sprintf("%s.%s", checksum_file, delta_extension);
+	if (!checksum_file_prev){
+		log_warning("Failed to determine checksum delta location.");
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (rename_file(checksum_file, checksum_file_prev) != 0){
+		log_warning("Failed to backup old checksum file.");
+		ret = -1;
+		goto cleanup;
+	}
+
+	fp_checksum = fopen(checksum_file, "wb");
+	if (!fp_checksum){
+		log_efopen(checksum_file);
+		ret = -1;
+		goto cleanup;
+	}
+
+	fp_checksum_prev = fopen(checksum_file_prev, "rb");
+	if (!fp_checksum_prev){
+		log_efopen(checksum_file_prev);
+		ret = -1;
+		goto cleanup;
+	}
+
+cleanup:
+	if (ret == 0){
+		*out_checksum = fp_checksum;
+		*out_checksum_prev = fp_checksum_prev;
+	}
+	else{
+		*out_checksum = NULL;
+		*out_checksum_prev = NULL;
+		fp_checksum ? fclose(fp_checksum) : 0;
+		fp_checksum_prev ? fclose(fp_checksum_prev) : 0;
+	}
+	free(checksum_file_prev);
+	return ret;
+}
+
+struct cloud_options* generate_filled_co(const struct cloud_options* co){
+	struct cloud_options* ret = co_new();
+	if (!ret){
+		log_error("Failed to generate new cloud options structure");
+		return NULL;
+	}
+
+	co_set_cp(ret, co->cp);
+	if (ret->cp == CLOUD_NONE){
+		return ret;
+	}
+
+	if (!co->username){
+		char* tmp = readline("Cloud username:");
+		if (!tmp){
+			log_error("Failed to read username from stdin");
+			co_free(ret);
+			return NULL;
+		}
+		if (strlen(tmp) == 0){
+			log_info("No username specified.");
+			co_set_cp(ret, CLOUD_NONE);
+			return ret;
+		}
+		if (co_set_username(ret, tmp) != 0){
+			log_error("Failed to set username in cloud options structure");
+			free(tmp);
+			co_free(ret);
+			return NULL;
+		}
+		free(tmp);
+	}
+	else{
+		if (co_set_username(ret, co->username) != 0){
+			log_error("Failed to set username in cloud options structure");
+			co_free(ret);
+			return NULL;
+		}
+	}
+
+	if (!co->password){
+		char* tmp;
+		int res;
+		while ((res = crypt_getpassword("Cloud password:", "Verify password:", &tmp)) > 0);
+		if (res < 0){
+			log_error("Failed to read password from stdin");
+			co_free(ret);
+			return NULL;
+		}
+		if (!tmp || strlen(tmp) == 0){
+			log_info("Password not specified.");
+			co_set_cp(ret, CLOUD_NONE);
+			free(tmp);
+			return ret;
+		}
+		if (co_set_password(ret, tmp) != 0){
+			log_error("Failed to set password in cloud options structure");
+			free(tmp);
+			co_free(ret);
+			return NULL;
+		}
+		free(tmp);
+	}
+
+	if (co_set_upload_directory(ret, co->upload_directory) != 0){
+		log_error("Failed to set upload directory.");
+		co_free(ret);
+		return NULL;
+	}
+
 	return ret;
 }
 
 int backup(const struct options* opt){
 	char* checksum_path = NULL;
-	char* checksum_prev_path = NULL;
 	FILE* fp_checksum = NULL;
 	FILE* fp_checksum_prev = NULL;
-	char buf[64];
+	struct cloud_options* co_true = NULL;
 	unsigned long backup_time = time(NULL);
+	char delta_extension[16];
 	int ret = 0;
+
+	sprintf(delta_extension, "%lu", backup_time);
+
+	if ((co_true = generate_filled_co(opt->cloud_options)) == NULL){
+		log_error("Failed to generate cloud options structure.");
+		ret = -1;
+		goto cleanup;
+	}
 
 	if (mkdir_recursive(opt->output_directory) < 0){
 		log_error("Failed to create output directory");
 		ret = -1;
 		goto cleanup;
 	}
-
 	checksum_path = sh_concat_path(sh_dup(opt->output_directory), "checksums.txt");
-	sprintf(buf, ".%lu", backup_time);
-	checksum_prev_path = sh_concat(sh_dup(checksum_path), buf);
-	if (!checksum_path || !checksum_prev_path){
-		log_error("Could not determine checksum locations");
+	if (!checksum_path){
+		log_error("Failed to determine location of checksum file.");
 		ret = -1;
 		goto cleanup;
 	}
 
-	if (file_exists(checksum_path) && rename_file(checksum_path, checksum_prev_path) != 0){
-		log_warning_ex("Failed to backup old checksum file to %s", checksum_prev_path);
-	}
-
-	fp_checksum = fopen(checksum_path, "wb");
-	if (!fp_checksum){
-		log_efopen(checksum_path);
-		ret = -1;
-		goto cleanup;
-	}
-	fp_checksum_prev = fopen(checksum_prev_path, "rb");
-	if (!fp_checksum_prev){
-		if (errno == ENOENT){
-			log_info("Previous checksum file does not exist");
-		}
-		else{
-			log_efopen(checksum_prev_path);
-			ret = -1;
-			goto cleanup;
-		}
-	}
-
-	if (fp_checksum_prev && remove_deleted_files(opt->output_directory, opt->cloud_options) != 0){
+	if (cloud_remove_deleted_files(checksum_path, delta_extension, co_true) != 0){
 		log_warning("Failed to remove deleted files since last backup.");
 	}
 
-	if (copy_files(opt, fp_checksum, fp_checksum_prev, backup_time) != 0){
+	if (create_checksum_files(checksum_path, delta_extension, &fp_checksum, &fp_checksum_prev) != 0){
+		log_warning("Failed to create checksum delta.");
+	}
+	if (!fp_checksum){
+		log_error("Failed to create checksum file.");
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (copy_files(opt, co_true, delta_extension, fp_checksum, fp_checksum_prev) != 0){
 		log_error("Error copying files to their destinations");
 		ret = -1;
 		goto cleanup;
@@ -408,6 +545,6 @@ cleanup:
 	fp_checksum ? fclose(fp_checksum) : 0;
 	fp_checksum_prev ? fclose(fp_checksum_prev) : 0;
 	free(checksum_path);
-	free(checksum_prev_path);
+	co_free(co_true);
 	return ret;
 }
