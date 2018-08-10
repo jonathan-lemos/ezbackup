@@ -481,7 +481,7 @@ int MEGAdownload(const char* download_path, const char* out_file, const char* ms
 	node = mega_api->getNodeByPath(download_path);
 	if (!node){
 		log_warning_ex("MEGA: File %s not found", download_path);
-		return -1;
+		return 1;
 	}
 	if (!node->isFile()){
 		log_warning_ex("MEGA: %s is a directory, not a file.", download_path);

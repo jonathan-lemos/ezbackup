@@ -158,7 +158,7 @@ int cloud_upload_ui(const char* in_file, const char* base_dir, char** chosen_pat
  * @param cd A cloud data structure returned by cloud_login().
  * @see cloud_login()
  *
- * @return 0 on success, negative on failure.
+ * @return 0 on success, positive if the file does not exist, negative on failure.
  */
 int cloud_download(const char* download_path, char** out_file, struct cloud_data* cd);
 

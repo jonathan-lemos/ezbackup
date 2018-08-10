@@ -178,4 +178,13 @@ int file_exists(const char* path);
  */
 int mkdir_recursive(const char* dir);
 
+/**
+ * @brief Removes a directoriy and all of its files.
+ *
+ * @param The directory to remove.
+ *
+ * @return 0 on success, negative on failure.
+ */
+int rmdir_recursive(const char* dir);
+
 #endif

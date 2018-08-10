@@ -71,6 +71,7 @@ This reverts the project folder to its default state.
 * Implement compression flags properly.
 * Remove redundant directories/exclude paths (e.g. "/home/user" and "/home").
 * Restore functionality.
+* File permissions.
 * Public/private key functionality.
 * Metadata (checksum.txt encryption).
 * Compression progress bars.

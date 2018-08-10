@@ -7,6 +7,7 @@
  */
 
 #include "backup.h"
+#include "cli.h"
 #include "filehelper.h"
 #include "crypt/crypt_easy.h"
 #include "crypt/crypt_getpassword.h"
@@ -411,7 +412,7 @@ cleanup:
 	return ret;
 }
 
-struct cloud_options* generate_filled_co(const struct cloud_options* co){
+static struct cloud_options* generate_filled_co(const struct cloud_options* co){
 	struct cloud_options* ret = co_new();
 	if (!ret){
 		log_error("Failed to generate new cloud options structure");
@@ -481,6 +482,122 @@ struct cloud_options* generate_filled_co(const struct cloud_options* co){
 		return NULL;
 	}
 
+	return ret;
+}
+
+static int is_cloud_disk_synced(const char* checksum_file, const char* cloud_directory, struct cloud_data* cd){
+	char* cloud_path = NULL;
+	unsigned char* cloud_hash = NULL;
+	unsigned cloud_hash_len = 0;
+	unsigned char* disk_hash = NULL;
+	unsigned disk_hash_len = 0;
+	struct TMPFILE* tfp_cloud = NULL;
+	int ret = 1;
+	int res;
+
+	tfp_cloud = temp_fopen();
+	if (!tfp_cloud){
+		log_error("Failed to open temporary file");
+		ret = -1;
+		goto cleanup;
+	}
+
+	cloud_path = sh_concat_path(sh_dup(cloud_directory), "checksums.txt");
+	if (!cloud_path){
+		log_error("Failed to determine path of cloud checksum file.");
+		ret = -1;
+		goto cleanup;
+	}
+
+	res = cloud_download(cloud_path, &(tfp_cloud->name), cd);
+	if (res > 0){
+		log_debug("Checksum file does not exist.");
+		ret = 0;
+		goto cleanup;
+	}
+	else if (res < 0){
+		log_error("Failed to download checksum file.");
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (checksum(tfp_cloud->name, NULL, &cloud_hash, &cloud_hash_len) ||
+			checksum(checksum_file, NULL, &disk_hash, &disk_hash_len) ||
+			cloud_hash_len != disk_hash_len){
+		log_error("Failed to checksum one or more files.");
+		ret = -1;
+		goto cleanup;
+	}
+
+	ret = memcmp(cloud_hash, disk_hash, cloud_hash_len) == 0;
+
+cleanup:
+	free(cloud_path);
+	free(cloud_hash);
+	free(disk_hash);
+	temp_fclose(tfp_cloud);
+	return ret;
+}
+
+int backup_wipe(const char* output_directory, const struct cloud_options* co){
+	struct cloud_data* cd = NULL;
+	int ret = 0;
+
+	log_info("Wiping backups...");
+
+	if (cloud_login(co, &cd) != 0){
+		log_error("Failed to log in to cloud provider");
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (cloud_remove(co->upload_directory, cd) != 0){
+		log_warning("Failed to remove cloud directory.");
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (rmdir_recursive(
+
+cleanup:
+	cloud_logout(cd);
+	return ret;
+}
+
+int cloud_sync_disk(const char* checksum_file, const struct cloud_options* co){
+	const char* dialog_options[] = {
+		"Reset backup",
+		"Abort backup"
+	};
+	struct cloud_data* cd = NULL;
+	int ret = 0;
+	int res;
+
+	if (cloud_login(co, &cd) != 0){
+		log_error("Failed to log in to cloud account");
+		ret = -1;
+		goto cleanup;
+	}
+
+	res = is_cloud_disk_synced(checksum_file, co->upload_directory, cd);
+	if (res > 0){
+		log_info("Cloud and disk are already synced");
+		ret = 0;
+		goto cleanup;
+	}
+	else if (res < 0){
+		log_error("Failed to check if cloud is synchronized with disk");
+		ret = -1;
+		goto cleanup;
+	}
+
+	res = display_dialog(dialog_options, sizeof(dialog_options) / sizeof(dialog_options[0]),
+			"Cloud and disk are not synced.\n"
+			"1) Reset backup directory. This will erase any prevous backups.\n"
+			"2) Abort backup.");
+
+cleanup:
+	cloud_logout(cd);
 	return ret;
 }
 

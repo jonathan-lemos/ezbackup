@@ -118,7 +118,7 @@ int MEGArename(const char* _old, const char* _new, MEGAhandle* mh);
  * @param mh A handle returned by MEGAlogin()
  * @see MEGAlogin()
  *
- * @return 0 on success, or negative on failure.
+ * @return 0 on success, positive if the file does not exist, negative on failure.
  */
 int MEGAdownload(const char* download_path, const char* out_file, const char* msg, MEGAhandle* mh);
 
