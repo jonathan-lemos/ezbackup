@@ -557,7 +557,11 @@ int backup_wipe(const char* output_directory, const struct cloud_options* co){
 		goto cleanup;
 	}
 
-	if (rmdir_recursive(
+	if (rmdir_recursive(output_directory) != 0){
+		log_warning("Failed to remove local directory.");
+		ret = -1;
+		goto cleanup;
+	}
 
 cleanup:
 	cloud_logout(cd);
@@ -566,8 +570,9 @@ cleanup:
 
 int cloud_sync_disk(const char* checksum_file, const struct cloud_options* co){
 	const char* dialog_options[] = {
-		"Reset backup",
-		"Abort backup"
+		"1) Cloud",
+		"2) Disk",
+		"3) Abort"
 	};
 	struct cloud_data* cd = NULL;
 	int ret = 0;
@@ -593,8 +598,13 @@ int cloud_sync_disk(const char* checksum_file, const struct cloud_options* co){
 
 	res = display_dialog(dialog_options, sizeof(dialog_options) / sizeof(dialog_options[0]),
 			"Cloud and disk are not synced.\n"
-			"1) Reset backup directory. This will erase any prevous backups.\n"
-			"2) Abort backup.");
+			"1) Sync from cloud. This will replace any backups on disk.\n"
+			"2) Sync from disk. This will replace any backups in the cloud.\n"
+			"3) Abort backup.");
+
+	switch (res){
+
+	}
 
 cleanup:
 	cloud_logout(cd);

@@ -219,6 +219,26 @@ int cloud_remove(const char* dir_or_file, struct cloud_data* cd);
  */
 int cloud_remove_ui(const char* base_dir, char** chosen_file, struct cloud_data* cd);
 
+
+/**
+ * @brief Synchronizes a disk directory and a cloud directory.
+ *
+ * @param disk_dir The disk directory to sync.
+ *
+ * @param cloud_dir The cloud directory to sync.
+ *
+ * @param prioritize_disk A value of 1 sets the cloud folder's contents to the disk folder's. 0 sets the disk folder's contents to the cloud folder's.
+ *
+ * @param changed_files_list A list of files that have changed since the last sync.<br>
+ * This can be set to NULL, in which case this function determines what files have changed, although this is much slower.
+ *
+ * @param cd A cloud data structure returned by cloud_login().
+ * @see cloud_login()
+ *
+ * @return 0 on success, negative on failure.
+ */
+int cloud_sync(const char* disk_dir, const char* cloud_dir, int prioritize_disk, const char* changed_files_list, struct cloud_data* cd);
+
 /**
  * @brief Logs out of a cloud account and frees all memory associated with the structure.
  *

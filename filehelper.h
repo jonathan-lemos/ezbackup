@@ -35,6 +35,10 @@ struct TMPFILE{
 	char* name; /**< The temporary file's filename */
 };
 
+struct FILE_IO_BUFFER{
+
+}
+
 /**
  * @brief Reads bytes from a file.<br>
  *
