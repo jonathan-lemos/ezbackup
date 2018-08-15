@@ -1,4 +1,4 @@
-# ezbackup
+# ezbackup (work in progress)
 My personal easy backup solution for when you don't feel like spending hours reading man pages.
 
 ## Installation
