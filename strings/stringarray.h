@@ -9,11 +9,8 @@
 #ifndef __STRINGARRAY_H
 #define __STRINGARRAY_H
 
+#include "../attribute.h"
 #include <stddef.h>
-
-#ifndef __GNUC__
-#define __attribute__(x)
-#endif
 
 /**
  * @brief An array of strings.<br>
@@ -33,7 +30,7 @@ struct string_array{
  * @see sa_to_raw_array()
  * @see sa_merge()
  */
-struct string_array* sa_new(void) __attribute__((malloc));
+struct string_array* sa_new(void) EZB_MALLOC_LIKE;
 
 /**
  * @brief Adds a string to a string array.
@@ -82,7 +79,7 @@ int sa_remove(struct string_array* array, size_t index);
  *
  * @return Positive if the array contains the string, 0 if it doesn't.
  */
-int sa_contains(const struct string_array* array, const char* str);
+int sa_contains(const struct string_array* array, const char* str) EZB_PURE;
 
 /**
  * @brief Sorts a string array in strcmp() order.
@@ -124,7 +121,7 @@ void sa_free(struct string_array* array);
  *
  * @return 0 if each array contains the same strings, non-zero if they don't.
  */
-int sa_cmp(const struct string_array* sa1, const struct string_array* sa2);
+int sa_cmp(const struct string_array* sa1, const struct string_array* sa2) EZB_PURE;
 
 /**
  * @brief Converts a string array to a raw array and length.

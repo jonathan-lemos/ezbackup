@@ -9,12 +9,9 @@
 #ifndef __CHECKSUM_H
 #define __CHECKSUM_H
 
+#include "attribute.h"
 #include <stdio.h>
 #include <openssl/evp.h>
-
-#ifndef __GNUC__
-#define __attribute__(x)
-#endif
 
 /**
  * @brief Returns an EVP_MD* object for a given string.
@@ -81,7 +78,7 @@ int checksum_bytestring(const char* file, const EVP_MD* algorithm, char** out);
  *
  * @return 0 on success, negative on failure
  */
-int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out) __attribute__((deprecated));
+int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out) EZB_DEPRECATED("Use to_base16() instead");
 
 /**
  * @brief Adds a file's checksum to a checksum list.<br>

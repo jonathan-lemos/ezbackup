@@ -9,12 +9,9 @@
 #ifndef __STRINGHELPER_H
 #define __STRINGHELPER_H
 
+#include "../attribute.h"
 #include <stdarg.h>
 #include <stddef.h>
-
-#ifndef __GNUC__
-#define __attribute__(x)
-#endif
 
 /**
  * @brief Creates an empty dynamic string.
@@ -22,7 +19,7 @@
  * @return An empty dynamic string, or NULL on failure.<br>
  * This string must be free()'d when no longer in use.
  */
-char* sh_new(void) __attribute__((malloc));
+char* sh_new(void) EZB_MALLOC_LIKE;
 
 /**
  * @brief Duplicates a string or converts a static string to a dynamic one.<br>
@@ -34,7 +31,7 @@ char* sh_new(void) __attribute__((malloc));
  * @return A dynamic copy of that string, or NULL on failure.<br>
  * This string must be free()'d when no longer in use.
  */
-char* sh_dup(const char* in);
+char* sh_dup(const char* in) EZB_MALLOC_LIKE;
 
 /**
  * @brief Concatenates an extension to a dynamic string.
@@ -87,7 +84,7 @@ char* sh_concat_path(char* in, const char* extension);
  * Note that this value is a pointer within the input string.<br>
  * Therefore if the input string is changed, this pointer is no longer valid.
  */
-const char* sh_filename(const char* in);
+const char* sh_filename(const char* in) EZB_PURE;
 
 /**
  * @brief Returns the file extension for a path.<br>
@@ -105,7 +102,7 @@ const char* sh_filename(const char* in);
  * Note that this value is a pointer within the input string.<br>
  * Therefore if the input string is changed, this pointer is no longer valid.
  */
-const char* sh_file_ext(const char* in);
+const char* sh_file_ext(const char* in) EZB_PURE;
 
 /**
  * @brief Returns the parent directory for a path.<br>
@@ -123,7 +120,7 @@ const char* sh_file_ext(const char* in);
  * @return The path's parent directory, or NULL if it does not exist or there was an error.<br>
  * This string must be free()'d when no longer in use.
  */
-char* sh_parent_dir(const char* in);
+char* sh_parent_dir(const char* in) EZB_MALLOC_LIKE;
 
 /**
  * @brief Returns true if the haystack starts with the needle, or false if not.<br>
@@ -142,7 +139,7 @@ char* sh_parent_dir(const char* in);
  *
  * @return 1 if haystack starts with needle, 0 if not.
  */
-int sh_starts_with(const char* haystack, const char* needle);
+int sh_starts_with(const char* haystack, const char* needle) EZB_PURE;
 
 /**
  * @brief Gets the current directory as a dynamic string.<br>
@@ -150,7 +147,7 @@ int sh_starts_with(const char* haystack, const char* needle);
  * @return The current directory, or NULL on error.<br>
  * This string must be free()'d when no longer in use.
  */
-char* sh_getcwd(void);
+char* sh_getcwd(void) EZB_MALLOC_LIKE;
 
 /**
  * @brief Compares two strings that may or may not be NULL.<br>
@@ -169,7 +166,7 @@ char* sh_getcwd(void);
  * sh_cmp_nullsafe(NULL, NULL)       == 0
  * ```
  */
-int sh_cmp_nullsafe(const char* str1, const char* str2);
+int sh_cmp_nullsafe(const char* str1, const char* str2) EZB_PURE;
 
 /**
  * @brief Case-insensitively compares two strings that may or may not be NULL.
@@ -183,7 +180,7 @@ int sh_cmp_nullsafe(const char* str1, const char* str2);
  * @return Same as sh_cmp_nullsafe() while treating capital letters as equal to lowercase ones.<br>
  * @see sh_cmp_nullsafe()
  */
-int sh_ncasecmp(const char* str1, const char* str2);
+int sh_ncasecmp(const char* str1, const char* str2) EZB_PURE;
 
 /**
  * @brief Creates a string out of a printf statement.<br>
@@ -196,6 +193,6 @@ int sh_ncasecmp(const char* str1, const char* str2);
  * @return A string corresponding to the format string filled in with its arguments, or NULL on error.<br>
  * This string must be free()'d when no longer in use.
  */
-char* sh_sprintf(const char* format, ...) __attribute__((format(printf, 1, 2)));
+char* sh_sprintf(const char* format, ...) EZB_PRINTF_LIKE(1);
 
 #endif

@@ -9,7 +9,7 @@
 /* prototypes */
 #include "fileiterator.h"
 
-#include "log.h"
+#include "../log.h"
 /* enumerates files in directory */
 #include <dirent.h>
 /* holds file permissions and checks if file is actually a directory */

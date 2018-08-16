@@ -9,12 +9,9 @@
 #ifndef __PROGRESSBAR_H
 #define __PROGRESSBAR_H
 
+#include "attribute.h"
 #include <stdint.h>
 #include <time.h>
-
-#ifndef __GNUC__
-#define __attribute__(x)
-#endif
 
 /**
  * @brief A progress bar structure.
@@ -40,7 +37,7 @@ struct progress{
  * @see finish_progress()
  * @see finish_progress_fail()
  */
-struct progress* start_progress(const char* text, uint64_t max) __attribute__((malloc));
+struct progress* start_progress(const char* text, uint64_t max) EZB_MALLOC_LIKE;
 
 /**
  * @brief Increments the progress in a progress bar.

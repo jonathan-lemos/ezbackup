@@ -9,11 +9,11 @@
 /* prototypes */
 #include "filehelper.h"
 
-#include "strings/stringhelper.h"
+#include "../strings/stringhelper.h"
 
-#include "strings/stringarray.h"
+#include "../strings/stringarray.h"
 /* error handling */
-#include "log.h"
+#include "../log.h"
 #include <errno.h>
 #include <string.h>
 /* FILE* */

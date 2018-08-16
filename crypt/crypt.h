@@ -9,11 +9,8 @@
 #ifndef __CRYPT_CRYPT_H
 #define __CRYPT_CRYPT_H
 
+#include "../attribute.h"
 #include <openssl/evp.h>
-
-#ifndef __GNUC__
-#define __attribute__(x)
-#endif
 
 /**
  * @brief Holds encryption keys and data.
@@ -26,7 +23,7 @@ struct crypt_keys;
  * @return A blank crypt keys structure, or NULL on failure.<br>
  * All values are set to 0 if it succeeds.
  */
-struct crypt_keys* crypt_new(void) __attribute__((malloc));
+struct crypt_keys* crypt_new(void) EZB_MALLOC_LIKE;
 
 /**
  * @brief Scrubs data with random values.<br>

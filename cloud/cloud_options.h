@@ -9,9 +9,7 @@
 #ifndef __CLOUD_OPTIONS_H
 #define __CLOUD_OPTIONS_H
 
-#ifndef __GNUC__
-#define __attribute__(x)
-#endif
+#include "../attribute.h"
 
 /**
  * @brief List of available cloud providers
@@ -60,7 +58,7 @@ struct cloud_options{
  * This structure must be freed with co_free() when no longer in use.
  * @see co_free()
  */
-struct cloud_options* co_new(void) __attribute__((malloc));
+struct cloud_options* co_new(void) EZB_MALLOC_LIKE;
 
 /**
  * @brief Sets the username field of a cloud options structure to a value, freeing the old one if it exists.
@@ -128,7 +126,7 @@ int co_set_cp(struct cloud_options* co, enum cloud_provider cp);
  *
  * @return The string's corresponding CLOUD_PROVIDER, or CLOUD_INVALID if the string does not match any valid entries
  */
-enum cloud_provider cloud_provider_from_string(const char* str);
+enum cloud_provider cloud_provider_from_string(const char* str) EZB_PURE;
 
 /**
  * @brief Converts a CLOUD_PROVIDER to its string equivalent<br>
@@ -138,7 +136,7 @@ enum cloud_provider cloud_provider_from_string(const char* str);
  *
  * @return The CLOUD_PROVIDER's equivalent string representation, or NULL for an invalid value.
  */
-const char* cloud_provider_to_string(enum cloud_provider cp);
+const char* cloud_provider_to_string(enum cloud_provider cp) EZB_PURE;
 
 /**
  * @brief Frees all memory associated with a cloud options structure.
@@ -159,6 +157,6 @@ void co_free(struct cloud_options* co);
  *
  * @return 0 if they are equivalent, non-zero if not.
  */
-int co_cmp(const struct cloud_options* co1, const struct cloud_options* co2);
+int co_cmp(const struct cloud_options* co1, const struct cloud_options* co2) EZB_PURE;
 
 #endif

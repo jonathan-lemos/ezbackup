@@ -20,11 +20,6 @@ struct entry{
 	time_t time;
 };
 
-struct data_buffer{
-	unsigned char* data;
-	size_t len;
-};
-
 static int get_file_mtime(const char* file, time_t* out){
 	struct stat st;
 	if (lstat(file, &st) != 0){

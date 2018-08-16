@@ -14,10 +14,6 @@
 #include "../strings/stringarray.h"
 #include <openssl/evp.h>
 
-#ifndef __GNUC__
-#define __attribute__(x)
-#endif
-
 /**
  * @brief An operation for the main program to perform.
  */
@@ -33,7 +29,7 @@ enum operation{
  * @brief A structure containing the program's options.
  */
 struct options{
-	char*                 prev_backup __attribute__((deprecated)); /**< @brief This option is deprecated. */
+	char*                 prev_backup EZB_DEPRECATED(".tar based backups are no longer used"); /**< @brief This option is deprecated. */
 	struct string_array*  directories;      /**< @brief A list of directories to back up. This cannot be NULL, but it can contain 0 strings. */
 	struct string_array*  exclude;          /**< @brief A list of directories to exclude. This cannot be NULL, but it can contain 0 strings. */
 	const EVP_MD*         hash_algorithm;   /**< @brief The hash algorithm to use for checksum files. */
@@ -57,14 +53,14 @@ struct options{
  *
  * @return void
  */
-void version(void);
+void version(void) EZB_COLD;
 
 /**
  * @brief Displays the usage of this program, such as command line arguments.
  *
  * @return void
  */
-void usage(const char* progname);
+void usage(const char* progname) EZB_COLD;
 
 /**
  * @brief Creates a new options structure with a set of default values.
@@ -72,7 +68,7 @@ void usage(const char* progname);
  * @return A new options structure, or NULL on failure.<br>
  * This structure must be freed with options_free() when no longer in use.
  */
-struct options* options_new(void) __attribute__((malloc));
+struct options* options_new(void) EZB_MALLOC_LIKE;
 
 /**
  * @brief Compares two options structures.<br>
@@ -85,7 +81,7 @@ struct options* options_new(void) __attribute__((malloc));
  *
  * @return 0 if they are the same, or non-zero if they are different.
  */
-int options_cmp(const struct options* opt1, const struct options* opt2);
+int options_cmp(const struct options* opt1, const struct options* opt2) EZB_PURE;
 
 /**
  * @brief Frees all memory associated with an options structure.
@@ -186,6 +182,6 @@ int set_prev_options(const struct options* opt);
  *
  * @return The enum operation's string equivalent, or NULL if the operation was invalid.
  */
-const char* operation_tostring(enum operation op);
+const char* operation_tostring(enum operation op) EZB_PURE;
 
 #endif

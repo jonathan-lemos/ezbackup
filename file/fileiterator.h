@@ -9,9 +9,7 @@
 #ifndef __FILE_ITERATOR_H
 #define __FILE_ITERATOR_H
 
-#ifndef __GNUC__
-#define __attribute__(x)
-#endif
+#include "../attribute.h"
 
 /**
  * @brief Starts iterating through files in a directory.<br>
@@ -24,7 +22,7 @@
  * @see fi_next()
  * @see fi_end()
  */
-struct fi_stack* fi_start(const char* dir) __attribute__((malloc));
+struct fi_stack* fi_start(const char* dir) EZB_MALLOC_LIKE;
 
 /**
  * @brief Returns the next filename in the fi_stack structure.
@@ -34,7 +32,7 @@ struct fi_stack* fi_start(const char* dir) __attribute__((malloc));
  *
  * @return The next filename in the fi_stack* structure, or NULL if there are not any left/there was an error.
  */
-char* fi_next(struct fi_stack* fis) __attribute__((malloc));
+char* fi_next(struct fi_stack* fis) EZB_MALLOC_LIKE;
 
 /**
  * @brief Stops iterating files through the current directory and moves on to the next if there is one.
@@ -54,7 +52,7 @@ int fi_skip_current_dir(struct fi_stack* fis);
  *
  * @return The name of the current directory, or NULL if there isn't one.
  */
-const char* fi_directory_name(const struct fi_stack* fis);
+const char* fi_directory_name(const struct fi_stack* fis) EZB_PURE;
 
 /**
  * @brief Stops iterating files and frees all memory associated with the structure.
