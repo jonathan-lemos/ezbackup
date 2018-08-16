@@ -12,11 +12,11 @@ CXX=g++
 CFLAGS=-Wall -Wextra -pedantic -std=c89 -D_XOPEN_SOURCE=500 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 CXXFLAGS=-Wall -Wextra -pedantic -std=c++14 -DPROG_NAME=\"$(NAME)\" -DPROG_VERSION=\"$(VERSION)\"
 LINKFLAGS=-lssl -lcrypto -lmenu -lncurses -lmega -lstdc++ -ledit -lz -lbz2 -llzma -llz4
-DBGFLAGS=-g -Werror -fsanitize=address -fno-omit-frame-pointer
-CXXDBGFLAGS=-g -Werror -fsanitize=address -fno-omit-frame-pointer
+DBGFLAGS=-g -fsanitize=address -fno-omit-frame-pointer
+CXXDBGFLAGS=-g -fsanitize=address -fno-omit-frame-pointer
 RELEASEFLAGS=-O3
 CXXRELEASEFLAGS=-O3
-DIRECTORIES=. cloud compression crypt file options strings
+DIRECTORIES=. cloud compression crypt file mtimefile options strings
 # HEADERS=fileiterator maketar crypt readfile error checksum progressbar options checksumsort
 HEADERS=$(foreach directory,$(DIRECTORIES),$(shell ls $(directory) | grep .*\\.c$$ | sed 's|\(.*\)\.c$$|$(directory)/\1|g;s|.*main||g'))
 CXXHEADERS=$(foreach directory,$(DIRECTORIES),$(shell ls $(directory) | grep .*\\.cpp$$ | sed 's|\(.*\)\.cpp$$|$(directory)/\1|g'))

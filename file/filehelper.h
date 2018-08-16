@@ -1,4 +1,4 @@
-/** @file filehelper.h
+/** @file file/filehelper.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

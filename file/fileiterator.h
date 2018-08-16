@@ -1,4 +1,4 @@
-/** @file fileiterator.h
+/** @file file/fileiterator.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *

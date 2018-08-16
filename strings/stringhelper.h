@@ -31,7 +31,7 @@ char* sh_new(void) EZB_MALLOC_LIKE;
  * @return A dynamic copy of that string, or NULL on failure.<br>
  * This string must be free()'d when no longer in use.
  */
-char* sh_dup(const char* in) EZB_MALLOC_LIKE;
+char* sh_dup(const char* in) EZB_MALLOC_LIKE EZB_HOT;
 
 /**
  * @brief Concatenates an extension to a dynamic string.
