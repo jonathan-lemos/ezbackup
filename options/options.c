@@ -11,7 +11,7 @@
 #include "options_file.h"
 #include "../log.h"
 #include "../crypt/base16.h"
-#include "../filehelper.h"
+#include "../file/filehelper.h"
 #include "../strings/stringhelper.h"
 #include "../compression/zip.h"
 #include "../readline_include.h"

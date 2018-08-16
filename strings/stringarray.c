@@ -9,7 +9,7 @@
 #include "stringarray.h"
 #include "stringhelper.h"
 #include "../log.h"
-#include "../filehelper.h"
+#include "../file/filehelper.h"
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>

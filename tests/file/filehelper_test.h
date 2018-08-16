@@ -1,4 +1,4 @@
-/** @file tests/filehelper_test.h
+/** @file tests/file/filehelper_test.h
  *
  * Copyright (c) 2018 Jonathan Lemos
  *
@@ -9,7 +9,7 @@
 #ifndef __FILEHELPER_TEST_H
 #define __FILEHELPER_TEST_H
 
-#include "test_framework.h"
+#include "../test_framework.h"
 
 void test_read_file(enum TEST_STATUS* status);
 void test_temp_fopen(enum TEST_STATUS* status);

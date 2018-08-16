@@ -7,7 +7,7 @@
  */
 
 #include "crypt.h"
-#include "../filehelper.h"
+#include "file/../filehelper.h"
 #include "../log.h"
 #include <errno.h>
 #include <openssl/err.h>

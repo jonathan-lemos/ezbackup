@@ -7,9 +7,9 @@
  */
 
 #include "fileiterator_test.h"
-#include "../fileiterator.h"
-#include "../log.h"
-#include "../readline_include.h"
+#include "../../file/fileiterator.h"
+#include "../../log.h"
+#include "../../readline_include.h"
 #include <stdlib.h>
 #include <string.h>
 

@@ -12,7 +12,7 @@
 #include "log.h"
 #include <errno.h>
 /* reading them files */
-#include "filehelper.h"
+#include "file/filehelper.h"
 /* strcmp */
 #include <string.h>
 /* malloc */

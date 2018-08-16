@@ -11,7 +11,7 @@
 #include "crypt_getpassword.h"
 #include "../log.h"
 #include "../coredumps.h"
-#include "../filehelper.h"
+#include "../file/filehelper.h"
 #include "../strings/stringhelper.h"
 #include <string.h>
 

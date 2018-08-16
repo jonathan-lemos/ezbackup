@@ -8,10 +8,10 @@
 
 #include "backup.h"
 #include "cli.h"
-#include "filehelper.h"
+#include "file/filehelper.h"
 #include "crypt/crypt_easy.h"
 #include "crypt/crypt_getpassword.h"
-#include "fileiterator.h"
+#include "file/fileiterator.h"
 #include "log.h"
 #include "checksum.h"
 #include "options/options.h"

@@ -7,8 +7,8 @@
  */
 
 #include "filehelper_test.h"
-#include "../filehelper.h"
-#include "../log.h"
+#include "../../file/filehelper.h"
+#include "../../log.h"
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>

@@ -9,7 +9,7 @@
 #ifndef __TEST_FILEITERATOR_H
 #define __TEST_FILEITERATOR_H
 
-#include "test_framework.h"
+#include "../test_framework.h"
 
 void test_fi_normal(enum TEST_STATUS* status);
 void test_fi_skip_dir(enum TEST_STATUS* status);

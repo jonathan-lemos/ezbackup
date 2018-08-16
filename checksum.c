@@ -11,7 +11,7 @@
 #include "log.h"
 #include <errno.h>
 #include <openssl/err.h>
-#include "filehelper.h"
+#include "file/filehelper.h"
 #include "checksumsort.h"
 #include "strings/stringhelper.h"
 #include <stdio.h>
