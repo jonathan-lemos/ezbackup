@@ -8,6 +8,7 @@
 
 #include "entry.h"
 #include "../log.h"
+#include "../crypt/base16.h"
 #include "../file/databuffer.h"
 #include "../file/filehelper.h"
 #include "../strings/stringhelper.h"
@@ -24,12 +25,70 @@ struct minheapnode{
 	size_t i;
 };
 
-EZB_INLINE static void free_entry(struct entry* e){
+EZB_INLINE EZB_HOT static void free_entry(struct entry* e){
 	if (!e){
 		return;
 	}
 	free(e->file);
 	free(e);
+}
+
+#define TIME_T_B16_LEN (2 * sizeof(time_t) + 1)
+
+EZB_INLINE EZB_HOT static int write_time_t_b16(FILE* fp, time_t time){
+	char* time_b16;
+
+	if (to_base16(&(time), sizeof(time), &time_b16) != 0){
+		log_error("Failed to convert time to base 16");
+		return -1;
+	}
+
+	if (strlen(time_b16) + 1 != TIME_T_B16_LEN){
+		log_error("Base 16 string is not the correct length");
+		free(time_b16);
+		return -1;
+	}
+
+	if (fwrite(fp, 1, strlen(time_b16) + 1, fp) != strlen(time_b16) + 1){
+		log_error("Failed to write base 16 time to file");
+		free(time_b16);
+		return -1;
+	}
+
+	free(time_b16);
+	return 0;
+}
+
+EZB_INLINE EZB_HOT static int read_time_t_b16(FILE* fp, time_t* time_out){
+	/* the length of the b16 string including null term */
+	char time_b16[TIME_T_B16_LEN];
+	time_t* time_buf;
+	unsigned time_buf_len;
+
+	if (fread(time_b16, 1, sizeof(time_b16), fp) != sizeof(time_b16)){
+		log_error("Failed to write to entry file");
+		return -1;
+	}
+
+	if (time_b16[sizeof(time_b16) - 1] != '\0'){
+		log_error("The read string is not the correct length");
+		return -1;
+	}
+
+	if (from_base16(time_b16, (void**)&time_buf, &time_buf_len) != 0){
+		log_error("Failed to convert base16 string to time_t");
+		return -1;
+	}
+
+	if (time_buf_len != sizeof(time_t)){
+		log_error("The converted base16 string was not the correct length");
+		free(time_buf);
+		return -1;
+	}
+
+	*time_out = *time_buf;
+	free(time_buf);
+	return 0;
 }
 
 EZB_HOT static int read_entry(FILE* fp, struct entry** out){
@@ -85,15 +144,12 @@ EZB_HOT static int read_entry(FILE* fp, struct entry** out){
 	ret->file = (char*)buf.data;
 
 	/* now read the time from the file */
-	if (fread(&(ret->mtime), sizeof(ret->mtime), 1, fp) != sizeof(ret->mtime)){
-		log_efread("mtime file");
+	if (read_time_t_b16(fp, &(ret->mtime)) != 0){
+		log_error("Failed to read b16 time from file");
 		free_entry(ret);
 		*out = NULL;
 		return -1;
 	}
-
-	/* skip '\n' */
-	fgetc(fp);
 
 	*out = ret;
 	return 0;
@@ -111,28 +167,19 @@ EZB_HOT static int write_entry(struct entry* e, FILE* fp, size_t* len_written){
 		log_efwrite("mtime file");
 		return -1;
 	}
-	/* write mtime */
-	len = fwrite(&(e->mtime), sizeof(e->mtime), 1, fp);
-	if (len_written){
-		*len_written += len;
-	}
-	if (len != sizeof(e->mtime)){
-		log_efwrite("mtime file");
-		return -1;
-	}
 
-	/* write '\n' */
-	fputc('\n', fp);
-	if (len_written){
-		(*len_written)++;
+	/* write mtime */
+	if (write_time_t_b16(fp, e->mtime) != 0){
+		log_error("Failed to write b16 time");
+		return -1;
 	}
 
 	return 0;
 }
 
-static int align_entry_file(FILE* fp){
+static int align_entry_file_forward(FILE* fp){
 	int c;
-	unsigned char buf[sizeof(time_t) + 1];
+	unsigned char buf[TIME_T_B16_LEN];
 	while ((c = fgetc(fp)) != '\0' && c != EOF);
 	if (c == EOF){
 		return 1;
@@ -140,6 +187,57 @@ static int align_entry_file(FILE* fp){
 	if (fread(buf, 1, sizeof(buf), fp) != sizeof(buf)){
 		return -1;
 	}
+	return 0;
+}
+
+static int align_entry_file_inplace(FILE* fp){
+	char tm_buf[TIME_T_B16_LEN];
+	int c;
+	do{
+		fseek(fp, -2, SEEK_CUR);
+	}while (fgetc(fp) != '\0' && ftell(fp) > 1);
+
+	if (ftell(fp) <= 1){
+		while ((c = fgetc(fp)) != '\0' && c != EOF);
+		if (c == EOF){
+			log_error("Invalid file format");
+			return -1;
+		}
+	}
+
+	if (fread(tm_buf, 1, sizeof(tm_buf), fp) != sizeof(tm_buf)){
+		log_error("Failed to read file");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int align_entry_file_backward(FILE* fp){
+	char tm_buf[TIME_T_B16_LEN];
+	int c;
+	do{
+		fseek(fp, -2, SEEK_CUR);
+	}while (fgetc(fp) != '\0' && ftell(fp) > 1);
+
+	do{
+		fseek(fp, -2, SEEK_CUR);
+	}while (fgetc(fp) != '\0' && ftell(fp) > 1);
+
+
+	if (ftell(fp) <= 1){
+		while ((c = fgetc(fp)) != '\0' && c != EOF);
+		if (c == EOF){
+			log_error("Invalid file format");
+			return -1;
+		}
+	}
+
+	if (fread(tm_buf, 1, sizeof(tm_buf), fp) != sizeof(tm_buf)){
+		log_error("Failed to read file");
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -424,4 +522,122 @@ cleanup:
 	free(minheap);
 	fp_out ? fclose(fp_out) : 0;
 	return ret;
+}
+
+int sort_mtimefile(const char* file){
+	struct TMPFILE* tfp = NULL;
+	struct TMPFILE** tfp_runs_array = NULL;
+	size_t tfp_runs_array_len;
+	int ret = 0;
+
+	tfp = temp_fopen();
+	if (!tfp){
+		log_error("Failed to create temporary file");
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (rename_file(file, tfp->name) != 0){
+		log_error("Failed to move file to temporary location");
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (create_initial_runs(tfp->name, &tfp_runs_array, &tfp_runs_array_len) != 0){
+		log_error("Failed to create runs for merging");
+		ret = -1;
+		goto cleanup;
+	}
+
+	if (merge_files(tfp_runs_array, tfp_runs_array_len, file) != 0){
+		log_error("Faled to merge files");
+		ret = -1;
+		goto cleanup;
+	}
+
+cleanup:
+	if (ret != 0 && tfp){
+		rename_file(tfp->name, file);
+	}
+	temp_fclose(tfp);
+}
+
+int search_mtimefile(FILE* fp, const char* key, time_t* mtime_out){
+	struct entry* e;
+	uint64_t size;
+	uint64_t left;
+	uint64_t right;
+	const int64_t end_bsearch_threshold = 512;
+	int res;
+
+	if (get_file_size_fp(fp, &size) != 0){
+		log_error("Failed to get the size of the file");
+		return -1;
+	}
+	left = 0;
+	right = size - 1;
+
+	/* binsearch until the gap is less than end_bsearch_threshold */
+	while ((right - left) >= end_bsearch_threshold){
+		uint64_t mid = (left + right) / 2;
+		int res;
+
+		fseek(fp, mid, SEEK_SET);
+		res = align_entry_file_forward(fp);
+		if (res < 0){
+			log_error("Failed to align entry file");
+			return -1;
+		}
+		else if (res > 0){
+			log_warning("Reached EOF during binsearch function. Possibly a bug");
+			return -1;
+		}
+
+		if (read_entry(fp, &e) != 0){
+			log_error("Failed to read entry from mtime file");
+			return -1;
+		}
+
+		res = strcmp(key, e->file);
+		if (res == 0){
+			*mtime_out = e->mtime;
+			free_entry(e);
+			return 0;
+		}
+		else if (res < 0){
+			right = mid - 1;
+		}
+		else{
+			left = mid + 1;
+		}
+		free_entry(e);
+	}
+
+	if (ftell(fp) < end_bsearch_threshold){
+		fseek(fp, 0, SEEK_SET);
+	}
+	else{
+		fseek(fp, -end_bsearch_threshold - 1, SEEK_CUR);
+	}
+	if (align_entry_file_backward(fp) != 0){
+		log_error("Failed to align mtime file");
+		return -1;
+	}
+
+	do{
+		if (read_entry(fp, &e) != 0){
+			log_error("Failed to read entry from mtime file");
+			return -1;
+		}
+		res = strcmp(e->file, key);
+		if (res == 0){
+			*mtime_out = e->mtime;
+			free_entry(e);
+			return 0;
+		}
+		free_entry(e);
+		/* while e->file is less than the key */
+	}while (res < 0);
+
+	return 1;
 }

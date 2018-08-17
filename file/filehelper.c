@@ -124,7 +124,7 @@ int file_opened_for_writing(FILE* fp){
 	return (flags & O_RDWR) || O_WRONLY == 0 ? !(flags & O_RDONLY) : flags & O_WRONLY;
 }
 
-uint64_t get_file_size_fp(FILE* fp){
+int get_file_size_fp(FILE* fp, uint64_t* out){
 	int fd;
 	struct stat st;
 
@@ -134,17 +134,19 @@ uint64_t get_file_size_fp(FILE* fp){
 		log_estat("file");
 		return -1;
 	}
-	return st.st_size;
+	*out = st.st_size;
+	return 0;
 }
 
-uint64_t get_file_size(const char* file){
+int get_file_size(const char* file, uint64_t* out){
 	struct stat st;
 
 	if (stat(file, &st) != 0){
 		log_estat(file);
 		return -1;
 	}
-	return st.st_size;
+	*out = st.st_size;
+	return 0;
 }
 
 int copy_file(const char* _old, const char* _new){

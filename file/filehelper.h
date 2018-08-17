@@ -109,18 +109,22 @@ int file_opened_for_writing(FILE* fp);
  *
  * @param fp The FILE* to determine the size of.
  *
- * @return The size in bytes of the underlying file, or (uint64_t)-1 on error.
+ * @param out A pointer to an integer that will be filled with the size of the file.
+ *
+ * @return 0 on success, negative on failure.
  */
-uint64_t get_file_size_fp(FILE* fp);
+int get_file_size_fp(FILE* fp, uint64_t* out);
 
 /**
  * @brief Gets the size in bytes of a file
  *
  * @param fp The filename of the file to determine the size of.
  *
- * @return The size in bytes of the file, of (uint64_t)-1 on error.
+ * @param out A pointer to an integer that will be filled with the size of the file.
+ *
+ * @return 0 on success, negative on failure.
  */
-uint64_t get_file_size(const char* file);
+int get_file_size(const char* file, uint64_t* out);
 
 /**
  * @brief Copies a file to its destination
