@@ -6,6 +6,7 @@
  * of the MIT license.  See the LICENSE file for details.
  */
 
+#include "mtimefile_sort.h"
 #include "entry.h"
 #include "../log.h"
 #include "../crypt/base16.h"
@@ -18,14 +19,12 @@
 #include <errno.h>
 #include <string.h>
 
-#define MAX_RUN_LEN (1 << 24)
-
 struct minheapnode{
 	struct entry* e;
 	size_t i;
 };
 
-EZB_INLINE EZB_HOT static void free_entry(struct entry* e){
+EZB_INLINE static void free_entry(struct entry* e){
 	if (!e){
 		return;
 	}
@@ -35,7 +34,7 @@ EZB_INLINE EZB_HOT static void free_entry(struct entry* e){
 
 #define TIME_T_B16_LEN (2 * sizeof(time_t) + 1)
 
-EZB_INLINE EZB_HOT static int write_time_t_b16(FILE* fp, time_t time){
+EZB_INLINE static int write_time_t_b16(FILE* fp, time_t time){
 	char* time_b16;
 
 	if (to_base16(&(time), sizeof(time), &time_b16) != 0){
@@ -59,7 +58,7 @@ EZB_INLINE EZB_HOT static int write_time_t_b16(FILE* fp, time_t time){
 	return 0;
 }
 
-EZB_INLINE EZB_HOT static int read_time_t_b16(FILE* fp, time_t* time_out){
+EZB_INLINE static int read_time_t_b16(FILE* fp, time_t* time_out){
 	/* the length of the b16 string including null term */
 	char time_b16[TIME_T_B16_LEN];
 	time_t* time_buf;
@@ -91,7 +90,7 @@ EZB_INLINE EZB_HOT static int read_time_t_b16(FILE* fp, time_t* time_out){
 	return 0;
 }
 
-EZB_HOT static int read_entry(FILE* fp, struct entry** out){
+int read_entry(FILE* fp, struct entry** out){
 	struct entry* ret = NULL;
 	struct databuffer buf;
 	size_t len_str;
@@ -155,14 +154,11 @@ EZB_HOT static int read_entry(FILE* fp, struct entry** out){
 	return 0;
 }
 
-EZB_HOT static int write_entry(struct entry* e, FILE* fp, size_t* len_written){
+int write_entry(struct entry* e, FILE* fp){
 	size_t len;
 
 	/* write filename */
 	len = fwrite(e->file, 1, strlen(e->file) + 1, fp);
-	if (len_written){
-		*len_written = len;
-	}
 	if (len != strlen(e->file) + 1){
 		log_efwrite("mtime file");
 		return -1;
@@ -257,7 +253,7 @@ EZB_INLINE EZB_HOT static void swap(struct entry** e1, struct entry** e2){
 	*e2 = buf;
 }
 
-EZB_INLINE EZB_HOT static int median_of_three(struct entry** entries, int low, int high){
+EZB_INLINE static int median_of_three(struct entry** entries, int low, int high){
 	int left = low;
 	int mid = (high - low) / 2;
 	int right = high;
@@ -290,7 +286,7 @@ EZB_INLINE EZB_HOT static int median_of_three(struct entry** entries, int low, i
 	}
 }
 
-EZB_INLINE EZB_HOT static int partition_m3(struct entry** entries, int low, int high){
+EZB_INLINE static int partition_m3(struct entry** entries, int low, int high){
 	struct entry* pivot;
 	int i, j;
 	int m3 = median_of_three(entries, low, high);
@@ -365,7 +361,7 @@ static int create_run(FILE* fp_in, struct TMPFILE** out){
 	}
 
 	for (i = 0; i < arr->size; ++i){
-		if (write_entry(arr->entries[i], tfp->fp, NULL) != 0){
+		if (write_entry(arr->entries[i], tfp->fp) != 0){
 			log_error("Failed to write entry to file");
 			ret = -1;
 			goto cleanup;
@@ -432,7 +428,7 @@ cleanup:
 	fp_in ? fclose(fp_in) : 0;
 }
 
-EZB_INLINE EZB_HOT static void minheapify(struct minheapnode* entries, size_t entries_len, size_t index){
+EZB_INLINE static void minheapify(struct minheapnode* entries, size_t entries_len, size_t index){
 	size_t smallest = index;
 	size_t left = 2 * index + 1;
 	size_t right = 2 * index + 2;
@@ -495,7 +491,7 @@ static int merge_files(struct TMPFILE** in, size_t n_files, const char* file_out
 	}
 
 	while (n_empty < minheap_len){
-		if (write_entry(minheap[0].e, fp_out, NULL) != 0){
+		if (write_entry(minheap[0].e, fp_out) != 0){
 			log_error("Failed to write entry to file");
 			ret = -1;
 			goto cleanup;
@@ -524,7 +520,7 @@ cleanup:
 	return ret;
 }
 
-int sort_mtimefile(const char* file){
+int mtime_sort(const char* file){
 	struct TMPFILE* tfp = NULL;
 	struct TMPFILE** tfp_runs_array = NULL;
 	size_t tfp_runs_array_len;
@@ -562,7 +558,7 @@ cleanup:
 	temp_fclose(tfp);
 }
 
-int search_mtimefile(FILE* fp, const char* key, time_t* mtime_out){
+int mtime_search(FILE* fp, const char* key, time_t* mtime_out){
 	struct entry* e;
 	uint64_t size;
 	uint64_t left;
@@ -640,4 +636,35 @@ int search_mtimefile(FILE* fp, const char* key, time_t* mtime_out){
 	}while (res < 0);
 
 	return 1;
+}
+
+int mtime_write(const char* file, time_t mtime, FILE* fp){
+	struct entry e;
+	e.file = (char*)file;
+	e.mtime = mtime;
+	return write_entry(&e, fp);
+}
+
+int mtime_read(FILE* fp_mtime, char** file_out, time_t* mtime_out){
+	struct entry* e;
+	int res = read_entry(fp_mtime, &e);
+
+	if (res < 0){
+		log_error("Error reading mtime entry file");
+		return -1;
+	}
+	else if (res > 0){
+		log_info("mtime_read() reached EOF");
+		return 0;
+	}
+
+	if (file_out){
+		*file_out = e->file;
+	}
+	if (mtime_out){
+		*mtime_out = e->mtime;
+	}
+
+	free(e);
+	return 0;
 }

@@ -106,7 +106,7 @@ int bytes_to_hex(const unsigned char* bytes, unsigned len, char** out) EZB_DEPRE
  *
  * @return 0 on success, positive if the file was unchanged from prev_checksums, negative on failure.
  */
-int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, FILE* prev_checksums, char** out_hash);
+int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, FILE* prev_checksums, char** out_hash) EZB_DEPRECATED("Use mtime_add_to_file() instead.");
 
 /**
  * @brief Sorts a checksum list in strcmp() order by filename.
@@ -117,7 +117,7 @@ int add_checksum_to_file(const char* file, const EVP_MD* algorithm, FILE* out, F
  * @return 0 on success, negative on failure.<br>
  * On failure, in_out will be unchanged.
  */
-int sort_checksum_file(const char* in_out);
+int sort_checksum_file(const char* in_out) EZB_DEPRECATED("Use mtime_sort() instead");
 
 /**
  * @brief Searches a sorted checksum list for a filename, and returns its checksum if it exists.<br>
@@ -137,7 +137,7 @@ int sort_checksum_file(const char* in_out);
  *
  * @return 0 on success, positive if the checksum could not be found, negative on error.
  */
-int search_for_checksum(FILE* fp, const char* key, char** checksum);
+int search_for_checksum(FILE* fp, const char* key, char** checksum) EZB_DEPRECATED("Use mtime_search() instead");
 
 /**
  * @brief Creates a list of removed files since the creation of a previous checksum file.
@@ -154,7 +154,7 @@ int search_for_checksum(FILE* fp, const char* key, char** checksum);
  *
  * @return 0 on success, negative on failure
  */
-int create_removed_list(const char* checksum_file, const char* out_file);
+int create_removed_list(const char* checksum_file, const char* out_file) EZB_DEPRECATED("Use mtime_create_removed_list() instead");
 
 /* TODO: return an integer since there's multiple reasons for NULL */
 
@@ -168,6 +168,6 @@ int create_removed_list(const char* checksum_file, const char* out_file);
  * @return A null-terminated string containing the next filename in the removed file list, or NULL on end-of-file or error.<br>
  * This value must be free()'d when no longer in use.
  */
-char* get_next_removed(FILE* fp);
+char* get_next_removed(FILE* fp) EZB_DEPRECATED("Use mtime_get_next_removed() instead");
 
 #endif

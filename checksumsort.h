@@ -10,7 +10,7 @@
 #define __CHECKSUMSORT_H
 
 #include <stdio.h>
-#include "filehelper.h"
+#include "file/filehelper.h"
 
 #ifndef MAX_RUN_SIZE
 #define MAX_RUN_SIZE (1 << 24) /**< The maximum length of a checksum run (16MB). */
@@ -46,7 +46,8 @@ struct minheapnode{
  *
  * @return 0 on success, negative on failure.
  */
-int write_element_to_file(FILE* fp, struct element* e);
+int write_element_to_file(FILE* fp, struct element* e) EZB_DEPRECATED("checksum file deprecated in favor of mtimefile");
+
 
 /* TODO: return an integer since there's multiple reasons for NULL */
 
@@ -60,7 +61,8 @@ int write_element_to_file(FILE* fp, struct element* e);
  * This struct element* must be free()'d when no longer in use.<br>
  * @see free_element()
  */
-struct element* get_next_checksum_element(FILE* fp);
+struct element* get_next_checksum_element(FILE* fp) EZB_DEPRECATED("checksum file deprecated in favor of mtimefile");
+
 
 /* TODO: return an integer since there's multiple reasons for NULL */
 
@@ -78,7 +80,8 @@ struct element* get_next_checksum_element(FILE* fp);
  * This struct element* must be free()'d when no longer in use.<br>
  * @see free_element()
  */
-struct element* get_checksum_element_index(FILE* fp, int index);
+struct element* get_checksum_element_index(FILE* fp, int index) EZB_DEPRECATED("checksum file deprecated in favor of mtimefile");
+
 
 /**
  * @brief Returns the index of the median element of {low, mid, high}<br>
@@ -95,7 +98,8 @@ struct element* get_checksum_element_index(FILE* fp, int index);
  *
  * @return The index of the median element of {low, mid, high}
  */
-int median_of_three(struct element** elements, int low, int high);
+int median_of_three(struct element** elements, int low, int high) EZB_DEPRECATED("checksum file deprecated in favor of mtimefile");
+
 
 /**
  * @brief Quicksorts a list of elements.<br>
@@ -109,7 +113,8 @@ int median_of_three(struct element** elements, int low, int high);
  *
  * @return void
  */
-void quicksort_elements(struct element** elements, int low, int high);
+void quicksort_elements(struct element** elements, int low, int high) EZB_DEPRECATED("checksum file deprecated in favor of mtimefile");
+
 
 /**
  * @brief Frees all memory associated with an element.
@@ -119,7 +124,8 @@ void quicksort_elements(struct element** elements, int low, int high);
  *
  * @return void
  */
-void free_element(struct element* e);
+void free_element(struct element* e) EZB_DEPRECATED("checksum file deprecated in favor of mtimefile");
+
 
 /**
  * @brief Frees all memory associated with an array of elements.
@@ -131,7 +137,8 @@ void free_element(struct element* e);
  *
  * @return void
  */
-void free_element_array(struct element** elements, size_t size);
+void free_element_array(struct element** elements, size_t size) EZB_DEPRECATED("checksum file deprecated in favor of mtimefile");
+
 
 /**
  * @brief Creates an array of individually sorted checksum lists from a single unsorted checksum list.<br>
@@ -154,7 +161,8 @@ void free_element_array(struct element** elements, size_t size);
  *
  * @return 0 on success, or negative on error.
  */
-int create_initial_runs(FILE* in_file, struct TMPFILE*** out, size_t* n_files);
+int create_initial_runs(FILE* in_file, struct TMPFILE*** out, size_t* n_files) EZB_DEPRECATED("checksum file deprecated in favor of mtimefile");
+
 
 /**
  * @brief Merges the files created by create_initial_runs() into a single sorted checksum list.<br>
@@ -172,7 +180,7 @@ int create_initial_runs(FILE* in_file, struct TMPFILE*** out, size_t* n_files);
  *
  * @return 0 on success, or negative on error.
  */
-int merge_files(struct TMPFILE** in, size_t n_files, FILE* out_file);
+int merge_files(struct TMPFILE** in, size_t n_files, FILE* out_file) EZB_DEPRECATED("checksum file deprecated in favor of mtimefile");
 
 /**
  * @brief Searches a sorted checksum list for a filename, and returns its checksum if it exists.
@@ -189,6 +197,6 @@ int merge_files(struct TMPFILE** in, size_t n_files, FILE* out_file);
  *
  * @return 0 on success, positive if the checksum could not be found, negative on error.
  */
-int search_file(FILE* fp, const char* key, char** checksum);
+int search_file(FILE* fp, const char* key, char** checksum) EZB_DEPRECATED("checksum file deprecated in favor of mtimefile");
 
 #endif

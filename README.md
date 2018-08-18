@@ -77,6 +77,8 @@ This reverts the project folder to its default state.
 * Compression progress bars.
 * Remove directories that no longer exist.
 * Multithreading.
+* Testing refactor
+* Logging refactor
 
 ## Licensing
 This project is licensed under the MIT License. See [LICENSE.txt](LICENSE.txt) for details.
