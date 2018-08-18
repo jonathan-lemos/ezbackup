@@ -10,6 +10,8 @@
 #define __LOG_H
 
 #include <stdarg.h>
+#include <string.h>
+#include <errno.h>
 
 /**
  * @brief The level of severity of a log message.
@@ -49,7 +51,7 @@ void log_setlevel(enum LOG_LEVEL level);
  *
  * @return void
  */
-void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* format, ...);
+void log_msg(const char* file, int line, const char* func, enum LOG_LEVEL level, const char* format, ...);
 
 /**
  * @brief Logs a LEVEL_FATAL message.
@@ -58,7 +60,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  *
  * @return void
  */
-#define log_fatal(msg) log_msg(__FILE__, __LINE__, LEVEL_FATAL, msg)
+#define log_fatal(...) log_msg(__FILE__, __LINE__, __func__, LEVEL_FATAL, __VA_ARGS__)
 
 /**
  * @brief Logs a LEVEL_ERROR message.
@@ -67,7 +69,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  *
  * @return void
  */
-#define log_error(msg) log_msg(__FILE__, __LINE__, LEVEL_ERROR, msg)
+#define log_error(...) log_msg(__FILE__, __LINE__, __func__, LEVEL_ERROR, __VA_ARGS__)
 
 /**
  * @brief Logs a LEVEL_WARNING message.
@@ -76,7 +78,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  *
  * @return void
  */
-#define log_warning(msg) log_msg(__FILE__, __LINE__, LEVEL_WARNING, msg)
+#define log_warning(...) log_msg(__FILE__, __LINE__, __func__, LEVEL_WARNING, __VA_ARGS__)
 
 /**
  * @brief Logs a LEVEL_DEBUG message.
@@ -85,7 +87,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  *
  * @return void
  */
-#define log_debug(msg) log_msg(__FILE__, __LINE__, LEVEL_DEBUG, msg)
+#define log_debug(...) log_msg(__FILE__, __LINE__, LEVEL_DEBUG, __VA_ARGS__)
 
 /**
  * @brief Logs a LEVEL_INFO message.
@@ -94,144 +96,14 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  *
  * @return void
  */
-#define log_info(msg) log_msg(__FILE__, __LINE__, LEVEL_INFO, msg)
-
-/**
- * @brief Logs a LEVEL_FATAL message with a single printf parameter.<br>
- * Unfortunately, C89 does not support variadic macros, which is why this function exists.
- *
- * @param msg The message as a printf format string.
- *
- * @param strerr The printf parameter.
- *
- * @return void
- */
-#define log_fatal_ex(msg, strerr) log_msg(__FILE__, __LINE__, LEVEL_FATAL, msg, strerr)
-
-/**
- * @brief Logs a LEVEL_ERROR message with a single printf parameter.<br>
- * Unfortunately, C89 does not support variadic macros, which is why this function exists.
- *
- * @param msg The message as a printf format string.
- *
- * @param strerr The printf parameter.
- *
- * @return void
- */
-#define log_error_ex(msg, strerr) log_msg(__FILE__, __LINE__, LEVEL_ERROR, msg, strerr)
-
-/**
- * @brief Logs a LEVEL_WARNING message with a single printf parameter.<br>
- * Unfortunately, C89 does not support variadic macros, which is why this function exists.
- *
- * @param msg The message as a printf format string.
- *
- * @param strerr The printf parameter.
- *
- * @return void
- */
-#define log_warning_ex(msg, strerr) log_msg(__FILE__, __LINE__, LEVEL_WARNING, msg, strerr)
-
-/**
- * @brief Logs a LEVEL_DEBUG message with a single printf parameter.<br>
- * Unfortunately, C89 does not support variadic macros, which is why this function exists.
- *
- * @param msg The message as a printf format string.
- *
- * @param strerr The printf parameter.
- *
- * @return void
- */
-#define log_debug_ex(msg, strerr) log_msg(__FILE__, __LINE__, LEVEL_DEBUG, msg, strerr)
-
-/**
- * @brief Logs a LEVEL_INFO message with a single printf parameter.<br>
- * Unfortunately, C89 does not support variadic macros, which is why this function exists.
- *
- * @param msg The message as a printf format string.
- *
- * @param strerr The printf parameter.
- *
- * @return void
- */
-#define log_info_ex(msg, strerr) log_msg(__FILE__, __LINE__, LEVEL_INFO, msg, strerr)
-
-/**
- * @brief Logs a LEVEL_FATAL message with a two printf parameters.<br>
- * Unfortunately, C89 does not support variadic macros, which is why this function exists.
- *
- * @param msg The message as a printf format string.
- *
- * @param file The first printf parameter.
- *
- * @param strerr The second printf parameter.
- *
- * @return void
- */
-#define log_fatal_ex2(msg, file, strerr) log_msg(__FILE__, __LINE__, LEVEL_FATAL, msg, file, strerr)
-
-/**
- * @brief Logs a LEVEL_ERROR message with a two printf parameters.<br>
- * Unfortunately, C89 does not support variadic macros, which is why this function exists.
- *
- * @param msg The message as a printf format string.
- *
- * @param file The first printf parameter.
- *
- * @param strerr The second printf parameter.
- *
- * @return void
- */
-#define log_error_ex2(msg, file, strerr) log_msg(__FILE__, __LINE__, LEVEL_ERROR, msg, file, strerr)
-
-/**
- * @brief Logs a LEVEL_WARNING message with a two printf parameters.<br>
- * Unfortunately, C89 does not support variadic macros, which is why this function exists.
- *
- * @param msg The message as a printf format string.
- *
- * @param file The first printf parameter.
- *
- * @param strerr The second printf parameter.
- *
- * @return void
- */
-#define log_warning_ex2(msg, file, strerr) log_msg(__FILE__, __LINE__, LEVEL_WARNING, msg, file, strerr)
-
-/**
- * @brief Logs a LEVEL_DEBUG message with a two printf parameters.<br>
- * Unfortunately, C89 does not support variadic macros, which is why this function exists.
- *
- * @param msg The message as a printf format string.
- *
- * @param file The first printf parameter.
- *
- * @param strerr The second printf parameter.
- *
- * @return void
- */
-#define log_debug_ex2(msg, file, strerr) log_msg(__FILE__, __LINE__, LEVEL_DEBUG, msg, file, strerr)
-
-/**
- * @brief Logs a LEVEL_INFO message with a two printf parameters.<br>
- * Unfortunately, C89 does not support variadic macros, which is why this function exists.
- *
- * @param msg The message as a printf format string.
- *
- * @param file The first printf parameter.
- *
- * @param strerr The second printf parameter.
- *
- * @return void
- */
-#define log_info_ex2(msg, file, strerr) log_msg(__FILE__, __LINE__, LEVEL_INFO, msg, file, strerr)
+#define log_info(msg, ...) log_msg(__FILE__, __LINE__, __func__, LEVEL_INFO, msg)
 
 /**
  * @brief Logs an out-of-memory error.
  *
  * @return void
  */
-#define log_enomem() log_msg(__FILE__, __LINE__, LEVEL_FATAL, "Failed to allocate requested memory.")
+#define log_enomem() log_msg(__FILE__, __LINE__, __func__,  LEVEL_FATAL, "The system could not allocate the requested memory.")
 
 /**
  * @brief Logs that an argument was NULL when it wasn't supposed to be.
@@ -240,7 +112,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  *
  * @return void
  */
-#define log_enull(arg) log_msg(__FILE__, __LINE__, LEVEL_DEBUG, "Argument \"%s\" was NULL", #arg);
+#define log_enull(arg) log_msg(__FILE__, __LINE__, __func__, LEVEL_DEBUG, "Argument \"%s\" was NULL", #arg);
 
 /**
  * @brief Logs that an integral argument's value was invalid.
@@ -249,7 +121,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  *
  * @return void
  */
-#define log_einval(arg) log_msg(__FILE__, __LINE__, LEVEL_ERROR, "Invalid argument (%s was %ld)", #arg, (long)arg)
+#define log_einval(arg) log_msg(__FILE__, __LINE__, __func__, LEVEL_ERROR, "Invalid argument (%s was %lld)", #arg, (long long)arg)
 
 /**
  * @brief Logs that an unsigned argument's value was invalid.
@@ -258,7 +130,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  *
  * @return void
  */
-#define log_einval_u(arg) log_msg(__FILE__, __LINE__, LEVEL_ERROR, "Invalid argument (%s was %lu)", #arg, (unsigned long)arg)
+#define log_einval_u(arg) log_msg(__FILE__, __LINE__, __func__, LEVEL_ERROR, "Invalid argument (%s was %llu)", #arg, (unsigned long long)arg)
 
  /**
  * @brief Logs that fopen() failed.
@@ -267,7 +139,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  *
  * @return void
  */
-#define log_efopen(file) log_msg(__FILE__, __LINE__, LEVEL_WARNING, "Error opening %s (%s)", file, strerror(errno))
+#define log_efopen(file) log_msg(__FILE__, __LINE__, __func__, LEVEL_WARNING, "Error opening %s (%s)", file, strerror(errno))
 
 /**
  * @brief Logs that an fwrite() failed.
@@ -276,7 +148,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  *
  * @return void
  */
-#define log_efwrite(file) log_msg(__FILE__, __LINE__, LEVEL_ERROR, "Error writing to %s", file)
+#define log_efwrite(file) log_msg(__FILE__, __LINE__, __func__, LEVEL_ERROR, "Error writing to %s", file)
 
 /**
  * @brief Logs that an fread() failed.
@@ -285,7 +157,7 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  *
  * @return void
  */
-#define log_efread(file) log_msg(__FILE__, __LINE__, LEVEL_ERROR, "Error reading from %s", file)
+#define log_efread(file) log_msg(__FILE__, __LINE__, __func__, LEVEL_ERROR, "Error reading from %s", file)
 
 /**
  * @brief Logs that an fclose() failed.
@@ -294,14 +166,14 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  *
  * @return void
  */
-#define log_efclose(file) log_msg(__FILE__, __LINE__, LEVEL_WARNING, "Error closing %s. Data corruption possible.", file)
+#define log_efclose(file) log_msg(__FILE__, __LINE__, __func__, LEVEL_WARNING, "Error closing %s. Data corruption possible.", file)
 
 /**
  * @brief Logs that a FILE* is opened in the incorrect mode.
  *
  * @return void
  */
-#define log_emode() log_msg(__FILE__, __LINE__, LEVEL_ERROR, "A file pointer is opened in the incorrect mode")
+#define log_emode() log_msg(__FILE__, __LINE__, __func__, LEVEL_ERROR, "A file pointer is opened in the incorrect mode")
 
 /**
  * @brief Logs that a stat() failed.
@@ -310,14 +182,14 @@ void log_msg(const char* file, int line, enum LOG_LEVEL level, const char* forma
  *
  * @return void
  */
-#define log_estat(file) log_msg(__FILE__, __LINE__, LEVEL_DEBUG, "Failed to stat %s (%s)", file, strerror(errno))
+#define log_estat(file) log_msg(__FILE__, __LINE__, __func__, LEVEL_DEBUG, "Failed to stat %s (%s)", file, strerror(errno))
 
 /**
  * @brief Logs that a temp_fopen() failed.
  *
  * @return void
  */
-#define log_etmpfopen() log_msg(__FILE__, __LINE__, LEVEL_ERROR, "Failed to create temporary file")
+#define log_etmpfopen() log_msg(__FILE__, __LINE__, __func__, LEVEL_ERROR, "Failed to create temporary file")
 
 /**
  * @brief Returns ret if arg is NULL.

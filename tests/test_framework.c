@@ -31,7 +31,7 @@
 #define YELLOW_STR ""
 #define GREEN_STR ""
 #define BLUE_STR ""
-#define NORMAL_STR "\033[m"
+#define NORMAL_STR ""
 
 #else
 
