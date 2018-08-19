@@ -96,7 +96,7 @@ void log_msg(const char* file, int line, const char* func, enum LOG_LEVEL level,
  *
  * @return void
  */
-#define log_info(msg, ...) log_msg(__FILE__, __LINE__, __func__, LEVEL_INFO, msg)
+#define log_info(...) log_msg(__FILE__, __LINE__, __func__, LEVEL_INFO, __VA_ARGS__)
 
 /**
  * @brief Logs an out-of-memory error.
