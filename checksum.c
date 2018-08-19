@@ -163,7 +163,7 @@ int checksum_bytestring(const char* file, const EVP_MD* algorithm, char** out){
 	return_ifnull(out, -1);
 
 	if (checksum(file, algorithm, &bytes, &len) != 0){
-		log_error_ex("Failed to calculate checksum for file %s", file);
+		log_error("Failed to calculate checksum for file %s", file);
 		return -1;
 	}
 

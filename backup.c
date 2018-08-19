@@ -122,22 +122,22 @@ static int cloud_copy_single_file(const char* file_orig_path, const char* file_f
 	}
 
 	if (cloud_mkdir(cloud_parent_files, cd) < 0){
-		log_warning_ex("Failed to create file parent directory %s.", cloud_parent_files);
+		log_warning("Failed to create file parent directory %s.", cloud_parent_files);
 		ret = -1;
 		goto cleanup;
 	}
 
 	if (cloud_stat(cloud_path_files, NULL, cd) == 0){
 		if (cloud_mkdir(cloud_parent_delta, cd) < 0){
-			log_warning_ex("Failed to create delta parent directory %s.", cloud_parent_delta);
+			log_warning("Failed to create delta parent directory %s.", cloud_parent_delta);
 		}
 		else if (cloud_rename(cloud_path_files, cloud_path_delta, cd) != 0){
-			log_warning_ex("Failed to create delta for %s.", cloud_path_files);
+			log_warning("Failed to create delta for %s.", cloud_path_files);
 		}
 	}
 
 	if (cloud_upload(file_final, cloud_path_files, cd) != 0){
-		log_error_ex("Failed to upload %s to the cloud.", file_final);
+		log_error("Failed to upload %s to the cloud.", file_final);
 		ret = -1;
 		goto cleanup;
 	}
@@ -170,7 +170,7 @@ static int copy_single_file(const char* file, const struct options* opt, const c
 	}
 
 	if (file_exists(path_files) && rename_file(path_files, path_delta) != 0){
-		log_warning_ex("Failed to create delta for %s", path_files);
+		log_warning("Failed to create delta for %s", path_files);
 	}
 
 	if (zip_compress(file, path_files, opt->c_type, opt->c_level, opt->c_flags) != 0){
@@ -186,7 +186,7 @@ static int copy_single_file(const char* file, const struct options* opt, const c
 	}
 
 	if (cd && cloud_copy_single_file(file, path_files, cloud_directory, cd, delta_extension) != 0){
-		log_warning_ex("Failed to upload %s to the cloud", path_files);
+		log_warning("Failed to upload %s to the cloud", path_files);
 		ret = -1;
 	}
 
@@ -229,7 +229,7 @@ static int copy_files(const struct options* opt, const struct cloud_options* co,
 
 		fis = fi_start(opt->directories->strings[i]);
 		if (!fis){
-			log_warning_ex("Failed to fi_start in directory %s", opt->directories->strings[i]);
+			log_warning("Failed to fi_start in directory %s", opt->directories->strings[i]);
 		}
 		while ((tmp = fi_next(fis)) != NULL){
 			size_t j;
@@ -246,16 +246,16 @@ static int copy_files(const struct options* opt, const struct cloud_options* co,
 
 			res = add_checksum_to_file(tmp, opt->hash_algorithm, fp_checksum, fp_checksum_prev, NULL);
 			if (res > 0){
-				log_info_ex("File %s was unchanged", tmp);
+				log_info("File %s was unchanged", tmp);
 			}
 			else if (res == 0){
 				printf("%s\n", tmp);
 				if (copy_single_file(tmp, opt, delta_extension, cd, co->upload_directory, password ? password : opt->enc_password) != 0){
-					log_warning_ex("Failed to copy %s", tmp);
+					log_warning("Failed to copy %s", tmp);
 				}
 			}
 			else{
-				log_error_ex("Failed to calculate checksum for %s", tmp);
+				log_error("Failed to calculate checksum for %s", tmp);
 			}
 
 			free(tmp);
@@ -311,27 +311,27 @@ static int cloud_remove_deleted_files(const char* checksum_file, const char* del
 		char* delta_path_parent = NULL;
 
 		if (make_file_paths(tmp, co->upload_directory, delta_extension, &file_path, &delta_path) != 0){
-			log_warning_ex("Failed to create file paths for %s", tmp);
+			log_warning("Failed to create file paths for %s", tmp);
 			goto cleanup_inner_loop;
 		}
 
 		if ((delta_path_parent = sh_parent_dir(delta_path)) == NULL){
-			log_warning_ex("Failed to determine parent dir for %s", delta_path);
+			log_warning("Failed to determine parent dir for %s", delta_path);
 			goto cleanup_inner_loop;
 		}
 
 		if (cloud_mkdir(delta_path_parent, cd) < 0){
-			log_warning_ex("Failed to create directory %s", delta_path);
+			log_warning("Failed to create directory %s", delta_path);
 			goto cleanup_inner_loop;
 		}
 
 		if (cloud_rename(file_path, delta_path, cd) != 0){
-			log_warning_ex2("Failed to rename %s to %s", file_path, delta_path);
+			log_warning("Failed to rename %s to %s", file_path, delta_path);
 			goto cleanup_inner_loop;
 		}
 
 		if (cloud_remove(file_path, cd) != 0){
-			log_warning_ex("Failed to remove %s", file_path);
+			log_warning("Failed to remove %s", file_path);
 			goto cleanup_inner_loop;
 		}
 

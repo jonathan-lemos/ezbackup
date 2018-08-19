@@ -21,13 +21,13 @@ static int __coredumps(int enable){
 
 	if (!enable){
 		if (getrlimit(RLIMIT_CORE, &rl_prev) != 0){
-			log_warning_ex("Failed to get previous core dump limits (%s)", strerror(errno));
+			log_warning("Failed to get previous core dump limits (%s)", strerror(errno));
 			ret = -1;
 		}
 		rl.rlim_cur = 0;
 		rl.rlim_max = 0;
 		if (setrlimit(RLIMIT_CORE, &rl) != 0){
-			log_warning_ex("Failed to disable core dumps (%s)", strerror(errno));
+			log_warning("Failed to disable core dumps (%s)", strerror(errno));
 			ret = -1;
 		}
 		previously_disabled = 1;
@@ -37,7 +37,7 @@ static int __coredumps(int enable){
 			return 0;
 		}
 		if (setrlimit(RLIMIT_CORE, &rl_prev) != 0){
-			log_warning_ex("Failed to restore previous core dump limits (%s)", strerror(errno));
+			log_warning("Failed to restore previous core dump limits (%s)", strerror(errno));
 			ret = -1;
 		}
 		previously_disabled = 0;

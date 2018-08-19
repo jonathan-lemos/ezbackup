@@ -155,7 +155,7 @@ char* sh_getcwd(void){
 	}
 	while (getcwd(cwd, cwd_len) == NULL){
 		if (errno != ERANGE){
-			log_error_ex("Failed to get current directory (%s)", strerror(errno));
+			log_error("Failed to get current directory (%s)", strerror(errno));
 			free(cwd);
 			return NULL;
 		}

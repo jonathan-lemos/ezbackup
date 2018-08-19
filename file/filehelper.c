@@ -65,7 +65,7 @@ struct TMPFILE* temp_fopen(void){
 	fd = mkstemp(tfp->name);
 
 	if (fd < 0){
-		log_error_ex("Failed to create temporary file (%s)", strerror(errno));
+		log_error("Failed to create temporary file (%s)", strerror(errno));
 		temp_fclose(tfp);
 		return NULL;
 	}
@@ -85,7 +85,7 @@ int temp_fflush(struct TMPFILE* tfp){
 
 	tfp->fp = freopen(tfp->name, "rb+", tfp->fp);
 	if (!tfp->fp){
-		log_error_ex("Failed to reopen temp file pointer (%s)", strerror(errno));
+		log_error("Failed to reopen temp file pointer (%s)", strerror(errno));
 		return -1;
 	}
 
@@ -250,7 +250,7 @@ int mkdir_recursive(const char* dir){
 	}
 
 	if (directory_exists(dir)){
-		log_info_ex("Directory %s already exists.", dir);
+		log_info("Directory %s already exists.", dir);
 		sa_free(components);
 		return 1;
 	}
@@ -263,7 +263,7 @@ int mkdir_recursive(const char* dir){
 	++i;
 	for (; i < (long)components->len; ++i){
 		if (mkdir(components->strings[i], 0755) != 0){
-			log_error_ex2("Failed to make directory %s (%s)", components->strings[i], strerror(errno));
+			log_error("Failed to make directory %s (%s)", components->strings[i], strerror(errno));
 			sa_free(components);
 			return -1;
 		}

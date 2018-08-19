@@ -25,7 +25,7 @@ int terminal_set_echo(int enable){
 
 	/* get current terminal information */
 	if (tcgetattr(fileno(stdin), &term_info) != 0){
-		log_warning_ex("Failed to fetch current terminal settings (%s)", strerror(errno));
+		log_warning("Failed to fetch current terminal settings (%s)", strerror(errno));
 		return -1;
 	}
 
@@ -34,7 +34,7 @@ int terminal_set_echo(int enable){
 
 	/* set new terminal settings */
 	if (tcsetattr(fileno(stdin), TCSAFLUSH, &term_info) != 0){
-		log_warning_ex("Failed to set terminal echo (%s)", strerror(errno));
+		log_warning("Failed to set terminal echo (%s)", strerror(errno));
 		return -1;
 	}
 

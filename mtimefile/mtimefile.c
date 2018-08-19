@@ -34,7 +34,7 @@ int mtime_add_to_file(const char* file, FILE* fp_mtime){
 	time_t tm;
 
 	if (get_file_mtime(file, &tm) != 0){
-		log_warning_ex("Failed to get mtime for %s", file);
+		log_warning("Failed to get mtime for %s", file);
 		return -1;
 	}
 
@@ -57,12 +57,12 @@ int mtime_file_changed(const char* file, FILE* fp_mtime_prev){
 		return -1;
 	}
 	else if (res > 0){
-		log_info_ex("%s: mtime entry not found", file);
+		log_info("%s: mtime entry not found", file);
 		return 1;
 	}
 
 	if (get_file_mtime(file, &tm_cur) != 0){
-		log_error_ex("Failed to get current mtime for %s", file);
+		log_error("Failed to get current mtime for %s", file);
 		return -1;
 	}
 

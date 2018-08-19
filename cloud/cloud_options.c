@@ -126,7 +126,7 @@ enum cloud_provider cloud_provider_from_string(const char* str){
 		ret = CLOUD_NONE;
 	}
 	else{
-		log_warning_ex("Invalid --cloud option chosen (%s)", str);
+		log_warning("Invalid --cloud option chosen (%s)", str);
 		ret = CLOUD_INVALID;
 	}
 	return ret;

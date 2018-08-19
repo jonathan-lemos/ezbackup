@@ -441,7 +441,7 @@ static int zip_compress_write(FILE* fp_in, struct ZIP_FILE* zfp){
 			zfp->strm.zstrm.avail_out = sizeof(outbuf);
 			res = deflate(&(zfp->strm.zstrm), action);
 			if (res != Z_OK && res != Z_STREAM_END){
-				log_error_ex("gzip write error (%d)", res);
+				log_error("gzip write error (%d)", res);
 				return -1;
 			}
 			avail_out = zfp->strm.zstrm.avail_out;
@@ -455,7 +455,7 @@ static int zip_compress_write(FILE* fp_in, struct ZIP_FILE* zfp){
 			zfp->strm.bzstrm.avail_out = sizeof(outbuf);
 			res = BZ2_bzCompress(&(zfp->strm.bzstrm), action);
 			if (res != BZ_OK && res != BZ_RUN_OK && res != BZ_FLUSH_OK && res != BZ_FINISH_OK && res != BZ_STREAM_END){
-				log_error_ex("bzip2 write error (%d)", res);
+				log_error("bzip2 write error (%d)", res);
 				return -1;
 			}
 			avail_out = zfp->strm.bzstrm.avail_out;
@@ -469,7 +469,7 @@ static int zip_compress_write(FILE* fp_in, struct ZIP_FILE* zfp){
 			zfp->strm.xzstrm.avail_out = sizeof(outbuf);
 			res = lzma_code(&(zfp->strm.xzstrm), action);
 			if (res != LZMA_OK && res != LZMA_STREAM_END){
-				log_error_ex("xz write error (%d)", res);
+				log_error("xz write error (%d)", res);
 				return -1;
 			}
 			avail_out = zfp->strm.xzstrm.avail_out;
@@ -638,7 +638,7 @@ static int zip_decompress_read(struct ZIP_FILE* zfp, FILE* fp_out){
 			zfp->strm.zstrm.avail_out = sizeof(outbuf);
 			res = inflate(&(zfp->strm.zstrm), action);
 			if (res != Z_OK && res != Z_STREAM_END && res != Z_BUF_ERROR){
-				log_error_ex("gzip read error (%d)", res);
+				log_error("gzip read error (%d)", res);
 				return -1;
 			}
 			avail_in = zfp->strm.zstrm.avail_in;
@@ -651,7 +651,7 @@ static int zip_decompress_read(struct ZIP_FILE* zfp, FILE* fp_out){
 			zfp->strm.bzstrm.avail_out = sizeof(outbuf);
 			res = BZ2_bzDecompress(&(zfp->strm.bzstrm));
 			if (res != BZ_OK && res != BZ_STREAM_END){
-				log_error_ex("bzip2 read error (%d)", res);
+				log_error("bzip2 read error (%d)", res);
 				return -1;
 			}
 			avail_in = zfp->strm.xzstrm.avail_in;
@@ -664,7 +664,7 @@ static int zip_decompress_read(struct ZIP_FILE* zfp, FILE* fp_out){
 			zfp->strm.xzstrm.avail_out = sizeof(outbuf);
 			res = lzma_code(&(zfp->strm.xzstrm), action);
 			if (res != LZMA_OK && res != LZMA_STREAM_END){
-				log_error_ex("xz read error (%d)", res);
+				log_error("xz read error (%d)", res);
 				return -1;
 			}
 			avail_in = zfp->strm.xzstrm.avail_in;
@@ -707,7 +707,7 @@ int zip_decompress(const char* infile, const char* outfile, enum compressor c_ty
 
 	zfp = zip_open(infile, 0, c_type, 0, flags);
 	if (!zfp){
-		log_error_ex("Failed to open ZIP_FILE for reading (%s)", infile);
+		log_error("Failed to open ZIP_FILE for reading (%s)", infile);
 		ret = -1;
 		goto cleanup;
 	}

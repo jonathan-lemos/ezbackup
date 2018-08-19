@@ -69,7 +69,7 @@ static int directory_push(const char* dir, struct fi_stack* fis){
 
 	fis->dir_stack[fis->dir_stack_len - 1]->dp = opendir(dir);
 	if (!fis->dir_stack[fis->dir_stack_len - 1]->dp){
-		log_warning_ex2("Failed to open %s (%s)", dir, strerror(errno));
+		log_warning("Failed to open %s (%s)", dir, strerror(errno));
 		if (directory_pop(fis) != 0){
 			log_error("Failed to pop failed directory off stack");
 		}
@@ -78,7 +78,7 @@ static int directory_push(const char* dir, struct fi_stack* fis){
 
 	fis->dir_stack[fis->dir_stack_len - 1]->name = malloc(strlen(dir) + 1);
 	if (!fis->dir_stack[fis->dir_stack_len - 1]->name){
-		log_error_ex("Failed to allocate space for directory name (%s)", dir);
+		log_error("Failed to allocate space for directory name (%s)", dir);
 		if (directory_pop(fis) != 0){
 			log_error("Failed to pop failed directory off stack");
 		}
@@ -128,7 +128,7 @@ char* fi_next(struct fi_stack* fis){
 
 	dir->dnt = readdir(dir->dp);
 	if (!dir->dnt){
-		log_info_ex("Out of directory entries in %s", dir->name);
+		log_info("Out of directory entries in %s", dir->name);
 		directory_pop(fis);
 		return fi_next(fis);
 	}
@@ -166,7 +166,7 @@ char* fi_next(struct fi_stack* fis){
 }
 
 int fi_skip_current_dir(struct fi_stack* fis){
-	log_info_ex("Skipping current dir (%s)", directory_peek(fis)->name);
+	log_info("Skipping current dir (%s)", directory_peek(fis)->name);
 	return directory_pop(fis);
 }
 

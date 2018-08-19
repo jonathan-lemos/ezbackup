@@ -102,7 +102,7 @@ static int get_default_backup_directory(char** out){
 
 	if (stat(*out, &st) == -1){
 		if (mkdir(*out, 0755) == -1){
-			log_error_ex("Failed to create backup directory at %s", *out);
+			log_error("Failed to create backup directory at %s", *out);
 			free(*out);
 			return -1;
 		}
@@ -765,7 +765,7 @@ int get_prev_options(struct options** out){
 	}
 
 	if (parse_options_fromfile(config_filename, out) != 0){
-		log_error_ex("Failed to parse options from %s", config_filename);
+		log_error("Failed to parse options from %s", config_filename);
 		ret = -1;
 		goto cleanup;
 	}

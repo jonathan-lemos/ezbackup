@@ -71,7 +71,7 @@ int crypt_scrub(void* data, int len){
 
 		fp = fopen("/dev/urandom", "rb");
 		if (!fp){
-			log_error_ex("Could not generate cryptographically secure numbers, and could not open /dev/urandom for reading (%s)", strerror(errno));
+			log_error("Could not generate cryptographically secure numbers, and could not open /dev/urandom for reading (%s)", strerror(errno));
 			return -1;
 		}
 

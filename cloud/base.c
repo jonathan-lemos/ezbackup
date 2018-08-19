@@ -199,7 +199,7 @@ static int confirm_dialog(char* file, int directory, uint64_t size, void* handle
 	}
 
 	if (cf->stat(file, &st, handle) != 0){
-		log_warning_ex("%s: Failed to stat %s", file);
+		log_warning("%s: Failed to stat %s", file);
 	}
 	else{
 		char* size_str = size_tostring(size);
@@ -278,7 +278,7 @@ static struct string_array* create_menu_entries(const char* base_dir, char*** en
 	for (i = 0; i < *entries_len; ++i){
 		struct stat st;
 		if (cf->stat((*entries)[i], &st, handle) != 0){
-			log_warning_ex("Failed to stat %s", (*entries)[i]);
+			log_warning("Failed to stat %s", (*entries)[i]);
 		}
 
 		if (S_ISDIR(st.st_mode)){
@@ -337,7 +337,7 @@ int cloud_mkdir(const char* dir, struct cloud_data* cd){
 	++i;
 	for (; i < (long)parent_dirs->len; ++i){
 		if (cd->cf->mkdir(parent_dirs->strings[i], cd->handle) != 0){
-			log_warning_ex2("%s: Failed to create directory %s", cd->name, parent_dirs->strings[i]);
+			log_warning("%s: Failed to create directory %s", cd->name, parent_dirs->strings[i]);
 			ret = -1;
 		}
 	}
@@ -378,7 +378,7 @@ int cloud_mkdir_ui(const char* base_dir, char** chosen_dir, struct cloud_data* c
 
 	for (i = 0; i < parent_dirs->len; ++i){
 		if (cd->cf->mkdir(parent_dirs->strings[i], cd->handle) < 0){
-			log_warning_ex2("%s: Failed to make parent directory %s", cd->name, parent_dirs->strings[i]);
+			log_warning("%s: Failed to make parent directory %s", cd->name, parent_dirs->strings[i]);
 			ret = -1;
 		}
 	}
@@ -405,23 +405,23 @@ int cloud_stat(const char* dir_or_file, struct stat* out, struct cloud_data* cd)
 	struct stat st;
 	int res;
 	if ((res = cd->cf->stat(dir_or_file, out ? out : &st, cd->handle)) < 0){
-		log_debug_ex2("%s: Failed to stat %s", cd->name, dir_or_file);
+		log_debug("%s: Failed to stat %s", cd->name, dir_or_file);
 	}
 	return res;
 }
 
 int cloud_rename(const char* _old, const char* _new, struct cloud_data* cd){
 	if (cd->cf->stat(_old, NULL, cd->handle) != 0){
-		log_debug_ex2("%s: File to be renamed (%s) does not exist.", cd->name, _old);
+		log_debug("%s: File to be renamed (%s) does not exist.", cd->name, _old);
 		return -1;
 	}
 	if (cd->cf->stat(_new, NULL, cd->handle) == 0){
-		log_debug_ex2("%s: Destination of rename (%s) already exists.", cd->name, _new);
+		log_debug("%s: Destination of rename (%s) already exists.", cd->name, _new);
 		return -1;
 	}
 
 	if (cd->cf->rename(_old, _new, cd->handle) != 0){
-		log_warning_ex("%s: Failed to rename file", cd->name);
+		log_warning("%s: Failed to rename file", cd->name);
 		return -1;
 	}
 
@@ -546,7 +546,7 @@ static int cloud_readdir_choosefile(const char* base_dir, char** output, void* h
 		}
 
 		if (cf->stat(entries[res], &st, handle) != 0){
-			log_warning_ex("Failed to stat %s", entries[res]);
+			log_warning("Failed to stat %s", entries[res]);
 		}
 		out_file_size = st.st_size;
 
@@ -609,7 +609,7 @@ int cloud_login(const struct cloud_options* co, struct cloud_data** out_cd){
 	if (cd->cf->login(co_contains_username ? co->username : user,
 				co_contains_password ? co->password : pw,
 				&(cd->handle)) != 0){
-		log_error_ex("Failed to log in to %s", cd->name);
+		log_error("Failed to log in to %s", cd->name);
 		ret = -1;
 		goto cleanup;
 	}
@@ -643,7 +643,7 @@ int cloud_upload(const char* in_file, const char* upload_dir, struct cloud_data*
 	}
 
 	if (cd->cf->upload(in_file, upload_dir, progress_msg ? progress_msg : "Uploading file...", cd->handle) != 0){
-		log_error_ex2("%s: Failed to upload %s", cd->name, in_file);
+		log_error("%s: Failed to upload %s", cd->name, in_file);
 		ret = -1;
 		goto cleanup;
 	}
@@ -684,7 +684,7 @@ int cloud_upload_ui(const char* in_file, const char* base_path, char** chosen_pa
 	}
 
 	if (cd->cf->upload(in_file, upload_dir, progress_msg ? progress_msg : "Uploading file...", cd->handle) != 0){
-		log_error_ex2("%s: Failed to upload %s", cd->name, in_file);
+		log_error("%s: Failed to upload %s", cd->name, in_file);
 		ret = -1;
 		goto cleanup;
 	}
@@ -725,7 +725,7 @@ int cloud_download(const char* download_path, char** out_file, struct cloud_data
 	}
 
 	if (cd->cf->download(download_path, *out_file, progress_msg ? progress_msg : "Downloading file...", cd->handle) != 0){
-		log_error_ex2("%s: Failed to download %s", cd->name, download_path);
+		log_error("%s: Failed to download %s", cd->name, download_path);
 		ret = -1;
 		goto cleanup;
 	}
@@ -768,7 +768,7 @@ int cloud_download_ui(const char* base_dir, char** out_file, struct cloud_data* 
 	}
 
 	if (cd->cf->download(download_file, *out_file, progress_msg ? progress_msg : "Downloading file...", cd->handle) != 0){
-		log_error_ex2("%s: Failed to download %s", cd->name, download_file);
+		log_error("%s: Failed to download %s", cd->name, download_file);
 		ret = -1;
 		goto cleanup;
 	}
@@ -781,7 +781,7 @@ cleanup:
 
 int cloud_remove(const char* dir_or_file, struct cloud_data* cd){
 	if (cd->cf->remove(dir_or_file, cd->handle) != 0){
-		log_warning_ex2("%s: Failed to remove %s", cd->name, dir_or_file);
+		log_warning("%s: Failed to remove %s", cd->name, dir_or_file);
 		return -1;
 	}
 	return 0;
@@ -806,7 +806,7 @@ int cloud_remove_ui(const char* base_dir, char** chosen_file, struct cloud_data*
 	}
 
 	if (cd->cf->remove(remove_file, cd->handle) != 0){
-		log_error_ex2("%s: Failed to remove %s", cd->name, remove_file);
+		log_error("%s: Failed to remove %s", cd->name, remove_file);
 		ret = -1;
 		goto cleanup;
 	}
@@ -831,7 +831,7 @@ int cloud_logout(struct cloud_data* cd){
 		return 0;
 	}
 	if (cd->cf->logout(cd->handle) != 0){
-		log_warning_ex("%s: Failed to logout", cd->name);
+		log_warning("%s: Failed to logout", cd->name);
 		free(cd);
 		return -1;
 	}

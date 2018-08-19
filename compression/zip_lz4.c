@@ -46,7 +46,7 @@ static int lz4_compress_write(FILE* fp_in, FILE* fp_out, int compression_level, 
 
 	len = LZ4F_compressBegin(ctx, outbuf, outbuf_len, &prefs);
 	if (LZ4F_isError(len)){
-		log_error_ex("Failed to write LZ4 header (%s)", LZ4F_getErrorName(len));
+		log_error("Failed to write LZ4 header (%s)", LZ4F_getErrorName(len));
 		free(outbuf);
 		return -1;
 	}
@@ -64,7 +64,7 @@ static int lz4_compress_write(FILE* fp_in, FILE* fp_out, int compression_level, 
 
 		len_out = LZ4F_compressUpdate(ctx, outbuf, outbuf_len, inbuf, len_in, NULL);
 		if (LZ4F_isError(len_out)){
-			log_error_ex("LZ4 compression error (%s)", LZ4F_getErrorName(len_out));
+			log_error("LZ4 compression error (%s)", LZ4F_getErrorName(len_out));
 			free(outbuf);
 			return -1;
 		}
@@ -177,7 +177,7 @@ static int lz4_decompress_internal(FILE* fp_in, FILE* fp_out, unsigned char* inb
 			size_t in_ptr_len = in_end - in_ptr;
 			res = LZ4F_decompress(dctx, outbuf, &out_size, in_ptr, &in_ptr_len, NULL);
 			if (LZ4F_isError(res)){
-				log_error_ex("LZ4 decompression error (%s)", LZ4F_getErrorName(res));
+				log_error("LZ4 decompression error (%s)", LZ4F_getErrorName(res));
 				free(outbuf);
 				return -1;
 			}
