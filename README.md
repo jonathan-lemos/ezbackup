@@ -11,7 +11,7 @@ First, install/download all dependencies for the project:
 sudo pacman -S openssl ncurses libedit zlib bzip2 xz lz4
 
 # Clone the repository locally.
-git clone --recurse-submodules https://**TODO**/ezbackup.git
+git clone --recurse-submodules https://github.com/jonathanrlemos/ezbackup.git
 
 # The MEGA SDK will have to be built manually, since it cannot be found in most package managers.
 cd ezbackup/cloud/mega_sdk
